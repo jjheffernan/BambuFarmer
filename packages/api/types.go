@@ -171,10 +171,61 @@ type SetupRequest struct {
 	SpoolmanURL           string     `json:"spoolman_url,omitempty"`
 	ManyfoldURL           string     `json:"manyfold_url,omitempty"`
 	AdminUsername         string     `json:"admin_username,omitempty"`
+	AdminPassword         string     `json:"admin_password,omitempty"` // write-only; never stored on install_state
 	Notes                 string     `json:"notes,omitempty"`
 	RateCard              *RateCard  `json:"rate_card,omitempty"`
 	ImportExamplePresets  bool       `json:"import_example_presets,omitempty"`
 	Complete              bool       `json:"complete,omitempty"`
+}
+
+// User is a local operator account (AUTH_MODE=lan). Password hashes never appear here.
+type User struct {
+	ID          string    `json:"id"`
+	Username    string    `json:"username"`
+	DisplayName string    `json:"display_name,omitempty"`
+	Roles       []string  `json:"roles"`
+	Active      bool      `json:"active"`
+	CreatedAt   time.Time `json:"created_at,omitempty"`
+	UpdatedAt   time.Time `json:"updated_at,omitempty"`
+}
+
+// LoginRequest is POST /api/v1/auth/login.
+type LoginRequest struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+// LoginResponse is returned after successful LAN login.
+type LoginResponse struct {
+	AuthMode string   `json:"auth_mode"`
+	User     User     `json:"user"`
+	Roles    []string `json:"roles"`
+	Warning  string   `json:"warning,omitempty"`
+}
+
+// CreateUserRequest is POST /api/v1/admin/users.
+type CreateUserRequest struct {
+	Username    string   `json:"username"`
+	Password    string   `json:"password"`
+	DisplayName string   `json:"display_name,omitempty"`
+	Roles       []string `json:"roles,omitempty"`
+}
+
+// UpdateUserRequest is PATCH /api/v1/admin/users/{id}.
+type UpdateUserRequest struct {
+	Roles  []string `json:"roles,omitempty"`
+	Active *bool    `json:"active,omitempty"`
+}
+
+// ChangePasswordRequest is POST /api/v1/auth/password (signed-in user).
+type ChangePasswordRequest struct {
+	CurrentPassword string `json:"current_password"`
+	NewPassword     string `json:"new_password"`
+}
+
+// AdminResetPasswordRequest is POST /api/v1/admin/users/{id}/password.
+type AdminResetPasswordRequest struct {
+	NewPassword string `json:"new_password"`
 }
 
 // Job is a print job record.

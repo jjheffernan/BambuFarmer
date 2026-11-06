@@ -21,6 +21,7 @@ import (
 	"github.com/jjheffernan/BambuFarmer/services/core/internal/printers"
 	"github.com/jjheffernan/BambuFarmer/services/core/internal/rates"
 	"github.com/jjheffernan/BambuFarmer/services/core/internal/setup"
+	"github.com/jjheffernan/BambuFarmer/services/core/internal/users"
 )
 
 func main() {
@@ -65,6 +66,7 @@ func main() {
 	jobs.Register(mux, pool, bus, cfg.SiteID)
 	printers.Register(mux, pool, cfg.SiteID)
 	setup.Register(mux, pool, cfg.SiteID)
+	users.Register(mux, pool)
 	mux.HandleFunc("GET /api/v1/version", func(w http.ResponseWriter, _ *http.Request) {
 		httpx.WriteJSON(w, version.Get())
 	})
