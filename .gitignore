@@ -26,6 +26,7 @@ certs/
 
 # Build artifacts
 services/web/tmp/
+services/web/node_modules/
 **/*.templ.go
 
 # Data volumes

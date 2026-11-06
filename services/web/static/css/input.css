@@ -1,0 +1,161 @@
+@import "tailwindcss";
+
+@source "../../**/*.go";
+
+@theme {
+  --color-bf-0: #0e1114;
+  --color-bf-1: #161b20;
+  --color-bf-2: #1e252c;
+  --color-bf-3: #263039;
+  --color-bf-text: #e8eef2;
+  --color-bf-muted: #8b9aab;
+  --color-bf-accent: #00ae42;
+  --color-bf-accent-dim: #047a32;
+  --color-bf-warn: #f0a202;
+  --color-bf-danger: #e23d28;
+  --color-bf-info: #3aa0ff;
+  --color-bf-border: #2a343d;
+  --font-ui: "IBM Plex Sans", "Segoe UI", sans-serif;
+  --font-display: "Syne", "IBM Plex Sans", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --radius-bf: 0.5rem;
+}
+
+@layer base {
+  html {
+    @apply antialiased;
+  }
+  body {
+    @apply bg-bf-0 text-bf-text font-ui min-h-screen;
+    background-image:
+      radial-gradient(900px 480px at 0% -10%, rgb(0 174 66 / 0.12), transparent 55%),
+      radial-gradient(700px 400px at 100% 0%, rgb(58 160 255 / 0.06), transparent 50%);
+  }
+  code, pre {
+    @apply font-mono text-bf-info;
+  }
+}
+
+@layer components {
+  .bf-shell {
+    @apply min-h-screen grid grid-cols-1 md:grid-cols-[15rem_1fr];
+  }
+  .bf-aside {
+    @apply bg-bf-1/95 border-b md:border-b-0 md:border-r border-bf-border
+      px-4 py-5 flex flex-col gap-6 backdrop-blur-sm;
+  }
+  .bf-brand {
+    @apply font-display text-bf-accent font-bold tracking-wide text-lg;
+  }
+  .bf-brand span {
+    @apply block font-ui font-medium text-bf-muted text-xs mt-1 tracking-normal;
+  }
+  .bf-nav a {
+    @apply block rounded-bf px-3 py-2.5 mb-1 text-bf-muted no-underline
+      transition-colors duration-150 hover:bg-bf-2 hover:text-bf-text;
+  }
+  .bf-nav a.active {
+    @apply bg-bf-2 text-bf-accent;
+  }
+  .bf-main {
+    @apply px-4 py-6 md:px-8 md:py-8 max-w-6xl;
+  }
+  .bf-title {
+    @apply font-display text-2xl md:text-3xl font-semibold tracking-tight m-0;
+  }
+  .bf-lede {
+    @apply text-bf-muted mt-2 mb-6 max-w-2xl leading-relaxed;
+  }
+  .bf-panel {
+    @apply bg-bf-1/90 border border-bf-border rounded-bf p-5 shadow-[0_1px_0_rgb(255_255_255/0.03)];
+  }
+  .bf-chip {
+    @apply inline-flex items-center border border-bf-border rounded-full
+      px-3 py-1 text-xs text-bf-muted cursor-pointer select-none
+      transition-colors hover:border-bf-muted;
+  }
+  .bf-chip.on {
+    @apply border-bf-accent text-bf-accent bg-bf-accent/10;
+  }
+  .bf-card {
+    @apply border border-bf-border rounded-bf bg-bf-2/80 p-4
+      transition-colors hover:border-bf-muted/60;
+  }
+  .bf-card-name {
+    @apply font-semibold text-bf-text;
+  }
+  .bf-card-meta {
+    @apply text-bf-muted text-sm mt-1;
+  }
+  .bf-btn {
+    @apply inline-flex items-center justify-center rounded-bf border border-bf-border
+      bg-bf-0 text-bf-text px-2.5 py-1.5 text-xs cursor-pointer
+      transition-colors hover:bg-bf-3 hover:border-bf-muted;
+  }
+  .bf-btn-primary {
+    @apply bg-bf-accent text-[#04140a] border-bf-accent font-semibold
+      hover:bg-bf-accent-dim hover:text-bf-text;
+  }
+  .bf-status {
+    @apply text-sm text-bf-muted mb-3;
+  }
+  .bf-status.live {
+    @apply text-bf-accent;
+  }
+  .bf-status.live::before {
+    content: "";
+    @apply inline-block w-1.5 h-1.5 rounded-full bg-bf-accent mr-2 align-middle;
+    box-shadow: 0 0 0 3px rgb(0 174 66 / 0.25);
+  }
+  .state-RUNNING, .state-PREPARE { @apply text-bf-accent; }
+  .state-PAUSE, .state-FAILED { @apply text-bf-danger; }
+  .state-FINISH { @apply text-bf-warn; }
+  .state-IDLE { @apply text-bf-muted; }
+
+  .bf-table {
+    @apply w-full text-sm border-collapse;
+  }
+  .bf-table th {
+    @apply text-left text-bf-muted font-medium pb-2 border-b border-bf-border;
+  }
+  .bf-table td {
+    @apply py-2.5 border-b border-bf-border/70 align-middle;
+  }
+  .bf-empty {
+    @apply text-bf-muted text-sm py-8 text-center;
+  }
+  .bf-pre {
+    @apply bg-bf-0 border border-bf-border rounded-bf p-4 overflow-auto
+      text-xs text-bf-text max-h-[28rem];
+  }
+
+  /* Install wizard */
+  .bf-wizard {
+    @apply min-h-screen flex items-start justify-center px-4 py-10 md:py-14;
+    background-image:
+      radial-gradient(1100px 560px at 12% -8%, rgb(0 174 66 / 0.18), transparent 55%),
+      radial-gradient(800px 420px at 90% 10%, rgb(38 48 57 / 0.9), transparent 45%);
+  }
+  .bf-wizard-shell {
+    @apply w-full max-w-xl;
+  }
+  .bf-step {
+    @apply border border-bf-border rounded-full px-2.5 py-0.5 text-xs text-bf-muted;
+  }
+  .bf-step.on {
+    @apply border-bf-accent text-bf-accent;
+  }
+  .bf-step.done {
+    @apply text-bf-text border-[#3a4a3f];
+  }
+  .bf-field {
+    @apply block text-xs text-bf-muted mt-3 mb-1.5;
+  }
+  .bf-input {
+    @apply w-full rounded-bf border border-bf-border bg-bf-0 text-bf-text
+      px-3 py-2.5 outline-none focus:border-bf-accent;
+  }
+  .bf-actions {
+    @apply flex flex-wrap gap-2 mt-5;
+  }
+}

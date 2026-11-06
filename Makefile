@@ -10,14 +10,14 @@ POSTGRES_USER ?= bambufarmer
 POSTGRES_DB ?= bambufarmer
 
 .PHONY: help env up down build logs health tidy images release-tag db-reset db-snapshot \
-	setup update doctor uninstall cli-help
+	setup update doctor uninstall cli-help web-css
 
 cli-help:
 	@ENGINE=$(ENGINE) ./scripts/bf help
 
 help: cli-help
 	@echo ""
-	@echo "Additional Make targets: env up down build images logs health tidy"
+	@echo "Additional Make targets: env up down build images logs health tidy web-css"
 	@echo "                         db-reset db-snapshot release-tag"
 	@echo "Uninstall via Make: make uninstall YES=1 [VOLUMES=1] [IMAGES=1] [ENV=1]"
 	@echo "Version: $(VERSION)  ·  ENGINE=$(ENGINE)"
@@ -70,6 +70,11 @@ health:
 	@for p in 18080 18081 18082 18083 18084 13000; do \
 	  printf "port %s: " "$$p"; curl -sf "http://127.0.0.1:$$p/healthz" && echo || echo FAIL; \
 	done
+
+# Compile Tailwind → services/web/static/css/app.css (committed; go:embed).
+# Requires Node 20+ locally. Source: static/css/input.css
+web-css:
+	cd services/web && npm install && npm run build:css
 
 # Requires local Go 1.23+
 tidy:
