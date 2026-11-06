@@ -1,0 +1,14 @@
+go 1.23.0
+
+use (
+	./packages/api
+	./packages/config
+	./packages/events
+	./packages/httpserver
+	./services/analytics
+	./services/core
+	./services/edge
+	./services/gateway
+	./services/integrations
+	./services/web
+)

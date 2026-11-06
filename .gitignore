@@ -1,0 +1,29 @@
+# Binaries
+bin/
+dist/
+*.exe
+*.test
+*.out
+
+# Go
+vendor/
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# Env / secrets
+.env
+deploy/.env
+*.pem
+certs/
+
+# Build artifacts
+services/web/tmp/
+**/*.templ.go
+
+# Data volumes
+data/
+.minio/
