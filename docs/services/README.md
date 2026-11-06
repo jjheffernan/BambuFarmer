@@ -15,11 +15,22 @@ Per-module design docs that expand [`DESIGN_SPEC.md`](../DESIGN_SPEC.md) into im
 
 Cross-cutting: [`DEPLOYMENT_MODES.md`](../DEPLOYMENT_MODES.md) (LAN vs OIDC) · [`INSTALL.md`](../INSTALL.md) (wizard + releases) · [`TESTING.md`](../TESTING.md) (module `tests/` layout).
 
+## Layout convention
+
+| Path | Meaning |
+|------|---------|
+| `packages/*` | Shared libraries (API DTOs, db, events, farm abstraction, …) |
+| `services/core/internal/*` | Core process-private modules (unique name; Go `internal` rule) |
+| `services/<name>/app/*` | Process-private modules for edge, gateway, integrations, web |
+| `services/<name>/tests/*` | Black-box unit tests for that module |
+
+Do not put service-private code under `packages/`. Edge Farm Manager HTTP lives in `services/edge/app/farmmanager` (distinct from shared `packages/farm`).
+
 ## Cross-cutting contracts
 
 - **Events:** [`packages/events`](../../packages/events) — Redis Streams keys + envelope
 - **API DTOs:** [`packages/api`](../../packages/api)
-- **DB:** [`packages/db`](../../packages/db) — migrations owned with core-facing schema
+- **DB:** [`packages/db`](../../packages/db) — baseline + forward migrations; see [`DATABASE.md`](../DATABASE.md)
 - **Config / secrets:** [`.env.example`](../../.env.example) → `.env` (gitignored)
 - **Bambu integration:** [`packages/farm`](../../packages/farm) — `ControlPlane` abstraction (edge-only implementations)
 

@@ -20,12 +20,12 @@
 
 ## 2. Domain modules
 
-`main.go` is wiring only. HTTP + consumers live under `internal/`:
+`main.go` is wiring only. HTTP + consumers live under `internal/` (unique to core; other services use `app/`):
 
 ```text
 services/core/
   main.go                 # boot: db/redis, register routes, listen
-  internal/
+  internal/               # process-private (Go internal import rule)
     config/               # SITE_ID, DATABASE_URL, REDIS_URL, …
     httpx/                # WriteJSON, RequireDB
     presets/              # filament/print CRUD + import/export
@@ -86,7 +86,7 @@ On boot: `db.Migrate`.
 
 ## 6. MVP milestones
 
-1. Presets + migrations (done)  
+1. Presets + baseline schema (done; see [`DATABASE.md`](../DATABASE.md))  
 2. Rate cards CRUD  
 3. Printer projection consumer  
 4. Jobs create → command edge → track finish  

@@ -9,10 +9,12 @@ packages/config/
     config_test.go      # package tests
 services/core/
   main.go
-  internal/…
+  internal/…            # core-only private modules
   tests/
     config_test.go
-    httpx_test.go
+services/edge/
+  app/…                 # other services use app/
+  tests/
 ```
 
 ## Rules
@@ -20,8 +22,9 @@ services/core/
 1. **No colocated `*_test.go`** next to implementation (keeps source trees scannable).
 2. **`package tests`** black-box imports the code under test (exported API only).
 3. **`go test ./...`** from each module still discovers `tests/` automatically.
-4. Testable logic in `package main` belongs in **`internal/…`** so `tests/` can import it.
-5. Fixtures stay in repo-root **`fixtures/`** (or `testdata/` when Go’s convention fits).
+4. Testable logic in `package main` belongs in **`internal/…` (core)** or **`app/…` (other services)** so `tests/` can import it.
+5. Shared libraries live in repo-root **`packages/`**.
+6. Fixtures stay in repo-root **`fixtures/`** (or `testdata/` when Go’s convention fits).
 
 ## Force-fail canary
 

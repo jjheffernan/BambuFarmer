@@ -54,10 +54,12 @@ Stub today returns empty series.
 ## 5. Package layout
 
 ```text
-services/analytics/internal/
-  consume/
-  store/
-  query/
+services/analytics/
+  main.go
+  app/          # process-private (when split out of main)
+    consume/
+    store/
+    query/
 ```
 
 ---
