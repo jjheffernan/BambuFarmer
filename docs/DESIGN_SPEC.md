@@ -1,0 +1,1103 @@
+# BambuFarmer — Design Specification
+
+**Status:** Draft v0.6 (MVP freeze in progress)  
+**Date:** 2026-11-06  
+**Scope:** Architecture and module design for a containerized print-farm operations platform that integrates with the Bambu Lab ecosystem (Farm Manager Server primary; Fleet Hub optional later), Spoolman (and peers), Manyfold (and peers), with multi-user access, costing, analytics, and **per-install filament/print presets**. Post-MVP: OrcaSlicer-backed slice service.
+
+**Pre-build gate:** answer integration questions in [`MVP_CHECKLIST.md`](./MVP_CHECKLIST.md) before leaving design for real FM wiring.
+
+### Locked decisions
+
+| Topic | Decision |
+|-------|----------|
+| Bambu control plane | **Farm Manager Server** is our setup and primary edge target |
+| Language (all services) | **Go** — gateway, core, edge, integrations, analytics, web, slicer |
+| Event bus | **Redis Streams** (small-farm friendly; one multi-purpose Redis) |
+| Auth | **OIDC-ready**, with **local-only insecure mode** for lab/dev |
+| web-frontend | **Go + templ + HTMX** (+ Alpine where needed) |
+| farm-edge | **Go** |
+| Presets | **Per-install** filament + print presets in Postgres; JSON import/export (not baked into images) |
+| Slicing | **Out of MVP**; future `slicer` module wrapping **OrcaSlicer** CLI |
+| Analytics | Dedicated **`bambufarmer-analytics`** service (not folded into core) |
+
+---
+
+## 1. Vision
+
+BambuFarmer is an operations layer for running a Bambu Lab print farm. It sits *beside* Bambu’s official farm stack—not as a replacement for printer binding/control—and adds:
+
+- Central multi-user farm operations (jobs, queues, permissions)
+- Event-driven fleet telemetry and alerting
+- Filament inventory sync (Spoolman-first, pluggable)
+- 3D library import/export (Manyfold-first, pluggable)
+- Costing (material + machine time + overhead)
+- Analytics for utilization, failure rates, cost per part
+
+Bambu Farm Manager Server remains the trusted LAN control plane for printers in our deployment. BambuFarmer orchestrates workflows, inventory, files, money, and people around that plane. A Fleet Hub adapter may be added later for sites that adopt Hub hardware; it is not required for v1.
+
+---
+
+## 2. Goals & Non-Goals
+
+### 2.1 Goals
+
+| ID | Goal |
+|----|------|
+| G1 | Easily web-hosted; works behind reverse proxies / Traefik / Caddy / nginx |
+| G2 | Fully containerized; deployable to Docker, Podman, Proxmox LXC/VMs with containers, K8s-light |
+| G3 | 12-factor compliant (config via env, stateless app processes, backing services) |
+| G4 | Pluggable filament managers (Spoolman primary) |
+| G5 | Pluggable file libraries (Manyfold primary) |
+| G6 | UI mirrors Bambu Lab visual language (Farm Manager / Studio cues) |
+| G7 | Multi-user with roles |
+| G8 | Cost pricing and analytics |
+| G9 | Event-driven (not constant polling of printers) |
+| G10 | Proper job management (queue, scheduling, circuit/power awareness, retry) |
+| G11 | Prefer Rust / Go / Python / C++; avoid Java and TypeScript-heavy stacks |
+
+### 2.2 Non-Goals (MVP)
+
+- Replacing Bambu Farm Manager Server or Fleet Hub as the device bind/control authority
+- Cloud-only Bambu Handy control paths for farm-bound printers
+- **In-app slicing** (MVP ingests pre-sliced `.gcode.3mf` from Bambu Studio / OrcaSlicer desktop; a dedicated slicer module is planned post-MVP)
+- Full MES/ERP replacement (expose APIs so others can integrate)
+
+---
+
+## 3. Constraints & Design Principles
+
+1. **Farm Manager first.** Our control plane is Bambu Farm Manager Server (LAN REST :8888 + farm MQTT). Isolate the FM adapter behind `FarmControlPlane` so a Fleet Hub adapter can land later without rewriting core.
+2. **Edge owns LAN secrets.** mTLS certs and Farm Manager JWTs stay on the farm-edge host—never in the public web tier.
+3. **Events over polling.** Prefer farm MQTT report stream when reachable; otherwise short-interval REST delta poll on edge only. Never poll from the browser.
+4. **Adapters, not hardcodes.** Spoolman/Manyfold are first adapters behind stable internal ports.
+5. **Jobs are first-class.** Every print is a Job with state machine, audit trail, and cost accrual.
+6. **12-factor.** Config = env; processes are disposable; logs to stdout; backing services (Postgres, Redis, object store) are attached, not embedded as durable state in the app image.
+7. **Modular containers.** Each major module is its own image/service; compose them for a farm.
+8. **Auth modes.** Production path is OIDC; `AUTH_MODE=local_insecure` enables local users without external IdP (lab/dev only—never expose publicly without understanding the risk).
+
+---
+
+## 4. High-Level Architecture
+
+```
+┌──────────────────────────────────────────────────────────────────────────┐
+│                         Operators (browser)                              │
+│                              │                                           │
+│                     ┌────────▼────────┐                                  │
+│                     │  web-frontend   │  (Bambu-like GUI)                │
+│                     └────────┬────────┘                                  │
+│                              │ HTTPS                                     │
+│                     ┌────────▼────────┐                                  │
+│                     │   api-gateway   │  auth, rate limit, OpenAPI       │
+│                     └────────┬────────┘                                  │
+│                              │                                           │
+│              ┌───────────────┼────────────────┬──────────────────┐       │
+│              │               │                │                  │       │
+│     ┌────────▼──────┐ ┌──────▼──────┐ ┌───────▼────────┐ ┌───────▼─────┐ │
+│     │ core-backend  │ │  analytics  │ │  integrations  │ │ slicer*     │ │
+│     │ (jobs, users, │ │  (dedicated │ │  (Spoolman,    │ │ (OrcaSlicer │ │
+│     │  costing,     │ │   rollups)  │ │   Manyfold)    │ │  post-MVP)  │ │
+│     │  inventory)   │ │             │ │                │ │             │ │
+│     └───────┬───────┘ └──────▲──────┘ └───────▲────────┘ └───────▲─────┘ │
+│             │                │ events         │                  │       │
+│             │         ┌──────┴────────────────┴──────────────────┘       │
+│             │         │ event-bus (Redis Streams)                        │
+│             │         └──────▲───────────────────────────────────────────│
+│             │                │                                           │
+│             │                │                                           │
+│     ┌───────▼────────────────┴───────────────┐                           │
+│     │         farm-edge (Go)                 │  (one per site / LAN)     │
+│     │  Farm Manager adapter (v1)             │                           │
+│     │  MQTT/event normalizer · file cache    │                           │
+│     │  [Fleet Hub adapter — future]         │                           │
+│     └───────────────────┬────────────────────┘                           │
+│                         │                                                │
+│              ┌──────────▼───────────┐                                    │
+│              │ Farm Manager Server  │                                    │
+│              │ (LAN, mTLS :8888,    │                                    │
+│              │  MQTT broker :1883)  │                                    │
+│              └──────────┬───────────┘                                    │
+│                         ▼                                                │
+│                   Bambu printers                                         │
+└──────────────────────────────────────────────────────────────────────────┘
+
+External (same Docker network or linked hosts):
+  Spoolman · Manyfold · Postgres · Redis · Object storage (S3/MinIO) · optional OIDC
+```
+
+### 4.1 Module Map
+
+| Module | Container | Responsibility |
+|--------|-----------|----------------|
+| **web-frontend** | `bambufarmer-web` | **Go + templ + HTMX.** Operator GUI; Bambu-like design language |
+| **api-gateway** | `bambufarmer-gateway` | TLS termination (optional), JWT/OIDC, routing, OpenAPI surface |
+| **core-backend** | `bambufarmer-core` | Users, orgs, printers registry, jobs, costing rules, policies |
+| **farm-edge** | `bambufarmer-edge` | **Go.** LAN integration with Farm Manager (v1); event ingest; file push |
+| **integrations** | `bambufarmer-integrations` | Spoolman, Manyfold, other adapters; sync workers |
+| **analytics** | `bambufarmer-analytics` | **Dedicated.** Event → rollups, dashboards API, exports (separate from core) |
+| **slicer** | `bambufarmer-slicer` | **Post-MVP.** OrcaSlicer CLI wrapper; profile/job queue → `.gcode.3mf` |
+| **event-bus** | Redis Streams | Domain events; same Redis may also hold sessions/cache |
+| **db** | Postgres | System of record |
+| **object-store** | MinIO / S3 | `.gcode.3mf`, snapshots, exports |
+
+Minimum viable deploy: `web` + `gateway` + `core` + `edge` + `analytics` + Postgres + Redis (+ Spoolman/Manyfold as external deps).  
+`slicer` is optional and **not** in MVP compose.
+
+---
+
+## 5. Bambu Integration Strategy
+
+### 5.1 Primary (our setup): Farm Manager Server
+
+[Bambu Farm Manager](https://wiki.bambulab.com/en/software/bambu-farm-manager) = Server (LAN control) + Client (Electron UI). **This is our production control plane.**
+
+Community protocol notes ([OpenBambuFarmAPI](https://github.com/ATILLLLITA/OpenBambuFarmAPI), [GeraldCox API Reference](https://github.com/GeraldCox/bambu-farm-manager-script/blob/main/API_Reference.md)):
+
+- Server REST on **:8888** with mTLS (TLS 1.2/1.3)
+- Printers are MQTT *clients* to the farm broker (**:1883**/TLS) after TCP-**3002** bind
+- Client often holds non-exportable mTLS material; community tools use CDP proxy through the Electron client, or negotiate certs where available
+- Surfaces we care about: devices/telemetry, tasks, files (`.gcode.3mf`), tags (incl. circuit tags), users, liveview, settings
+- Circuit-aware concurrency (tags → max printers per circuit) is a first-class scheduler input
+
+**farm-edge (Go)** implements Farm Manager as the v1 adapter:
+
+1. Store FM server URL, site credentials, and TLS materials in edge secrets volume / env
+2. Auth: login ticket → challenge-hash → JWT (`Authorization: Bearer …` + Bambu security headers)
+3. Prefer **MQTT `device/<sn>/report`** (or equivalent farm report topics) for state changes
+4. If MQTT access is blocked, fall back to REST `GET /devices` on a short interval and emit events only on **delta**
+5. Normalize all payloads into internal `PrinterSnapshot` / `PrinterEvent` types before publishing to Redis Streams
+6. REST for task create, file upload, pause/resume/stop, tags as needed
+7. Pin tested Farm Manager Server versions in docs; treat the API as **interop / best-effort** (undocumented by Bambu)
+
+**Auth/cert approach (ordered preference):**
+
+| Priority | Method | Notes |
+|----------|--------|-------|
+| 1 | Direct mTLS + local login API | Best if we can obtain/configure client certs for the edge service account |
+| 2 | CDP proxy via Farm Manager Client | Proven community pattern; edge drives client on `localhost:9222`; keeps certs in Electron |
+| 3 | Hybrid | CDP for bootstrap/cert path; direct REST once session works |
+
+Document which path a given deploy uses via `FARM_MANAGER_TRANSPORT=direct|cdp`.
+
+### 5.2 Future (optional): Fleet Hub
+
+[Fleet Hub](https://wiki.bambulab.com/en/acc/manual/fleet-hub) remains a **future adapter** for sites that buy Hub hardware (documented HTTP API, ≤50 printers/hub, mTLS + activation). Same `FarmControlPlane` trait; no core changes required. Not in Phase 1 scope.
+
+### 5.3 Adapter interface (edge)
+
+```text
+trait FarmControlPlane {
+  discover() -> Vec<DiscoveredPrinter>
+  list_devices() -> Vec<PrinterSnapshot>
+  subscribe_events() -> Stream<PrinterEvent>   // preferred
+  start_print(req: PrintRequest) -> ExternalJobRef
+  control(dev_id, Pause|Resume|Stop|BedClean)
+  upload_slice(file) -> FileRef                 // path/hash on FM server
+  get_liveview(dev_id) -> ImageBlob
+}
+```
+
+Multiple edges can register with core (multi-site farms). Each edge has a `site_id`.
+
+---
+
+## 6. Event-Driven Design
+
+### 6.1 Principle
+
+Do **not** have the web UI or core poll printers every N seconds. Instead:
+
+1. **farm-edge** observes Farm Manager MQTT and/or REST deltas
+2. Emits normalized events onto **Redis Streams**
+3. **core** updates projections and job state
+4. **web** receives updates via SSE/WebSocket from gateway (fan-out of stream topics)
+
+Polling is allowed only:
+
+- As edge fallback when MQTT is unavailable
+- For external systems without webhooks (Spoolman has websockets—use them)
+- For health checks (liveness ≠ full telemetry)
+
+### 6.2 Core event catalog (initial)
+
+| Event | Producer | Consumers |
+|-------|----------|-----------|
+| `printer.online` / `printer.offline` | edge | core, analytics, web |
+| `printer.state_changed` | edge | core, web |
+| `printer.ams_changed` | edge | integrations (filament), web |
+| `job.queued` | core | edge, web |
+| `job.dispatched` | edge | core, web |
+| `job.progress` | edge | core, analytics, web |
+| `job.finished` / `job.failed` | edge | core, costing, filament, analytics |
+| `job.cancelled` | core/edge | all |
+| `filament.consumed` | integrations | costing, analytics |
+| `library.file_imported` | integrations | core, web |
+| `alert.raised` | core | web, optional notify |
+
+### 6.3 Event envelope
+
+```json
+{
+  "id": "uuid",
+  "type": "job.finished",
+  "ts": "2026-11-06T17:00:00Z",
+  "site_id": "shop-a",
+  "source": "farm-edge",
+  "correlation_id": "job-uuid",
+  "payload": { }
+}
+```
+
+Idempotency keys on `id` / `(source, external_ref)` so reconnects do not double-count filament or cost.
+
+---
+
+## 7. Job Management System
+
+Jobs are the heart of the product. A **Job** is an operator intent; an **ExternalTask** is what Farm Manager actually runs.
+
+### 7.1 Job state machine
+
+```
+                ┌────────────┐
+                │  drafted   │
+                └─────┬──────┘
+                      │ submit
+                ┌─────▼──────┐
+         ┌──────│   queued   │◄────────── requeue (policy)
+         │      └─────┬──────┘
+         │            │ scheduler assigns printer(s)
+         │      ┌─────▼──────┐
+         │      │  assigned  │
+         │      └─────┬──────┘
+         │            │ edge accepted / file staged
+         │      ┌─────▼──────┐
+ cancel  │      │ dispatched │
+─────────┼──────┴─────┬──────┘
+         │            │ printer RUNNING
+         │      ┌─────▼──────┐
+         │      │  printing  │──pause──► paused ──resume──┐
+         │      └─────┬──────┘◄───────────────────────────┘
+         │            │
+         │     ┌──────┴──────┐
+         │     ▼             ▼
+         │  succeeded     failed
+         │     │             │
+         │     └──────┬──────┘
+         │            ▼
+         │      ┌───────────┐
+         └─────►│  closed   │  (cost finalized, filament posted)
+                └───────────┘
+```
+
+### 7.2 Job fields (logical)
+
+- Identity: `job_id`, `org_id`, `created_by`, timestamps
+- Artifact: library file ref and/or uploaded `.gcode.3mf` object key, plate path, MD5
+- Targeting: printer tags / model / nozzle diameter / AMS requirements / site
+- Scheduling: priority, not-before, deadline, circuit/power group, max concurrency
+- Mapping: filament slot map (ams_id/slot_id), material expectations
+- Economics: estimated cost, actual cost (material + machine + labor overhead)
+- External: `site_id`, `external_task_id`, Farm Manager file/task refs
+- Audit: state transitions with actor + reason
+
+### 7.3 Scheduler responsibilities (core)
+
+1. Select idle-compatible printers (model, nozzle, filament availability)
+2. Respect **power/circuit limits** (inspired by circuit-aware Farm Manager tooling: tags → max concurrent per circuit)
+3. Stagger starts if configured (Farm Manager “staggered print initiation” analogue)
+4. Emit `job.assigned` → edge performs upload/print
+5. On failure: retry policy (same printer / failover / human hold)
+
+### 7.4 Batch & multi-copy
+
+- One Job can expand into N copies (subtasks) across M printers
+- Track per-copy status; parent job succeeds when policy says (all / quorum)
+- Deduplicate file upload via content hash when FM/server already has the slice
+
+---
+
+## 8. Filament & File Integrations
+
+### 8.1 Filament port (Spoolman-first)
+
+Internal interface:
+
+```text
+FilamentProvider {
+  list_spools(filter) -> Vec<Spool>
+  get_spool(id) -> Spool
+  use_filament(spool_id, grams) -> Result   // post-print
+  reserve(spool_id, grams) -> Reservation   // optional pre-print
+  find_match(material, color, brand) -> Vec<Spool>
+}
+```
+
+**Spoolman adapter:** REST `/api/v1/*` + Spoolman websockets for live updates.  
+Map AMS tray RFID/`tag_uid` + color/type to Spoolman spools when possible.
+
+Other providers (future): Spoolman-compatible forks, spreadsheet CSV, Homelab-specific DBs—same port.
+
+On `job.finished`, integrations computes grams used (from slicer metadata if present, else estimate from length × density) and posts consumption.
+
+### 8.2 Library port (Manyfold-first)
+
+```text
+LibraryProvider {
+  search(query) -> Vec<ModelSummary>
+  get_model(id) -> ModelDetail
+  download_file(model_id, file_id) -> Stream
+  upload_model(meta, files) -> ModelRef
+  ensure_collection(path) -> CollectionRef
+}
+```
+
+**Manyfold adapter:** OAuth2 client_credentials (`read`/`write`/`upload`), TUS upload then `POST /models`, JSON-LD `application/vnd.manyfold.v0+json`.
+
+Flows:
+
+- **Import to farm:** Manyfold model → download printable / attach existing `.gcode.3mf` from object store → create Job
+- **Export from farm:** Successful print artifacts / archived slices → Manyfold model in a “Farm Productions” collection
+- **Sync:** Optional bidirectional metadata (tags, creator) without duplicating binary blobs unnecessarily
+
+Other libraries (Printables local mirrors, custom S3 libraries) implement the same port.
+
+---
+
+## 8.3 Slicer module (post-MVP — out of MVP scope)
+
+MVP accepts **pre-sliced** `.gcode.3mf` (Bambu Studio / OrcaSlicer desktop / library). A dedicated **`bambufarmer-slicer`** service is planned afterward.
+
+**Dependency:** [OrcaSlicer](https://github.com/OrcaSlicer/OrcaSlicer) as a containerized CLI binary (not embedded as a library). Headless pattern:
+
+```text
+orca-slicer model.3mf \
+  --load-settings "printer.json;process.json" \
+  --load-filaments filament.json \
+  --arrange 1 --slice 0 \
+  --export-3mf out.gcode.3mf
+```
+
+**Module shape**
+
+| Piece | Role |
+|-------|------|
+| `slicer` service | Job queue, profile store refs, invoke OrcaSlicer, write artifacts to object store |
+| Profiles | Printer/process/filament JSON managed in UI or synced from a profile pack |
+| Output | `.gcode.3mf` + metadata (time estimate, filament grams) → core Job / costing |
+| Events | `slice.queued` / `slice.succeeded` / `slice.failed` on Redis Streams |
+
+**Why separate container:** OrcaSlicer images are large and CPU-heavy; isolate from edge/core so slice spikes do not starve farm control. Optional scale-to-zero on small farms.
+
+**Non-goals for slicer v1:** full interactive plate editor in-browser (defer; start with upload model → pick profile → slice).
+
+### 8.4 Presets (filament + print) — per install
+
+Presets **must not** be hardcoded in the container image. Each farm install maintains its own catalog because materials, nozzles, and process preferences differ site-to-site.
+
+Owned by **core** (CRUD + import/export). UI under Admin / Presets. Optional sync hints toward Spoolman filament types and (post-MVP) OrcaSlicer profile JSON.
+
+#### FilamentPreset
+
+| Field | Purpose |
+|-------|---------|
+| `id`, `name`, `version` | Identity; bump version on edit or keep history rows |
+| `material` | PLA, PETG, ABS, … |
+| `vendor` / `product_line` | Optional |
+| `color_hex` | Display / AMS matching hint |
+| `density_g_cm3`, `diameter_mm` | Mass estimates |
+| `nozzle_temp_min` / `max`, `bed_temp` | Process bounds |
+| `tray_info_idx` | Bambu filament id hint (e.g. `GFA00`) for FM AMS mapping |
+| `price_per_kg` | Costing override (else Spoolman / rate card) |
+| `spoolman_filament_id` | Optional link |
+| `notes`, `active` | Ops |
+
+#### PrintPreset
+
+| Field | Purpose |
+|-------|---------|
+| `id`, `name`, `version` | Identity |
+| `compatible_models[]` | e.g. P1S, X1C |
+| `nozzle_diameter_mm` | 0.4 default |
+| `layer_height_mm`, `infill_pct`, `sparse_infill_pattern` | Metadata for MVP tagging |
+| `process_json` | Opaque JSON blob (Orca/Bambu process export) — stored, not interpreted in MVP |
+| `printer_json` | Opaque printer profile blob (optional) |
+| `default_for_model` | Optional unique default per model |
+| `est_speed_factor` | Optional costing/ETA fudge |
+| `active` | Soft delete |
+
+#### Behaviors (MVP)
+
+1. **CRUD** in web UI + REST `/api/v1/presets/filament`, `/api/v1/presets/print`
+2. **Import/export** JSON bundle: `{ "filament_presets": [...], "print_presets": [...] }`
+3. Job composer can attach `filament_preset_id` / `print_preset_id` (informational + costing); does not require slicer
+4. Artifacts may record which presets were intended when uploaded
+5. When slicer lands (Phase 6), `process_json` / `printer_json` feed Orca `--load-settings` / `--load-filaments`
+
+Presets are **org-scoped** (single-org MVP = one catalog). No image rebuild to change them.
+
+---
+
+## 9. Costing & Analytics
+
+### 9.1 Costing model
+
+Per job:
+
+```
+cost = material_cost + machine_time_cost + labor_overhead + failure_amortization
+```
+
+| Component | Inputs |
+|-----------|--------|
+| Material | grams × $/g from Spoolman (or manual price list) |
+| Machine time | hours × printer rate ($/h by model or tag) |
+| Labor | optional flat per-job or per-hour human touch |
+| Failure | optional surcharge pool / insurance rate |
+
+Pricing tables and quote/actual calculation live in **core** (operational truth). Analytics *reads* finalized costs; it does not own the rate cards.
+
+### 9.2 Dedicated analytics module
+
+**`bambufarmer-analytics` is a first-class standalone service**, not a package inside core. It exists so heavy rollups, long-range history, and dashboard queries never contend with job dispatch OLTP.
+
+**Responsibilities**
+
+| Owns | Does not own |
+|------|----------------|
+| Event consumption from Redis Streams | Job state machine |
+| Materialized rollups / warehouse tables | Rate card CRUD |
+| Dashboard & report APIs (`/api/v1/analytics/...`) | Live printer control |
+| CSV/JSON/PDF exports | Auth IdP (uses gateway tokens) |
+
+**Ingest:** subscribe to `printer.*`, `job.*`, `filament.*`, `alert.*` (and optional CDC from Postgres for backfill). Idempotent upserts by event `id`.
+
+**Rollups (v1)**
+
+- Utilization % by printer / group / tag / site / day
+- Success vs fail rates; top HMS / error codes
+- Avg job duration vs estimate; queue wait time; throughput
+- Cost per part / per gram / per hour (from core cost finals)
+- Filament burn-down vs Spoolman remaining
+- Group-level stats (aligns with Farm Manager v3 printer grouping)
+
+**Serving:** REST aggregates for HTMX analytics screens (and JSON for charts); optional Prometheus metrics on all services for ops (separate from business analytics).
+
+**Scale note:** analytics can run its own read replica or DuckDB/export sidecar later without changing core.
+
+---
+
+## 10. Multi-User & Security
+
+### 10.1 Identity
+
+Auth is **OIDC-ready from day one**, with a local insecure mode for lab/dev.
+
+| Mode | Env | Behavior |
+|------|-----|----------|
+| `oidc` | `AUTH_MODE=oidc` | Gateway uses OIDC (Authentik, Keycloak, Google Workspace, etc.). Preferred for any networked/production deploy. |
+| `local_insecure` | `AUTH_MODE=local_insecure` | Local username/password (Argon2id) only. No OIDC required. Intended for air-gapped labs and first bring-up. **Must not** be exposed on the public internet without an understanding of the risk; gateway should log a loud warning at boot. |
+
+Implementation notes:
+
+- Same role model in both modes; only the identity provider changes
+- Session/JWT issuance stays in gateway so swapping modes does not rewrite core
+- OIDC code paths exist even when `local_insecure` is active (stubs + config validation when `AUTH_MODE=oidc`)
+- Orgs / sites for multi-location remain available in both modes
+
+### 10.2 Roles (initial)
+
+| Role | Capabilities |
+|------|----------------|
+| `viewer` | Read printers, jobs, analytics |
+| `operator` | Create/cancel jobs, pause/resume, basic filament ops |
+| `librarian` | Manyfold import/export, file management |
+| `inventory` | Spoolman sync, pricing tables |
+| `admin` | Users, sites, adapters, power limits, billing rules |
+
+Farm Manager local admin credentials are **service accounts** held by edge—not end-user logins.
+
+### 10.3 Secrets & network
+
+- Edge must sit on printer LAN (or routable to Farm Manager Server)
+- Core/web can be LAN-only or reverse-proxied with auth
+- mTLS / CDP materials: edge-only (`EDGE_CERT_DIR` or sidecar FM Client); never mount into web
+- All inter-service traffic on internal Docker network; gateway is the only public ingress by default
+- When `AUTH_MODE=local_insecure`, recommend binding gateway to LAN / VPN only
+
+---
+
+## 11. Frontend & Design Language
+
+### 11.1 Goals (mirror Farm Manager Client)
+
+Farm Manager Client is a dense, real-time Electron ops console ([features](https://wiki.bambulab.com/en/software/bambu-farm-features)). We mirror that *interaction model*, not pixel-perfect assets:
+
+| Farm Manager trait | Our UI implication |
+|--------------------|--------------------|
+| Printers overview with status nav (Ready to Start / Attention Needed / Completed / Not in Task) | Live fleet grid + filter chips driven by event stream |
+| Detail side-panel (temps, SN, nozzle, bed) | Drawer / split pane, not full-page navigation |
+| Bulk operations (pause, cancel, resume, LED, speed, temps, unload, calibrate) | Multi-select + sticky action bar |
+| Task queue (copies, printer set, green Start when ready, edit, terminate) | Job board with optimistic local state |
+| Two-level `.gcode.3mf` folders + compatibility metadata | Artifact browser with model/nozzle/bed/ETA columns |
+| Customizable printer list columns (v3) | Client-side column prefs persisted per user |
+| Liveview / RTSPS (server-relayed) | Detail pane media; JPEG snapshots first, stream later |
+| Groups (v3) + tags | Group/tag filters for dispatch and analytics |
+| Multi-user local accounts | Our roles + OIDC/`local_insecure` |
+| High update rate across many printers | Fine-grained reactive UI; avoid full-page HTML swaps |
+
+### 11.2 Frontend decision (locked: Go + HTMX)
+
+We previously compared **Go + templ + HTMX** vs **Rust + Leptos**. Leptos scored higher on dense live fleet UX; HTMX scored higher on ship speed, CI simplicity, and one-language ops.
+
+**v0.5 decision: unify on Go** — edge and web both move to Go so the whole system shares one toolchain. HTMX is Plan A. Leptos is retired as a contingency (not maintained as Plan B).
+
+| Factor | Outcome |
+|--------|---------|
+| Toolchain / CI | Single Go module graph; no WASM |
+| Shared DTOs | One `packages/` Go module for events + API types across edge, core, web |
+| Fleet live updates | SSE → HTMX `sse` / OOB swaps of card rows + status chips; throttle morphs |
+| Multi-select bulk ops | Alpine (or small vanilla JS) for selection set; actions POST to gateway |
+| Liveview | `<img>` poll/SSE refresh of JPEG; video deferred |
+| Risk accepted | At very large fleets, full-table morphs may need virtualized table or coarser update intervals |
+
+#### Historical comparison (kept for context)
+
+| Workload | HTMX | Leptos | Notes |
+|----------|------|--------|-------|
+| Dense per-cell updates | SSE partial swaps | Signal store | Leptos smoother; HTMX OK with row-level targets |
+| Bulk select + optimistic UI | Alpine assist | Native | Accept small Alpine surface |
+| Admin CRUD | Excellent | Heavier | Favors HTMX |
+| Shared types with Go edge | Native Go | Would need dual stack | Favors HTMX after Go edge lock |
+| Compile on small VMs | Light | WASM toolchain | Favors HTMX |
+
+### 11.3 Go + HTMX stack (Plan A)
+
+- **Server:** Go (`net/http` or chi) + [templ](https://templ.guide/) components
+- **Interactivity:** HTMX for navigation, forms, SSE-driven fragment updates; Alpine.js only for selection/checkbox state and dropdowns
+- **Auth:** session cookie from gateway (same-origin or trusted proxy); web may be combined with gateway in small deploys
+- **Data:** initial HTML from server; live fleet/jobs via `GET /api/v1/events/stream` (SSE) triggering HTMX swaps of `#printer-{id}`, `#status-nav`, job rows
+- **Shared types:** Go packages under `packages/events`, `packages/api` imported by edge, core, gateway, web
+- **Styling:** CSS variables; dark industrial Farm-inspired theme; original icons/assets only
+- **No browser polling of Farm Manager** — only SSE from our gateway
+
+### 11.4 Visual design tokens (initial)
+
+```css
+:root {
+  --bf-bg-0: #0e1114;
+  --bf-bg-1: #161b20;
+  --bf-bg-2: #1e252c;
+  --bf-text: #e8eef2;
+  --bf-muted: #8b9aab;
+  --bf-accent: #00ae42;      /* ready / success — Bambu-green cue */
+  --bf-warn: #f0a202;        /* attention */
+  --bf-danger: #e23d28;      /* failed / offline hard */
+  --bf-info: #3aa0ff;        /* running / info */
+  --bf-border: #2a343d;
+  --bf-radius: 6px;
+  --bf-font-ui: "IBM Plex Sans", "Segoe UI", sans-serif;
+  --bf-font-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+```
+
+Status color mapping: `IDLE` muted · `RUNNING` info · `PAUSE`/`FAILED` warn/danger · `FINISH` accent (awaiting bed_clean).
+
+### 11.5 Primary screens
+
+1. Fleet overview (status nav + grid/table + bulk bar + detail drawer)  
+2. Job queue / board  
+3. Job composer (artifact + filament map + targets + cost estimate)  
+4. Library browser (Manyfold)  
+5. Filament inventory (Spoolman)  
+6. Analytics (backed by `bambufarmer-analytics`)  
+7. Admin (sites, adapters, users, rates)  
+8. Presets (filament + print; import/export)  
+9. *(Post-MVP)* Slice jobs (OrcaSlicer using stored preset JSON)
+
+---
+
+## 12. Technology Recommendations
+
+| Layer | Choice | Rationale |
+|-------|--------|-----------|
+| api-gateway | **Go** (chi/echo) | Small static binary; OIDC + local auth; OpenAPI |
+| core-backend | **Go** | CRUD, jobs, SQL—fast to ship; excellent Postgres story |
+| farm-edge | **Go** | mTLS/MQTT/Redis; same language as the rest of the stack |
+| integrations | **Go** | Spoolman/Manyfold HTTP glue |
+| analytics | **Go** | Dedicated service; SQL rollups; optional DuckDB later |
+| web-frontend | **Go + templ + HTMX** | Unified Go; SSE fragment updates; tiny Alpine only where needed |
+| slicer | **Go** + **OrcaSlicer** binary | Post-MVP sidecar; CLI wrapper only |
+| DB | **Postgres 16+** | System of record |
+| Bus / cache | **Redis** (Streams + optional session/cache) | One small container; easy on Docker/Podman/Proxmox |
+| Objects | **MinIO** / S3 | Slice files & snapshots |
+
+**Why Redis over NATS for us:** fewer moving parts at small scale, ops familiarity, and one service covers Streams (events) plus optional gateway sessions/rate-limit keys. Revisit NATS only if we outgrow Redis Streams semantics.
+
+**Language policy:** Go for all first-party services. Python only if an adapter ecosystem forces it. No TypeScript. No Rust in MVP (may revisit later for a hot path only if measured need).
+
+C++ reserved for any future native protocol helpers if required; not needed for MVP HTTP/MQTT adapters.
+
+---
+
+## 13. 12-Factor & Deployment
+
+### 13.1 Config (env examples)
+
+```bash
+# gateway / auth
+AUTH_MODE=local_insecure          # or: oidc
+SESSION_SECRET=...
+# when AUTH_MODE=oidc:
+OIDC_ISSUER=https://auth.example/realms/farm
+OIDC_CLIENT_ID=bambufarmer
+OIDC_CLIENT_SECRET=...
+OIDC_REDIRECT_URL=https://farm.example/auth/callback
+
+# core
+DATABASE_URL=postgres://...
+REDIS_URL=redis://redis:6379/0
+OBJECT_STORE_ENDPOINT=http://minio:9000
+
+# edge (Go)
+SITE_ID=shop-a
+FARM_MODE=farm_manager            # fleet_hub later
+FARM_MANAGER_URL=https://192.168.1.20:8888
+FARM_MANAGER_TRANSPORT=direct     # or: cdp
+FARM_MANAGER_USER=admin
+FARM_MANAGER_PASSWORD=...
+EDGE_CERT_DIR=/certs              # when transport=direct
+# CDP_URL=http://127.0.0.1:9222   # when transport=cdp
+REDIS_URL=redis://redis:6379/0
+CORE_INGEST_URL=http://gateway:8080/internal/edge
+EDGE_TOKEN=...
+
+# integrations
+SPOOLMAN_URL=http://spoolman:7912
+SPOOLMAN_API_TOKEN=...
+MANYFOLD_URL=https://manyfold.example
+MANYFOLD_CLIENT_ID=...
+MANYFOLD_CLIENT_SECRET=...
+```
+
+### 13.2 Compose topology (illustrative)
+
+```yaml
+services:
+  gateway:
+  core:
+  edge:          # may use network_mode / macvlan for LAN / FM reachability
+  integrations:
+  analytics:     # dedicated; include in MVP compose
+  web:           # Go templ + HTMX (or combine with gateway in tiny deploys)
+  postgres:
+  redis:
+  minio:
+  # optional / post-MVP:
+  # slicer:      # OrcaSlicer CLI sidecar
+  # spoolman:
+  # manyfold:
+```
+
+### 13.3 Host targets
+
+| Host | Notes |
+|------|-------|
+| Docker Compose | Default developer + small farm |
+| Podman Quadlets | Rootless-friendly |
+| Proxmox | CT or VM running Podman/Docker; edge VM on printer VLAN |
+| K8s / k3s | Later; same images, Ingress instead of compose ports |
+
+Edge may need host networking or a VLAN interface for SSDP discovery—document as a deployment profile `edge-lan`.
+
+### 13.4 Observability
+
+- Structured JSON logs to stdout  
+- `/healthz` + `/readyz` on each service  
+- OpenTelemetry traces optional from day one stubs  
+- Metrics: job throughput, edge lag, adapter errors  
+
+---
+
+## 14. Data Model
+
+Owned primarily by **core** (OLTP). Analytics maintains its own rollup tables. Projections of printer live state may be cached in Redis; durable history is Postgres + events.
+
+### 14.1 Entity sketch
+
+```text
+Organization
+  └── Site (id, name, timezone, network_notes)
+        └── Printer (id, site_id, external_sn, model, name, group_id?, tags[],
+                     nozzle_diameter, last_seen_at, last_snapshot jsonb)
+        └── PrinterGroup (id, site_id, name)          # FM v3 grouping analogue
+        └── PowerCircuit (id, site_id, name, max_concurrent)
+              └── circuit ↔ printer membership
+  └── User (id, subject, display_name, auth_provider)
+  └── RoleBinding (user_id, role, scope_org|site)
+  └── RateCard (machine_rate_per_hour, labor_flat, currency, failure_surcharge_pct)
+  └── Artifact (id, object_key, md5, filename, plate_path, compatible_models[],
+                nozzle_mm, bed_type, est_seconds, est_grams, source_library_ref?)
+  └── Job (see §7)
+        └── JobEvent (at, from_state, to_state, actor, reason)
+        └── JobCost (estimate_*, actual_*, currency, finalized_at)
+  └── FilamentLink (printer_id, ams_id, slot_id, provider, spool_id)
+  └── FilamentPreset (per-install; see §8.4)
+  └── PrintPreset (per-install; see §8.4)
+  └── AdapterConfig (kind, site_id, secret_ref, config jsonb)
+```
+
+### 14.2 Printer snapshot (normalized, from edge)
+
+```json
+{
+  "site_id": "shop-a",
+  "external_sn": "01P00C…",
+  "model": "P1S",
+  "name": "Bay-3",
+  "online": true,
+  "gcode_state": "RUNNING",
+  "mc_percent": 42,
+  "mc_remaining_time": 3600,
+  "temps": { "nozzle": 220.1, "bed": 60.0, "chamber": null },
+  "ams": [{ "id": 0, "trays": [{ "slot": 0, "type": "PLA", "color": "00AE42FF", "tag_uid": "…" }] }],
+  "task": { "external_task_id": "…", "subtask_name": "…" },
+  "hms": [],
+  "observed_at": "2026-11-06T17:00:00Z"
+}
+```
+
+Farm Manager remains device authority; core stores last-known + history for UX/analytics when FM is briefly unreachable.
+
+### 14.3 Analytics tables (owned by analytics service)
+
+- `fact_job_completed` (job_id, site_id, printer_id, duration_s, success, cost_actual, grams, …)
+- `fact_printer_state_sample` (optional downsampled) or derive utilization from state-change intervals
+- `agg_utilization_daily` (printer_id|group_id|site_id, day, idle_s, run_s, fail_s)
+- `agg_hms_daily` (code, count)
+- `agg_cost_daily` (dimensions…, material, machine, labor)
+
+---
+
+## 15. Redis Streams Topology
+
+| Stream key | Producers | Consumers | Purpose |
+|------------|-----------|-----------|---------|
+| `bf.events.printer` | edge | core, analytics, gateway (SSE) | online/state/ams/hms |
+| `bf.events.job` | core, edge | core, analytics, integrations, gateway | lifecycle |
+| `bf.events.filament` | integrations | analytics, core | consumption / link changes |
+| `bf.events.alert` | core, edge | gateway, analytics | operator attention |
+| `bf.events.slice` | slicer (post-MVP) | core, analytics | slice job outcomes |
+| `bf.commands.edge.{site_id}` | core | edge | start_print, control, upload |
+
+Consumer groups: `core`, `analytics`, `integrations`, `gateway-fanout`.  
+Retention: time- or maxlen-bounded (e.g. 7 days raw events); analytics rollups are durable in Postgres.
+
+Command stream ack: edge writes `job.dispatched` / `job.failed` on the job stream; core uses idempotent state transitions.
+
+---
+
+## 16. farm-edge Internals (Go)
+
+```text
+┌─────────────────────────────────────────────────────┐
+│ bambufarmer-edge (Go)                               │
+│  ┌─────────────┐   ┌──────────────┐   ┌──────────┐  │
+│  │ FM transport│──►│ normalizer   │──►│ redis    │  │
+│  │ direct|cdp  │   │ PrinterEvent │   │ publish  │  │
+│  └─────────────┘   └──────────────┘   └──────────┘  │
+│  ┌─────────────┐   ┌──────────────┐                 │
+│  │ MQTT sub or │──►│ delta filter │                 │
+│  │ REST poller │   │ (hash state) │                 │
+│  └─────────────┘   └──────────────┘                 │
+│  ┌──────────────────────────────────────────────┐   │
+│  │ command worker ← bf.commands.edge.{site}     │   │
+│  │  upload_slice / start_print / pause|…        │   │
+│  └──────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────┘
+```
+
+Suggested libs: `eclipse/paho.mqtt.golang` or `mqtt` client; stdlib or `crypto/tls` for mTLS; `go-redis` for Streams; chromedp only if `FARM_MANAGER_TRANSPORT=cdp`.
+
+**Delta filter:** keep last snapshot hash per `external_sn`; publish only on change (or heartbeat every N minutes for liveness).  
+**Backpressure:** if Redis is down, buffer bounded in-memory then drop-oldest with metric alarm—never block printer MQTT forever.  
+**Health:** `/healthz` = process up; `/readyz` = FM session valid + Redis writable.
+
+---
+
+## 17. API Surface (gateway)
+
+Versioned public API: `/api/v1/...`. OpenAPI 3 is the contract; web may call JSON endpoints or prefer server-side gateway/core clients and only expose HTML.
+
+### 17.1 Auth
+
+| Method | Path | Notes |
+|--------|------|-------|
+| POST | `/api/v1/auth/login` | `local_insecure` only |
+| GET | `/api/v1/auth/oidc/login` | redirect |
+| GET | `/api/v1/auth/oidc/callback` | code exchange |
+| POST | `/api/v1/auth/logout` | |
+| GET | `/api/v1/auth/me` | roles + org/site |
+
+### 17.2 Fleet & jobs (MVP core)
+
+| Method | Path | Notes |
+|--------|------|-------|
+| GET | `/api/v1/sites` | |
+| GET | `/api/v1/printers` | filters: site, group, tag, state |
+| GET | `/api/v1/printers/{id}` | |
+| GET | `/api/v1/printers/{id}/liveview` | JPEG proxy via edge |
+| POST | `/api/v1/printers/actions` | bulk: pause/resume/stop/bed_clean/led/… |
+| GET | `/api/v1/artifacts` | |
+| GET | `/api/v1/jobs/{id}` | |
+| POST | `/api/v1/jobs` | create + optional auto-queue |
+| POST | `/api/v1/jobs/{id}/queue` | |
+| POST | `/api/v1/jobs/{id}/cancel` | |
+| POST | `/api/v1/jobs/{id}/reprint` | |
+| POST | `/api/v1/artifacts` | multipart `.gcode.3mf` |
+| GET | `/api/v1/artifacts` | folder tree analogue |
+| GET | `/api/v1/events/stream` | SSE (printer/job/alert) |
+
+### 17.3 Integrations & analytics
+
+| Method | Path | Notes |
+|--------|------|-------|
+| GET | `/api/v1/library/models` | Manyfold proxy |
+| POST | `/api/v1/library/import` | → artifact |
+| POST | `/api/v1/library/export` | artifact → Manyfold |
+| GET | `/api/v1/filament/spools` | Spoolman proxy |
+| PUT | `/api/v1/filament/links` | AMS ↔ spool |
+| GET | `/api/v1/analytics/utilization` | query params: from, to, group_by |
+| GET | `/api/v1/analytics/costs` | |
+| GET | `/api/v1/analytics/failures` | |
+| GET | `/api/v1/analytics/export` | CSV/JSON |
+
+### 17.4 Presets & admin
+
+| Method | Path | Notes |
+|--------|------|-------|
+| GET/POST | `/api/v1/presets/filament` | list / create |
+| GET/PATCH/DELETE | `/api/v1/presets/filament/{id}` | |
+| GET/POST | `/api/v1/presets/print` | list / create |
+| GET/PATCH/DELETE | `/api/v1/presets/print/{id}` | |
+| POST | `/api/v1/presets/import` | JSON bundle |
+| GET | `/api/v1/presets/export` | JSON bundle |
+| CRUD | `/api/v1/admin/users` | |
+| CRUD | `/api/v1/admin/rate-cards` | |
+| CRUD | `/api/v1/admin/sites` | |
+| GET/PUT | `/api/v1/admin/adapters/{site}` | non-secret config; secrets via env/refs |
+| POST | `/internal/edge/events` | optional HTTP ingest alt to Redis; token auth |
+| GET | `/healthz`, `/readyz` | |
+
+Post-MVP slicer: `/api/v1/slice/jobs` (submit/status/download).
+
+---
+
+## 18. Key Flows
+
+### 18.1 Live fleet update
+
+```text
+FM MQTT/REST → edge normalizer → bf.events.printer
+  → gateway fanout → SSE → HTMX swaps `#printer-{id}` / status nav
+  → analytics consumer → utilization intervals
+  → core (optional) → refresh printers.last_snapshot
+```
+
+### 18.2 Print job (happy path)
+
+```text
+Operator (HTMX form) → POST /jobs (artifact_id, targets, filament_map)
+  → core: Job queued → bf.events.job
+  → scheduler: assign printer (idle + model + nozzle + circuit cap)
+  → bf.commands.edge.{site}: upload if needed + start_print
+  → edge → FM REST task API
+  → edge: job.dispatched / job.progress / job.finished
+  → core: state → succeeded → JobCost actual
+  → integrations: filament.consumed (Spoolman)
+  → analytics: fact_job_completed
+```
+
+### 18.3 Attention Needed
+
+Derived in UI (and optionally core alerts) when:
+
+- `gcode_state` in `PAUSE` | `FAILED`
+- `online == false` while expected
+- `FINISH` awaiting bed_clean / confirm removal
+- HMS codes above configured severity
+
+Maps to FM’s “Attention Needed” / “Completed Task” nav buckets.
+
+---
+
+## 19. MVP Acceptance Criteria
+
+MVP is done when a single-site farm can:
+
+1. Run compose stack (`gateway`, `core`, `edge`, `analytics`, `web`, Postgres, Redis, MinIO) with `AUTH_MODE=local_insecure`
+2. Edge authenticates to Farm Manager (`direct` or `cdp`) and publishes printer deltas to Redis
+3. HTMX fleet page shows live states via SSE without browser polling FM
+4. Operator uploads `.gcode.3mf`, creates a job, prints on an idle compatible printer
+5. Pause / resume / stop / bed_clean work from UI for a selected printer
+6. Job completes → cost estimate/actual recorded (manual $/g OK)
+7. Analytics stores at least daily utilization + job success/fail counts and serves them via API (basic UI chart OK)
+8. Spoolman and Manyfold may be stubs/mocks in MVP if real instances unavailable—but ports and config exist
+9. Entire first-party codebase builds with the Go toolchain only
+10. Filament + print presets: CRUD, JSON import/export, attachable on job composer (empty catalog OK on first boot)
+11. Integration questions in `docs/MVP_CHECKLIST.md` section A answered or defaults explicitly accepted
+
+Out of MVP: OrcaSlicer, OIDC production hardening, Fleet Hub, multi-site, firmware upgrade UI, live RTSPS video (JPEG OK).
+
+**Design-phase exit:** scaffold builds via Compose **and** checklist §C Product items checked.
+
+---
+
+## 20. Phased Roadmap
+
+### Phase 0 — Foundations
+- Go monorepo / multi-module layout + compose
+- Postgres schema, Redis Streams topics, gateway with `AUTH_MODE=local_insecure` + OIDC stubs
+- **analytics** service skeleton (stream consumer + empty rollup tables + health)
+- templ + HTMX shell with Farm-like design tokens (fleet page placeholder)
+
+### Phase 1 — Farm Manager edge MVP
+- Go farm-edge FM adapter: auth (`direct` or `cdp`), devices, MQTT or REST-delta events → Redis Streams
+- HTMX fleet UI live updates via SSE fragment swaps
+- Manual job: upload `.gcode.3mf` → print on selected idle printers
+- Analytics ingest of printer/job events (basic utilization)
+
+### Phase 2 — Job system
+- Full state machine, tags/groups, circuit/power concurrency
+- Bulk pause/resume/stop/bed_clean from UI (FM-like action bar; Alpine selection)
+- Cost estimates + actuals (manual filament prices OK)
+
+### Phase 3 — Integrations + analytics UI
+- Spoolman adapter + AMS linking + consumption on finish
+- Manyfold import/export
+- Analytics dashboards v1 (utilization, fail rates, cost)
+
+### Phase 4 — Multi-site + production auth
+- Multiple edge agents / sites
+- Turn on `AUTH_MODE=oidc` as default for exposed deploys; richer RBAC; exports/API for MES
+
+### Phase 5 — Hardening (+ optional Fleet Hub)
+- Failure failover policies, alerting (webhook/email)
+- Optional Fleet Hub adapter behind same trait
+- Performance & security review; discourage `local_insecure` outside LAN
+
+### Phase 6 — Slicer (post-MVP)
+- `bambufarmer-slicer` + OrcaSlicer container
+- Profile management; async slice jobs → `.gcode.3mf` into object store / job composer
+- Feed slice metadata into costing + analytics
+
+---
+
+## 21. Risks & Mitigations
+
+| Risk | Mitigation |
+|------|------------|
+| Farm Manager API unofficial / fragile | Isolate in Go edge adapter; version-pin tested FM server builds; contract tests against captured fixtures |
+| mTLS / CDP fragility | Support `direct` and `cdp` transports; edge-only secrets; never leak to browser |
+| Polling temptation | Code review rule: UI may not call device list on interval; use Redis→SSE → HTMX swaps |
+| HTMX fleet morph cost at scale | Row-level OOB targets; throttle SSE; coarsen updates; virtualize table if needed |
+| `local_insecure` exposed publicly | Boot warning; deploy docs; prefer OIDC whenever gateway leaves the LAN |
+| Filament estimate inaccurate | Prefer slicer metadata (post-MVP Orca / Studio); allow manual override; Spoolman reconcile |
+| Manyfold API pre-v1 | Adapter isolation; pin tested Manyfold version |
+| OrcaSlicer image size / CPU | Separate optional container; queue + concurrency limits; not in MVP |
+| Trademark / UI cloning | Inspired-by theme; original assets; no Bambu logos without permission |
+| Legal: reverse-engineered FM APIs | Document as interop/best-effort; no Bambu binaries redistributed; optional Fleet Hub later for documented API path |
+
+---
+
+## 22. Repository Layout (proposed)
+
+```text
+BambuFarmer/
+  docs/
+    DESIGN_SPEC.md          ← this document
+  deploy/
+    docker-compose.yml
+    podman/
+    env.example
+  services/
+    gateway/                # Go
+    core/                   # Go
+    edge/                   # Go
+    integrations/           # Go
+    analytics/              # Go — dedicated
+    web/                    # Go + templ + HTMX
+    slicer/                 # post-MVP — OrcaSlicer wrapper (Go)
+  packages/
+    api/                    # shared request/response types
+    events/                 # shared stream envelopes
+    openapi/                # OpenAPI specs / generated clients if any
+  scripts/
+```
+
+Each `services/*` builds to its own container image tagged `bambufarmer/<name>:<version>`. Prefer a Go workspace (`go.work`) at repo root.
+
+---
+
+## 23. Remaining Open Decisions
+
+Resolved: Farm Manager primary · **Go everywhere** · Redis Streams · OIDC-ready + `local_insecure` · **templ + HTMX** · dedicated analytics · per-install presets · OrcaSlicer post-MVP · SSE default.
+
+Track answers in [`MVP_CHECKLIST.md`](./MVP_CHECKLIST.md). Still open:
+
+1. **FM transport default:** CDP vs direct mTLS (and edge OS)
+2. **Multi-tenancy:** single-org MVP vs multi-tenant later
+3. **Deploy shape:** separate `web` + `gateway` vs combine
+4. **Spoolman / Manyfold:** live URLs vs stub for MVP
+5. **Preset import:** which files/formats you will supply first
+
+---
+
+## 24. References
+
+- [Bambu Farm Manager Wiki](https://wiki.bambulab.com/en/software/bambu-farm-manager) — **our control plane**
+- [OpenBambuFarmAPI](https://github.com/ATILLLLITA/OpenBambuFarmAPI) — farm protocol research (MQTT, bind, REST)
+- [GeraldCox bambu-farm-manager-script API_Reference](https://github.com/GeraldCox/bambu-farm-manager-script/blob/main/API_Reference.md) — FM REST + circuit-aware batching
+- [Fleet Hub Product Intro](https://wiki.bambulab.com/en/acc/manual/fleet-hub) — optional future adapter
+- [Fleet Hub Developer Center](https://bambulab.com/en/fleet-hub/developer)
+- [Bambu Fleet Hub HTTP API v1.0.0](https://portal.bblmw.com/fleet-hub/wb76oog4i8k/files/Bambu%20Fleet%20Hub%20HTTP%20API%20EN%20v1.0.0.pdf)
+- [Spoolman](https://github.com/Donkie/Spoolman)
+- [Manyfold REST API](https://github.com/manyfold3d/manyfold)
+- [Bambu Farm Manager Features](https://wiki.bambulab.com/en/software/bambu-farm-features) — UI behaviors we mirror
+- [OrcaSlicer CLI](https://www.orcaslicer.com/wiki/cli/cli_mode) — post-MVP slicer dependency
+- [templ](https://templ.guide/) — Go HTML components
+- [HTMX](https://htmx.org/) — locked web interactivity model
+
+---
+
+## Appendix A — Why this split?
+
+| Concern | Module | Why separate |
+|---------|--------|--------------|
+| Public HTTP + auth | gateway | Swap IdP / rate limits without touching jobs |
+| Domain logic | core | Stable job/cost source of truth |
+| Hostile/fragile LAN protocols | edge | Crash/restart without taking down UI; keeps certs local |
+| Third-party APIs | integrations | Spoolman/Manyfold churn isolated |
+| Heavy reads / reports | analytics | Dedicated service; won’t lock job OLTP |
+| UI | web (templ+HTMX) | Deploy frontend cadence separately |
+| CPU-heavy slicing | slicer | Optional; isolate OrcaSlicer from control plane |
+
+All modules are **Go**; the split is about process/trust boundaries, not languages.
+
+Bundling into fewer containers is fine for tiny farms (combine gateway+web+core); keep **edge** separate whenever printers are on a different trust/network boundary; keep **analytics** separate once history grows; keep **slicer** optional.
+
+---
+
+## Appendix B — Language unification rationale (v0.5)
+
+Edge and web were briefly locked to Rust (edge reliability + Leptos UI). That created two toolchains for little shared-type gain once services were split.
+
+**v0.5:** Go for edge and web as well.
+
+| Kept | Dropped for MVP |
+|------|-----------------|
+| Module boundaries (edge/core/gateway/…) | Rust edge |
+| Event-driven Redis design | Leptos / WASM |
+| Farm Manager–mirroring UX goals | Dual Plan A/B frontend tracks |
+
+Revisit Rust later only if a measured hotspot (e.g. MQTT fan-in) demands it—not as a default.
