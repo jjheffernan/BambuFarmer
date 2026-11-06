@@ -4,22 +4,43 @@
 **Container:** `localhost/bambufarmer-integrations`  
 **Role:** Optional Spoolman + Manyfold adapters behind stable ports  
 
+Upstream references:
+
+- Spoolman: [Donkie/Spoolman](https://github.com/Donkie/Spoolman) — REST `/api/v1/*` (no built-in auth)
+- Manyfold: [manyfold3d/manyfold](https://github.com/manyfold3d/manyfold) — REST v0, `Accept: application/vnd.manyfold.v0+json`
+
 ---
 
 ## 1. Responsibility
 
 | Owns | Does not own |
 |------|----------------|
-| Spoolman HTTP/WS client | Job scheduling |
-| Manyfold OAuth/token + TUS upload | FM control |
-| Filament consume on `job.finished` | Rate card CRUD |
-| Library import/export orchestration | UI |
+| Spoolman HTTP client | Job scheduling |
+| Manyfold HTTP client (PAT / OAuth) | FM control |
+| Filament consume on `job.finished` (next) | Rate card CRUD |
+| Library import/export orchestration (next) | UI |
 
 **MVP rule:** live URL optional. Empty `SPOOLMAN_URL` / `MANYFOLD_URL` → adapter disabled; service still healthy.
 
 ---
 
-## 2. Ports (Go interfaces)
+## 2. Layout
+
+```text
+services/integrations/
+  main.go
+  app/
+    config/
+    status/
+    spoolman/     # GET /api/v1/spool
+    manyfold/     # GET /models (JSON-LD)
+    httpapi/      # BambuFarmer routes
+  tests/
+```
+
+---
+
+## 3. Ports (Go interfaces)
 
 ```go
 type FilamentProvider interface {
@@ -35,28 +56,24 @@ type LibraryProvider interface {
 }
 ```
 
+Today: `ListSpools` / `ListModels` implemented on concrete clients; full interfaces land with consume + import/export.
+
 ---
 
-## 3. HTTP (proxied via gateway)
+## 4. HTTP (proxied via gateway)
 
 | Path | Behavior |
 |------|----------|
-| `GET /api/v1/integrations/status` | configured? (done stub) |
-| `GET /api/v1/filament/spools` | Spoolman list or 503/empty if unset |
-| `PUT /api/v1/filament/links` | AMS tray ↔ spool id |
-| `GET /api/v1/library/models` | Manyfold search |
-| `POST /api/v1/library/import` | → object store + core artifact |
-| `POST /api/v1/library/export` | artifact → Manyfold |
+| `GET /api/v1/integrations/status` | configured? + upstream repo refs |
+| `GET /api/v1/filament/spools` | Spoolman `GET /api/v1/spool?limit=1000` or empty if unset |
+| `GET /api/v1/library/models` | Manyfold `GET /models` or empty if unset |
+| `PUT /api/v1/filament/links` | AMS tray ↔ spool id (next) |
+| `POST /api/v1/library/import` | → object store + core artifact (next) |
+| `POST /api/v1/library/export` | artifact → Manyfold (next) |
 
-Manyfold: OAuth client_credentials when secrets set; optional bearer token path when instance allows.
+**Manyfold auth:** prefer `MANYFOLD_TOKEN` (personal access token). Falls back to OAuth2 `client_credentials` when `MANYFOLD_CLIENT_ID` / `SECRET` are set. Always send `Accept: application/vnd.manyfold.v0+json`.
 
----
-
-## 4. Workers
-
-- Subscribe `bf.events.job` → on `job.finished` compute grams → Spoolman use  
-- Subscribe Spoolman websocket → optional cache invalidate  
-- Emit `bf.events.filament`  
+**Spoolman auth:** Spoolman has none; `SPOOLMAN_API_TOKEN` is forwarded as `X-API-Key` + `Authorization: Bearer` for reverse proxies.
 
 ---
 
@@ -68,8 +85,8 @@ Manyfold: OAuth client_credentials when secrets set; optional bearer token path 
 
 ## 6. MVP milestones
 
-1. Status stub (done)  
-2. Spoolman list when URL set  
-3. Manyfold list when URL set  
+1. Status stub — **done**  
+2. Spoolman list when URL set — **done**  
+3. Manyfold list when URL set — **done**  
 4. Consume filament on job finish  
 5. Import/export happy paths

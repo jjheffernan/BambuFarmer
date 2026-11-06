@@ -3,7 +3,7 @@ package tests
 import (
 	"testing"
 
-	"github.com/jjheffernan/BambuFarmer/services/integrations/internal/status"
+	"github.com/jjheffernan/BambuFarmer/services/integrations/app/status"
 )
 
 func TestURL(t *testing.T) {
