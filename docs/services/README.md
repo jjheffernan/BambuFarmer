@@ -13,12 +13,15 @@ Per-module design docs that expand [`DESIGN_SPEC.md`](../DESIGN_SPEC.md) into im
 | **web** | [web.md](./web.md) | templ + HTMX operator UI |
 | **slicer** | [slicer.md](./slicer.md) | Post-MVP OrcaSlicer wrapper |
 
+Cross-cutting: [`DEPLOYMENT_MODES.md`](../DEPLOYMENT_MODES.md) (LAN vs OIDC) · [`INSTALL.md`](../INSTALL.md) (wizard + releases).
+
 ## Cross-cutting contracts
 
 - **Events:** [`packages/events`](../../packages/events) — Redis Streams keys + envelope
 - **API DTOs:** [`packages/api`](../../packages/api)
 - **DB:** [`packages/db`](../../packages/db) — migrations owned with core-facing schema
-- **Config:** env vars in [`deploy/env.example`](../../deploy/env.example)
+- **Config / secrets:** [`.env.example`](../../.env.example) → `.env` (gitignored)
+- **Bambu integration:** [`packages/farm`](../../packages/farm) — `ControlPlane` abstraction (edge-only implementations)
 
 ## Dependency direction
 

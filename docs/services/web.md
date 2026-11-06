@@ -27,8 +27,9 @@ Prefer browsing via **gateway** (`:18080`) so API + UI share origin. Direct `:13
 | `/presets` | Filament + print presets (versioned) |
 | `/analytics` | Charts from analytics API |
 | `/admin` | Site, rates, adapters, lan users |
+| `/setup` | First-run install wizard (blocked by gateway until complete) |
 
-Nav shell exists today; panels are placeholders.
+Fleet/SSE and setup wizard are live; other panels are still light.
 
 ---
 

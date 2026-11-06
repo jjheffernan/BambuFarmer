@@ -193,16 +193,16 @@ Do not invent a parallel protocol; stay aligned with observed FM Client ↔ Serv
 
 ### 5.3 Adapter interface (edge)
 
+Implemented in Go as [`packages/farm.ControlPlane`](../packages/farm/plane.go). Backends: `fm_native`, `fixture`, `cdp` (stub), later `fleet_hub`. The edge **agent** (`services/edge/internal/agent`) is the only runtime that calls a plane.
+
 ```text
-trait FarmControlPlane {
-  discover() -> Vec<DiscoveredPrinter>
-  list_devices() -> Vec<PrinterSnapshot>
-  subscribe_events() -> Stream<PrinterEvent>   // preferred
-  start_print(req: PrintRequest) -> ExternalJobRef
-  control(dev_id, Pause|Resume|Stop|BedClean)
-  upload_slice(file) -> FileRef                 // path/hash on FM server
-  get_liveview(dev_id) -> ImageBlob
+farm.ControlPlane {
+  Connect / Ready / Captain
+  ListDevices() -> []DeviceReport
+  Control(sn, Pause|Resume|Stop|BedClean)
+  Upload3MF / StartPrint / LiveviewJPEG
 }
+// optional: farm.EventSource.Subscribe() for MQTT push
 ```
 
 Multiple edges can register with core (multi-site farms). Each edge has a `site_id`.
@@ -515,6 +515,8 @@ Pricing tables and quote/actual calculation live in **core**. Analytics *reads* 
 
 Auth is **LAN mode by default** for farms that do not want a public URL or IdP, and **OIDC-ready** for secured/URL’d installs.
 
+**Full comparison (auth + network placement + secrets):** [`DEPLOYMENT_MODES.md`](./DEPLOYMENT_MODES.md).
+
 | Mode | Env | Behavior |
 |------|-----|----------|
 | **`lan`** | `AUTH_MODE=lan` | **LAN mode (insecure).** Local username/password (Argon2id). No OIDC, no public URL required. Bind to LAN/VPN only. Loud boot warning. Default for MVP compose. |
@@ -528,6 +530,7 @@ Implementation notes:
 - Session/JWT issuance stays in gateway so swapping modes does not rewrite core
 - OIDC code paths are stubbed/validated whenever `AUTH_MODE=oidc`
 - Single-site MVP; multi-site later
+- Edge / Farm Manager secrets stay LAN-local in **both** modes (see §10.3)
 
 ### 10.2 Roles (initial)
 
@@ -668,15 +671,19 @@ C++ reserved for any future native protocol helpers if required; not needed for 
 
 ### 13.1 Config (env examples)
 
+Secrets and config live in a **repo-root `.env`** (gitignored). Template: [`.env.example`](../.env.example). Modes: [`DEPLOYMENT_MODES.md`](./DEPLOYMENT_MODES.md).
+
 ```bash
+cp .env.example .env   # then edit secrets
+
 # gateway / auth
-AUTH_MODE=lan                     # insecure LAN mode (default)
-# AUTH_MODE=oidc
+AUTH_MODE=lan                     # insecure LAN mode (default); use oidc for URL’d deploys
 SESSION_SECRET=...
 
-# edge — mirror FM Client
+# edge — mirror FM Client (printer LAN in every mode)
 FARM_MANAGER_TRANSPORT=fm_native  # or: cdp
-FARM_MANAGER_URL=https://192.168.1.20:8888
+FARM_MANAGER_URL=http://192.168.1.20:8888
+FARM_MANAGER_PASSWORD=...
 
 # costing
 CURRENCY=USD
@@ -689,7 +696,7 @@ SPOOLMAN_URL=
 MANYFOLD_URL=
 ```
 
-Full knobs: `deploy/env.example`.
+Compose: `make up` → `--env-file .env -f deploy/compose.yml` (creates `.env` from the example if missing).
 
 ### 13.2 Compose topology (illustrative)
 
@@ -897,6 +904,9 @@ Versioned public API: `/api/v1/...`. OpenAPI 3 is the contract; web may call JSO
 | CRUD | `/api/v1/admin/rate-cards` | |
 | CRUD | `/api/v1/admin/sites` | |
 | GET/PUT | `/api/v1/admin/adapters/{site}` | non-secret config; secrets via env/refs |
+| GET/POST | `/api/v1/setup` | first-run install wizard status / save / complete |
+| POST | `/api/v1/setup/reset` | re-open wizard (dev) |
+| GET | `/api/v1/version` | build version / commit |
 | POST | `/internal/edge/events` | optional HTTP ingest alt to Redis; token auth |
 | GET | `/healthz`, `/readyz` | |
 
@@ -967,16 +977,16 @@ Out of MVP: OrcaSlicer, forcing OIDC, Fleet Hub, multi-site, firmware upgrade UI
 ## 20. Phased Roadmap
 
 ### Phase 0 — Foundations
-- Go monorepo / multi-module layout + compose
-- Postgres schema, Redis Streams topics, gateway with `AUTH_MODE=lan` + OIDC stubs
-- **analytics** service skeleton (stream consumer + empty rollup tables + health)
-- templ + HTMX shell with Farm-like design tokens (fleet page placeholder)
+- Go monorepo / multi-module layout + compose ✅
+- Postgres schema, Redis Streams topics, gateway with `AUTH_MODE=lan` + OIDC stubs ✅
+- **analytics** service skeleton (stream consumer + rollup tables + health) ✅
+- HTMX shell with Farm-like design tokens + SSE fleet ✅ (templ migration optional)
 
 ### Phase 1 — Farm Manager edge MVP
-- Go farm-edge FM adapter: **fm_native** (mirror Client) or CDP escape hatch; devices; MQTT or REST-delta → Redis Streams
-- HTMX fleet UI live updates via SSE fragment swaps
-- Manual job: upload `.gcode.3mf` → print on selected idle printers
-- Analytics ingest of printer/job events (basic utilization)
+- Go farm-edge FM adapter: **fm_native** (mirror Client) or CDP escape hatch; devices; REST-delta → Redis Streams ✅ (fixture mode + live path; MQTT later)
+- HTMX fleet UI live updates via SSE ✅ (fixture→Redis→SSE path)
+- Manual job: upload `.gcode.3mf` → print on selected idle printers ⏳ (job API + sample 3mf; FM start_print stub)
+- Analytics ingest of printer/job events (basic utilization) ✅
 
 ### Phase 2 — Job system
 - Full state machine, tags/groups, circuit/power concurrency

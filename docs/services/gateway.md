@@ -41,6 +41,8 @@
 | `oidc` | Standard OIDC code flow |
 | `local_insecure` | Alias of `lan` |
 
+**LAN vs OIDC / URL’d placement, secrets inventory:** [`../DEPLOYMENT_MODES.md`](../DEPLOYMENT_MODES.md).
+
 Stub today: `/api/v1/auth/me`, `/api/v1/auth/login` (lan accepts any non-empty user).
 
 ---
@@ -61,7 +63,7 @@ services/gateway/
 
 ## 5. Config
 
-`AUTH_MODE`, `SESSION_SECRET`, `CORE_URL`, `WEB_URL`, `ANALYTICS_URL`, `INTEGRATIONS_URL`, `EDGE_URL`, `REDIS_URL`, OIDC_* when mode=oidc.
+From repo-root `.env` (see [`.env.example`](../../.env.example)): `AUTH_MODE`, `SESSION_SECRET`, `CORE_URL`, `WEB_URL`, `ANALYTICS_URL`, `INTEGRATIONS_URL`, `EDGE_URL`, `EDGE_TOKEN`, `REDIS_URL`, OIDC_* when mode=oidc.
 
 ---
 

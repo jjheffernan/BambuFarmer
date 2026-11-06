@@ -6,36 +6,41 @@
 **Depends on:** Redis; Farm Manager Server; optional FM Client (CDP)  
 **Consumers:** gateway (status/liveview proxy), core (commands), analytics (events)
 
-Deep protocol research: [`edge-farm-manager.md`](./edge-farm-manager.md).
+Deep protocol research: [`edge-farm-manager.md`](./edge-farm-manager.md).  
+Shared abstraction: [`packages/farm`](../../packages/farm) (`farm.ControlPlane`).
 
 ---
 
 ## 1. Responsibility
 
-Edge is the **only** process that speaks Farm Manager. It:
+Edge is the **only** process that speaks Bambu farm backends. It:
 
-1. Authenticates like the FM Client (`fm_native` or `cdp`)  
-2. Ingests printer telemetry (MQTT preferred, REST delta fallback)  
-3. Publishes normalized events to Redis Streams  
-4. Executes print/control/upload commands from `bf.commands.edge.{site_id}`  
-5. Never stores operator passwords for BambuFarmer users (FM service account only)
+1. Selects a `farm.ControlPlane` (`fm_native` | `fixture` | `cdp` stub | later `fleet_hub`)  
+2. Runs the **edge agent** (poll / track / delta / Redis publish / command consumer)  
+3. Never stores BambuFarmer operator passwords (FM service account only)
 
 ---
 
-## 2. Process layout
+## 2. Architecture
 
 ```text
 ┌─ HTTP (:8080) ─────────────────────────────────────┐
-│  GET /healthz /readyz                              │
-│  GET /api/v1/edge/status                           │
-│  GET /api/v1/edge/liveview/{sn}  (JPEG proxy)      │
+│  GET  /api/v1/edge/status                          │
+│  POST /api/v1/edge/control/{sn}                    │
 └────────────────────────────────────────────────────┘
-┌─ Workers ──────────────────────────────────────────┐
-│  auth refresher (JWT)                              │
-│  event source (MQTT | poll+delta) → Redis publish  │
-│  command consumer ← Redis bf.commands.edge.{site}  │
+┌─ agent ────────────────────────────────────────────┐
+│  farm.ControlPlane  ←── bambu.Open(config)         │
+│       │                                            │
+│       ├─ native (fm_native REST)                   │
+│       ├─ fixture (fixtures/fm JSON)                │
+│       ├─ cdp (stub)                                │
+│       └─ none                                      │
+│  tracker (printerstate) + delta filter             │
+│  bus → bf.events.printer / ← bf.commands.edge.*    │
 └────────────────────────────────────────────────────┘
 ```
+
+`packages/farm.ControlPlane` methods: `Connect`, `Captain`, `ListDevices`, `Control`, `Upload3MF`, `StartPrint`, `LiveviewJPEG`.
 
 ---
 
@@ -44,59 +49,42 @@ Edge is the **only** process that speaks Farm Manager. It:
 | Env | Default | Notes |
 |-----|---------|-------|
 | `SITE_ID` | `default` | Single-site MVP |
-| `FARM_MANAGER_URL` | required for live | e.g. `https://192.168.x.x:8888` |
+| `FARM_MANAGER_URL` | | Live FM → `fm_native` (or `cdp` if transport set) |
 | `FARM_MANAGER_TRANSPORT` | `fm_native` | or `cdp` |
-| `FARM_MANAGER_USER` / `PASSWORD` | | Local FM admin/service user |
-| `EDGE_CERT_DIR` | | Client cert material when native |
-| `CDP_URL` | | e.g. `http://127.0.0.1:9222` |
-| `REDIS_URL` | required | Streams |
-| `HTTP_ADDR` | `:8080` | Status API only |
+| `FARM_MANAGER_USER` / `PASSWORD` | | FM service account |
+| `EDGE_FIXTURE_DIR` | | Used when URL empty |
+| `REDIS_URL` | | Streams |
+| `HTTP_ADDR` | `:8080` | |
 
 ---
 
-## 4. Packages (target)
+## 4. Packages
 
 ```text
+packages/farm/                 # ControlPlane + DeviceReport + PrintRequest
 services/edge/internal/
-  config/
-  fm/            # FarmControlPlane implementation
-  mqtt/
-  normalize/
-  delta/
-  bus/
+  agent/                       # edge runtime
+  bambu/                       # factory + native|fixture|cdp|none
+  fm/                          # low-level FM HTTP (native only)
+  tracker/ normalize/ delta/
+  bus/ fixture/ config/
 ```
-
-Shared types: `packages/events`, `packages/api` (`PrinterSummary` → expand to full snapshot DTO).
 
 ---
 
 ## 5. MVP milestones
 
-| Milestone | Done when |
-|-----------|-----------|
-| M0 | Status reports transport + `connected=false` (today) |
-| M1 | `fm_native` or CDP login + `GET /devices` → status JSON |
-| M2 | Delta poll → `bf.events.printer` |
-| M3 | Command: pause/resume/stop/bed_clean |
-| M4 | Upload 3MF + start print command path |
-| M5 | MQTT reports (if broker access proven) |
+| Milestone | Status |
+|-----------|--------|
+| M1 `farm.ControlPlane` + agent + native/fixture | **done** |
+| M2 Redis delta publish + commands | **done** (StartPrint stub on native) |
+| M3 HTTP control | **done** |
+| M4 Upload3MF + StartPrint on native | next |
+| M5 MQTT EventSource | later |
+| CDP real implementation | later |
 
 ---
 
 ## 6. Readiness
 
-`/readyz` should fail when:
-
-- Redis unreachable, or  
-- FM session invalid and reconnect exhausted  
-
-`/healthz` = process up (even if FM down) so orchestrators can restart cleanly.
-
----
-
-## 7. Non-goals
-
-- Binding/unbinding printers (use official Client for farm topology changes in MVP)  
-- Firmware OTA UI  
-- Replacing FM Server  
-- Serving the operator SPA
+`/healthz` = process up. `/readyz` should eventually require Redis + plane `Ready()` (tighten next).

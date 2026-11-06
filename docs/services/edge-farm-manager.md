@@ -162,41 +162,48 @@ GeraldCox docs also capture a rich `POST /task` body used by the Client for mult
 
 ```text
 services/edge/
-  main.go                 # process, health, config
+  main.go                 # process, health, status, control
   internal/
     config/               # env: SITE_ID, FARM_MANAGER_*, REDIS_URL, CDP_URL
+    adapter/              # Connect + REST poll + Status (M1)
     fm/
-      client.go           # HTTP client + headers + JWT refresh
-      auth.go             # tickets → tokens (challenge hash)
-      devices.go          # list / get / opt
-      tasks.go            # create / list / launch
-      files.go            # upload3mf, liveview fetch
-      transport/
-        native.go         # fm_native mTLS / TLS dial
-        cdp.go            # CDP-injected fetch
-    mqtt/                 # optional report subscriber
-    normalize/            # FM JSON → packages/api + events
+      client.go           # HTTP client + BBL headers + JWT
+      auth.go             # tickets → tokens (+ HashPasswordChallenge helper)
+      devices.go          # list / get
+      control.go          # POST /device/{sn}/opt
+      # tasks.go / files.go / transport/cdp — planned
+    tracker/              # per-SN packages/printerstate.Machine
+    normalize/            # FM JSON → packages/api.PrinterSnapshot
     delta/                # snapshot hash filter
-    bus/                  # Redis Streams publish + command consumer
+    mqtt/                 # optional report subscriber (planned)
+    bus/                  # Redis Streams publish + command consumer (planned)
+packages/printerstate/    # IDLE/PREPARE/RUNNING/PAUSE/FINISH/FAILED + attention buckets
 ```
 
 ### Go interfaces
 
+Canonical types live in [`packages/farm`](../../packages/farm):
+
 ```go
-type FarmControlPlane interface {
-    Captain(ctx context.Context) (CaptainInfo, error)
-    ListDevices(ctx context.Context) ([]PrinterSnapshot, error)
-    Control(ctx context.Context, sn string, opt ControlOpt) error
-    Upload3MF(ctx context.Context, r io.Reader, name string) (FileRef, error)
+// farm.ControlPlane — implemented by edge/internal/bambu/{native,fixture,cdp,none}
+type ControlPlane interface {
+    Kind() Kind
+    Connect(ctx context.Context) error
+    Ready(ctx context.Context) error
+    Captain(ctx context.Context) (api.CaptainInfo, error)
+    ListDevices(ctx context.Context) ([]DeviceReport, error)
+    Control(ctx context.Context, sn string, opt api.ControlOpt) error
+    Upload3MF(ctx context.Context, name string, r io.Reader) (FileRef, error)
     StartPrint(ctx context.Context, req PrintRequest) (ExternalJobRef, error)
     LiveviewJPEG(ctx context.Context, sn string) ([]byte, error)
 }
 
 type EventSource interface {
-    // Subscribe yields normalized printer events (MQTT or poll+delta).
-    Subscribe(ctx context.Context) (<-chan events.Envelope, error)
+    Subscribe(ctx context.Context) (<-chan DeviceReport, error) // MQTT later
 }
 ```
+
+Edge agent (`internal/agent`) polls `ListDevices`, runs `printerstate` tracking, publishes Redis deltas, and consumes commands via the same plane.
 
 ### Redis
 
