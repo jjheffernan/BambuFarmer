@@ -33,6 +33,16 @@ updates:
         patterns: ["*"]
 
   - package-ecosystem: gomod
+    directory: /packages/db
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    labels: [dependencies, go]
+    groups:
+      go-packages:
+        patterns: ["*"]
+
+  - package-ecosystem: gomod
     directory: /packages/events
     schedule:
       interval: weekly
@@ -43,7 +53,37 @@ updates:
         patterns: ["*"]
 
   - package-ecosystem: gomod
+    directory: /packages/farm
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    labels: [dependencies, go]
+    groups:
+      go-packages:
+        patterns: ["*"]
+
+  - package-ecosystem: gomod
     directory: /packages/httpserver
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    labels: [dependencies, go]
+    groups:
+      go-packages:
+        patterns: ["*"]
+
+  - package-ecosystem: gomod
+    directory: /packages/printerstate
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    labels: [dependencies, go]
+    groups:
+      go-packages:
+        patterns: ["*"]
+
+  - package-ecosystem: gomod
+    directory: /packages/version
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
