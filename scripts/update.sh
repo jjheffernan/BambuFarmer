@@ -76,4 +76,5 @@ Update complete.
 
 Schema: core applies forward migrations on boot (see docs/DATABASE.md).
 Lab wipe/reseed only: make db-reset  (destructive)
+Health: ./scripts/bf doctor
 EOF

@@ -11,16 +11,22 @@ if ! command -v "$ENGINE" >/dev/null 2>&1; then
   if command -v docker >/dev/null 2>&1; then
     ENGINE=docker
   else
-    echo "error: need podman or docker (set ENGINE=…)" >&2
-    exit 1
+    ENGINE=""
   fi
 fi
 
-COMPOSE=("$ENGINE" compose --env-file .env -f deploy/compose.yml)
+COMPOSE_FILE="deploy/compose.yml"
+
+bf_require_engine() {
+  if [[ -z "${ENGINE}" ]]; then
+    echo "error: need podman or docker (set ENGINE=…)" >&2
+    exit 1
+  fi
+}
 
 bf_require_env() {
   if [[ ! -f .env ]]; then
-    echo "error: .env missing — run scripts/setup.sh first (or: cp .env.example .env)" >&2
+    echo "error: .env missing — run: ./scripts/bf setup" >&2
     exit 1
   fi
 }
@@ -33,8 +39,23 @@ bf_ensure_env() {
 }
 
 bf_compose() {
+  bf_require_engine
   bf_require_env
-  "${COMPOSE[@]}" "$@"
+  if [[ -f .env ]]; then
+    "$ENGINE" compose --env-file .env -f "$COMPOSE_FILE" "$@"
+  else
+    "$ENGINE" compose -f "$COMPOSE_FILE" "$@"
+  fi
+}
+
+# Like bf_compose but allows missing .env (doctor / early uninstall).
+bf_compose_config() {
+  bf_require_engine
+  if [[ -f .env ]]; then
+    "$ENGINE" compose --env-file .env -f "$COMPOSE_FILE" "$@"
+  else
+    "$ENGINE" compose -f "$COMPOSE_FILE" "$@"
+  fi
 }
 
 bf_health_wait() {
@@ -51,3 +72,15 @@ bf_health_wait() {
   echo "warning: timed out waiting for $url" >&2
   return 1
 }
+
+bf_version() {
+  if [[ -f VERSION ]]; then
+    tr -d '[:space:]' < VERSION
+  else
+    echo "0.0.0-unknown"
+  fi
+}
+
+bf_pass() { printf '  PASS  %s\n' "$*"; }
+bf_warn() { printf '  WARN  %s\n' "$*"; DOCTOR_WARNS=$((DOCTOR_WARNS + 1)); }
+bf_fail() { printf '  FAIL  %s\n' "$*"; DOCTOR_FAILS=$((DOCTOR_FAILS + 1)); }

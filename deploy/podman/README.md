@@ -22,16 +22,18 @@ Do **not** combine these into a fat “all-in-one” app container. Backing serv
 From repo root:
 
 ```bash
-./scripts/setup.sh     # preferred: .env + build + up
-# or: make setup
-# or: make env && make up
+./scripts/bf setup     # preferred: .env + build + up
+./scripts/bf doctor
+# or: make setup && make doctor
 ```
 
 Routine upgrades (keeps Postgres/Redis volumes):
 
 ```bash
-./scripts/update.sh    # or: make update
+./scripts/bf update    # or: make update
 ```
+
+Uninstall: `./scripts/bf uninstall --yes` (add `--volumes` to wipe DB).
 
 See [`../../scripts/README.md`](../../scripts/README.md). Secrets: [`docs/DEPLOYMENT_MODES.md`](../../docs/DEPLOYMENT_MODES.md).
 

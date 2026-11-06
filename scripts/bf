@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# BambuFarmer operator CLI — thin dispatcher for deploy scripts.
+# Usage: ./scripts/bf <command> [args…]
+set -euo pipefail
+
+DIR="$(cd "$(dirname "$0")" && pwd)"
+cmd="${1:-help}"
+if [[ $# -gt 0 ]]; then
+  shift
+fi
+
+case "$cmd" in
+  -h|--help|help) exec "$DIR/help.sh" "$@" ;;
+  setup)          exec "$DIR/setup.sh" "$@" ;;
+  update)         exec "$DIR/update.sh" "$@" ;;
+  uninstall)      exec "$DIR/uninstall.sh" "$@" ;;
+  doctor)         exec "$DIR/doctor.sh" "$@" ;;
+  version)
+    # shellcheck source=lib.sh
+    source "$DIR/lib.sh"
+    echo "$(bf_version)"
+    ;;
+  *)
+    echo "unknown command: $cmd" >&2
+    echo "Run: ./scripts/bf help" >&2
+    exit 1
+    ;;
+esac

@@ -3,19 +3,25 @@
 ## Quick path
 
 ```bash
-./scripts/setup.sh            # creates .env if missing, builds, starts stack
-# or: make setup
+./scripts/bf setup            # creates .env if missing, builds, starts stack
+./scripts/bf doctor           # preflight + health
 open http://127.0.0.1:18080   # gateway redirects to /setup until complete
 ```
 
 Upgrade later without wiping data:
 
 ```bash
-./scripts/update.sh           # git pull --ff-only, rebuild, recreate containers
-# or: make update
+./scripts/bf update           # git pull --ff-only, rebuild, recreate containers
 ```
 
-Scripts: [`scripts/README.md`](../scripts/README.md).
+Tear down:
+
+```bash
+./scripts/bf uninstall --yes              # stop containers, keep volumes
+./scripts/bf uninstall --yes --volumes    # also delete Postgres/Redis data
+```
+
+CLI overview: `./scripts/bf help` · [`scripts/README.md`](../scripts/README.md).
 
 Complete the wizard, then use the fleet UI. Secrets (FM password, OIDC client secret, etc.) stay in **`.env`** — the wizard only stores non-secret site defaults in Postgres.
 

@@ -1,25 +1,31 @@
-# CLI deploy scripts
+# BambuFarmer CLI
 
-Podman-first helpers for bring-up and upgrades. From the repo root:
-
-```bash
-./scripts/setup.sh          # create .env if needed, build, up
-./scripts/update.sh         # git pull (ff-only), rebuild, up (keeps volumes)
-```
-
-Or via Make:
+Operator-facing commands for bring-up, upgrades, health, and teardown.
 
 ```bash
-make setup
-make update
+./scripts/bf help
+./scripts/bf setup
+./scripts/bf doctor
+./scripts/bf update
+./scripts/bf uninstall --yes
 ```
 
-| Script | Purpose |
-|--------|---------|
-| [`setup.sh`](./setup.sh) | First deploy / full rebuild |
-| [`update.sh`](./update.sh) | Routine upgrade without wiping DB |
-| [`lib.sh`](./lib.sh) | Shared `ENGINE` / compose helpers |
+Or via Make: `make setup`, `make update`, `make doctor`, `make uninstall`, `make cli-help`.
 
-`ENGINE=docker ./scripts/setup.sh` if Podman is unavailable.
+| Command | Script | Purpose |
+|---------|--------|---------|
+| `setup` | [`setup.sh`](./setup.sh) | First deploy / rebuild |
+| `update` | [`update.sh`](./update.sh) | Upgrade without wiping volumes |
+| `doctor` | [`doctor.sh`](./doctor.sh) | Preflight + HTTP health |
+| `uninstall` | [`uninstall.sh`](./uninstall.sh) | Stop stack; optional wipe |
+| `help` | [`help.sh`](./help.sh) | CLI help |
+| — | [`bf`](./bf) | Dispatcher |
+| — | [`lib.sh`](./lib.sh) | Shared helpers |
+
+```bash
+ENGINE=docker ./scripts/bf setup
+./scripts/bf uninstall --yes --volumes   # delete Postgres/Redis data
+./scripts/bf uninstall --yes --images --env
+```
 
 See [`docs/INSTALL.md`](../docs/INSTALL.md) and [`docs/DATABASE.md`](../docs/DATABASE.md).

@@ -68,7 +68,9 @@ Setup complete.
 Next:
   1. Edit .env for Farm Manager / OIDC / integrations as needed
   2. Complete the install wizard in the browser
-  3. Later upgrades:  ./scripts/update.sh
+  3. Later upgrades:  ./scripts/bf update
+  4. Health check:    ./scripts/bf doctor
 
 Docs: docs/INSTALL.md · docs/DEPLOYMENT_MODES.md · docs/DATABASE.md
+     CLI: ./scripts/bf help
 EOF

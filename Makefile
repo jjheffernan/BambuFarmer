@@ -9,15 +9,18 @@ VERSION ?= $(shell tr -d '[:space:]' < VERSION 2>/dev/null || echo 0.1.0-dev)
 POSTGRES_USER ?= bambufarmer
 POSTGRES_DB ?= bambufarmer
 
-.PHONY: help env up down build logs health tidy images release-tag db-reset db-snapshot setup update
+.PHONY: help env up down build logs health tidy images release-tag db-reset db-snapshot \
+	setup update doctor uninstall cli-help
 
-help:
-	@echo "Preferred engine: podman (ENGINE=docker for Docker)"
-	@echo "Targets: env up down build images logs health tidy release-tag"
-	@echo "         setup update          (CLI deploy — scripts/setup.sh, scripts/update.sh)"
-	@echo "         db-reset db-snapshot  (see docs/DATABASE.md)"
-	@echo "Secrets: cp .env.example .env  (see docs/DEPLOYMENT_MODES.md)"
-	@echo "Install wizard: docs/INSTALL.md  ·  Version: $(VERSION)"
+cli-help:
+	@ENGINE=$(ENGINE) ./scripts/bf help
+
+help: cli-help
+	@echo ""
+	@echo "Additional Make targets: env up down build images logs health tidy"
+	@echo "                         db-reset db-snapshot release-tag"
+	@echo "Uninstall via Make: make uninstall YES=1 [VOLUMES=1] [IMAGES=1] [ENV=1]"
+	@echo "Version: $(VERSION)  ·  ENGINE=$(ENGINE)"
 
 # Create .env from the template if missing (does not overwrite).
 env:
@@ -29,11 +32,23 @@ up: env
 
 # First bring-up / rebuild via CLI (see scripts/README.md).
 setup:
-	ENGINE=$(ENGINE) ./scripts/setup.sh
+	ENGINE=$(ENGINE) ./scripts/bf setup
 
 # Routine upgrade: git pull --ff-only, rebuild, up (keeps volumes).
 update:
-	ENGINE=$(ENGINE) ./scripts/update.sh
+	ENGINE=$(ENGINE) ./scripts/bf update
+
+doctor:
+	ENGINE=$(ENGINE) ./scripts/bf doctor
+
+# Requires: make uninstall YES=1   (and optionally VOLUMES=1 IMAGES=1 ENV=1)
+uninstall:
+	@args="--yes"; \
+	  [ "$(YES)" = "1" ] || { echo "Refusing: make uninstall YES=1 [VOLUMES=1] [IMAGES=1] [ENV=1]"; exit 1; }; \
+	  [ "$(VOLUMES)" = "1" ] && args="$$args --volumes"; \
+	  [ "$(IMAGES)" = "1" ] && args="$$args --images"; \
+	  [ "$(ENV)" = "1" ] && args="$$args --env"; \
+	  ENGINE=$(ENGINE) ./scripts/bf uninstall $$args
 
 down:
 	$(COMPOSE) down
