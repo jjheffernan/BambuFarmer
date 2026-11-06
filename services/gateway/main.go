@@ -13,7 +13,7 @@ func main() {
 	mux := httpserver.NewMux(service)
 	mux.HandleFunc("GET /api/v1/auth/me", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"auth_mode":"` + getenv("AUTH_MODE", "local_insecure") + `","user":"stub"}`))
+		_, _ = w.Write([]byte(`{"auth_mode":"` + normalizeAuthMode(getenv("AUTH_MODE", "lan")) + `","user":"stub"}`))
 	})
 	if err := httpserver.ListenAndServe(httpserver.Options{
 		Service: service,
@@ -30,4 +30,12 @@ func getenv(k, d string) string {
 		return v
 	}
 	return d
+}
+
+// normalizeAuthMode maps legacy local_insecure → lan.
+func normalizeAuthMode(mode string) string {
+	if mode == "local_insecure" {
+		return "lan"
+	}
+	return mode
 }

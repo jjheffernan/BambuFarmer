@@ -18,9 +18,9 @@ func main() {
 			"site_id":             getenv("SITE_ID", "default"),
 			"farm_mode":           getenv("FARM_MODE", "farm_manager"),
 			"farm_manager_url":    getenv("FARM_MANAGER_URL", ""),
-			"transport":           getenv("FARM_MANAGER_TRANSPORT", "cdp"),
+			"transport":           getenv("FARM_MANAGER_TRANSPORT", "fm_native"),
 			"connected":           false,
-			"note":                "scaffold stub — FM adapter not wired yet",
+			"note":                "scaffold stub — FM-native adapter not wired yet (CDP escape hatch supported)",
 		})
 	})
 	if err := httpserver.ListenAndServe(httpserver.Options{
