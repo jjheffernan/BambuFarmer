@@ -1,26 +1,31 @@
 # BambuFarmer — Design Specification
 
-**Status:** Draft v0.7 (Podman-first; modular containers)  
+**Status:** Draft v0.8 (MVP decisions locked)  
 **Date:** 2026-11-06  
 **Scope:** Architecture and module design for a containerized print-farm operations platform that integrates with the Bambu Lab ecosystem (Farm Manager Server primary; Fleet Hub optional later), Spoolman (and peers), Manyfold (and peers), with multi-user access, costing, analytics, and **per-install filament/print presets**. Post-MVP: OrcaSlicer-backed slice service.
 
-**Pre-build gate:** answer integration questions in [`MVP_CHECKLIST.md`](./MVP_CHECKLIST.md) before leaving design for real FM wiring.
+**Pre-build gate:** integration answers are recorded in [`MVP_CHECKLIST.md`](./MVP_CHECKLIST.md). Remaining items are live-box smoke tests (FM IP/version), not open design.
 
 ### Locked decisions
 
 | Topic | Decision |
 |-------|----------|
-| Bambu control plane | **Farm Manager Server** is our setup and primary edge target |
-| Language (all services) | **Go** — gateway, core, edge, integrations, analytics, web, slicer |
-| Event bus | **Redis Streams** (small-farm friendly; one multi-purpose Redis) |
-| Auth | **OIDC-ready**, with **local-only insecure mode** for lab/dev |
-| web-frontend | **Go + templ + HTMX** (+ Alpine where needed) |
+| Bambu control plane | **Farm Manager Server** — mirror Client behavior (ticket/JWT, headers, REST, MQTT) |
+| FM transport | **`fm_native` primary**; CDP optional escape hatch |
+| Site topology | **Single site** MVP |
+| Language (all services) | **Go** |
+| Event bus | **Redis Streams** |
+| Auth | **`AUTH_MODE=lan`** (insecure LAN mode) + **OIDC-ready** for URL’d deploys |
+| web-frontend | **Go + templ + HTMX** (separate container from gateway) |
 | farm-edge | **Go** |
-| Presets | **Per-install** filament + print presets in Postgres; JSON import/export (not baked into images) |
-| Slicing | **Out of MVP**; future `slicer` module wrapping **OrcaSlicer** CLI |
-| Analytics | Dedicated **`bambufarmer-analytics`** service (not folded into core) |
-| Runtime | **Podman-first** (Compose + Quadlets); Docker fallback |
-| Packaging | **One module → one Containerfile → one image → one container** (no fat all-in-one app image) |
+| Spoolman | **Optional live URL** — not required to run |
+| Manyfold | **Optional live URL**; OAuth optional |
+| Presets | Simple CRUD + **version history**; JSON import/export; per-install |
+| Costing | **$/hr**, **$/kg**, and **kg/hr** |
+| Slicing | **Out of MVP**; OrcaSlicer later |
+| Analytics | Dedicated **`bambufarmer-analytics`** |
+| Runtime | **Podman-first**; Docker fallback |
+| Packaging | **One module → one image → one container** |
 
 ---
 
@@ -75,7 +80,7 @@ Bambu Farm Manager Server remains the trusted LAN control plane for printers in 
 5. **Jobs are first-class.** Every print is a Job with state machine, audit trail, and cost accrual.
 6. **12-factor.** Config = env; processes are disposable; logs to stdout; backing services (Postgres, Redis, object store) are attached, not embedded as durable state in the app image.
 7. **Modular containers (hard rule).** Each major module is its own image and container (distroless, single binary). No fat “all-in-one” app image. Prefer **Podman** (compose or Quadlets).
-8. **Auth modes.** Production path is OIDC; `AUTH_MODE=local_insecure` enables local users without external IdP (lab/dev only—never expose publicly without understanding the risk).
+8. **Auth modes.** Default farm bring-up is **`AUTH_MODE=lan`** (insecure LAN mode: local users, no public URL/IdP). Use **`AUTH_MODE=oidc`** when the stack is exposed via a real URL. Never put LAN mode on the public internet.
 
 ---
 
@@ -171,15 +176,14 @@ Community protocol notes ([OpenBambuFarmAPI](https://github.com/ATILLLLITA/OpenB
 6. REST for task create, file upload, pause/resume/stop, tags as needed
 7. Pin tested Farm Manager Server versions in docs; treat the API as **interop / best-effort** (undocumented by Bambu)
 
-**Auth/cert approach (ordered preference):**
+**Transport (locked: mirror Farm Manager Client):**
 
-| Priority | Method | Notes |
-|----------|--------|-------|
-| 1 | Direct mTLS + local login API | Best if we can obtain/configure client certs for the edge service account |
-| 2 | CDP proxy via Farm Manager Client | Proven community pattern; edge drives client on `localhost:9222`; keeps certs in Electron |
-| 3 | Hybrid | CDP for bootstrap/cert path; direct REST once session works |
+| Mode | Env | Behavior |
+|------|-----|----------|
+| **FM-native (default)** | `FARM_MANAGER_TRANSPORT=fm_native` | Same flows as FM Client: local login tickets → JWT, required Bambu security headers, REST to `:8888`, prefer MQTT device reports for events. Use mTLS/client identity as the Client does when the server requires it. |
+| CDP escape hatch | `FARM_MANAGER_TRANSPORT=cdp` | Drive a running FM Client via DevTools (`CDP_URL`); still issues the same Client API calls — useful when cert material is locked in Electron. |
 
-Document which path a given deploy uses via `FARM_MANAGER_TRANSPORT=direct|cdp`.
+Do not invent a parallel protocol; stay aligned with observed FM Client ↔ Server behavior ([OpenBambuFarmAPI](https://github.com/ATILLLLITA/OpenBambuFarmAPI), community API notes).
 
 ### 5.2 Future (optional): Fleet Hub
 
@@ -335,8 +339,8 @@ FilamentProvider {
 }
 ```
 
-**Spoolman adapter:** REST `/api/v1/*` + Spoolman websockets for live updates.  
-Map AMS tray RFID/`tag_uid` + color/type to Spoolman spools when possible.
+**Spoolman adapter:** optional live `SPOOLMAN_URL`. REST `/api/v1/*` + websockets when configured.  
+Map AMS tray RFID/`tag_uid` + color/type to Spoolman spools when possible. If URL unset → disabled/stub (MVP still runs).
 
 Other providers (future): Spoolman-compatible forks, spreadsheet CSV, Homelab-specific DBs—same port.
 
@@ -354,7 +358,7 @@ LibraryProvider {
 }
 ```
 
-**Manyfold adapter:** OAuth2 client_credentials (`read`/`write`/`upload`), TUS upload then `POST /models`, JSON-LD `application/vnd.manyfold.v0+json`.
+**Manyfold adapter:** optional live `MANYFOLD_URL`. Prefer OAuth2 client_credentials when client id/secret are set; allow token or unauthenticated read paths when the Manyfold instance permits. TUS upload then `POST /models` when write/upload is configured. JSON-LD `application/vnd.manyfold.v0+json`. If URL unset → disabled/stub (MVP still runs).
 
 Flows:
 
@@ -431,12 +435,13 @@ Owned by **core** (CRUD + import/export). UI under Admin / Presets. Optional syn
 #### Behaviors (MVP)
 
 1. **CRUD** in web UI + REST `/api/v1/presets/filament`, `/api/v1/presets/print`
-2. **Import/export** JSON bundle: `{ "filament_presets": [...], "print_presets": [...] }`
-3. Job composer can attach `filament_preset_id` / `print_preset_id` (informational + costing); does not require slicer
-4. Artifacts may record which presets were intended when uploaded
-5. When slicer lands (Phase 6), `process_json` / `printer_json` feed Orca `--load-settings` / `--load-filaments`
+2. **Version control (simple):** each save creates a new immutable revision (`version`++), keeps history; UI can view/restore prior revisions; export includes versions
+3. **Import/export** JSON bundle: `{ "filament_presets": [...], "print_presets": [...] }`
+4. Job composer can attach `filament_preset_id` (+ optional `version`) / `print_preset_id`; does not require slicer
+5. Artifacts may record which preset revision was intended when uploaded
+6. When slicer lands (Phase 6), `process_json` / `printer_json` feed Orca `--load-settings` / `--load-filaments`
 
-Presets are **org-scoped** (single-org MVP = one catalog). No image rebuild to change them.
+Presets are **site/org-scoped** (single-site MVP = one catalog). No image rebuild to change them. Keep the model simple — no external VCS dependency; versioning lives in Postgres.
 
 ---
 
@@ -444,20 +449,33 @@ Presets are **org-scoped** (single-org MVP = one catalog). No image rebuild to c
 
 ### 9.1 Costing model
 
+Primary rates (locked):
+
+| Rate | Unit | Use |
+|------|------|-----|
+| Machine | **$/hr** | `hours × machine_rate_per_hour` |
+| Filament | **$/kg** | `kg × price_per_kg` (from preset, Spoolman, or rate card) |
+| Throughput | **kg/hr** | Expected or measured filament burn rate; also `kg = kg/hr × hours` for estimates |
+
 Per job:
 
 ```
-cost = material_cost + machine_time_cost + labor_overhead + failure_amortization
+material_cost     = kg_used × ($/kg)
+machine_time_cost = hours × ($/hr)
+kg_hr_implied     = kg_used / hours          # analytics / validation
+estimate_kg       = (kg/hr) × hours          # when grams unknown pre-print
+cost              = material_cost + machine_time_cost + labor_overhead + failure_amortization
 ```
 
 | Component | Inputs |
 |-----------|--------|
-| Material | grams × $/g from Spoolman (or manual price list) |
-| Machine time | hours × printer rate ($/h by model or tag) |
-| Labor | optional flat per-job or per-hour human touch |
+| Material | kg × **$/kg** (preset `price_per_kg`, Spoolman, or org default) |
+| Machine time | hours × **$/hr** (by model, tag, or org default) |
+| Throughput | **kg/hr** on rate card and/or derived from job actuals |
+| Labor | optional flat per-job or per-hour |
 | Failure | optional surcharge pool / insurance rate |
 
-Pricing tables and quote/actual calculation live in **core** (operational truth). Analytics *reads* finalized costs; it does not own the rate cards.
+Pricing tables and quote/actual calculation live in **core**. Analytics *reads* finalized costs and rolls up $/hr, $/kg, and kg/hr.
 
 ### 9.2 Dedicated analytics module
 
@@ -493,19 +511,21 @@ Pricing tables and quote/actual calculation live in **core** (operational truth)
 
 ### 10.1 Identity
 
-Auth is **OIDC-ready from day one**, with a local insecure mode for lab/dev.
+Auth is **LAN mode by default** for farms that do not want a public URL or IdP, and **OIDC-ready** for secured/URL’d installs.
 
 | Mode | Env | Behavior |
 |------|-----|----------|
-| `oidc` | `AUTH_MODE=oidc` | Gateway uses OIDC (Authentik, Keycloak, Google Workspace, etc.). Preferred for any networked/production deploy. |
-| `local_insecure` | `AUTH_MODE=local_insecure` | Local username/password (Argon2id) only. No OIDC required. Intended for air-gapped labs and first bring-up. **Must not** be exposed on the public internet without an understanding of the risk; gateway should log a loud warning at boot. |
+| **`lan`** | `AUTH_MODE=lan` | **LAN mode (insecure).** Local username/password (Argon2id). No OIDC, no public URL required. Bind to LAN/VPN only. Loud boot warning. Default for MVP compose. |
+| `oidc` | `AUTH_MODE=oidc` | OIDC (Authentik, Keycloak, Google Workspace, …). Use when the stack has a real URL / reverse proxy. |
+
+Alias: `AUTH_MODE=local_insecure` is accepted as a synonym of `lan`.
 
 Implementation notes:
 
 - Same role model in both modes; only the identity provider changes
 - Session/JWT issuance stays in gateway so swapping modes does not rewrite core
-- OIDC code paths exist even when `local_insecure` is active (stubs + config validation when `AUTH_MODE=oidc`)
-- Orgs / sites for multi-location remain available in both modes
+- OIDC code paths are stubbed/validated whenever `AUTH_MODE=oidc`
+- Single-site MVP; multi-site later
 
 ### 10.2 Roles (initial)
 
@@ -525,7 +545,7 @@ Farm Manager local admin credentials are **service accounts** held by edge—not
 - Core/web can be LAN-only or reverse-proxied with auth
 - mTLS / CDP materials: edge-only (`EDGE_CERT_DIR` or sidecar FM Client); never mount into web
 - All inter-service traffic on internal Podman/Compose network; gateway is the only public ingress by default
-- When `AUTH_MODE=local_insecure`, recommend binding gateway to LAN / VPN only
+- When `AUTH_MODE=lan`, bind gateway to LAN / VPN only (never public ingress)
 
 ---
 
@@ -545,7 +565,7 @@ Farm Manager Client is a dense, real-time Electron ops console ([features](https
 | Customizable printer list columns (v3) | Client-side column prefs persisted per user |
 | Liveview / RTSPS (server-relayed) | Detail pane media; JPEG snapshots first, stream later |
 | Groups (v3) + tags | Group/tag filters for dispatch and analytics |
-| Multi-user local accounts | Our roles + OIDC/`local_insecure` |
+| Multi-user local accounts | Our roles + OIDC / LAN mode |
 | High update rate across many printers | Fine-grained reactive UI; avoid full-page HTML swaps |
 
 ### 11.2 Frontend decision (locked: Go + HTMX)
@@ -648,39 +668,26 @@ C++ reserved for any future native protocol helpers if required; not needed for 
 
 ```bash
 # gateway / auth
-AUTH_MODE=local_insecure          # or: oidc
+AUTH_MODE=lan                     # insecure LAN mode (default)
+# AUTH_MODE=oidc
 SESSION_SECRET=...
-# when AUTH_MODE=oidc:
-OIDC_ISSUER=https://auth.example/realms/farm
-OIDC_CLIENT_ID=bambufarmer
-OIDC_CLIENT_SECRET=...
-OIDC_REDIRECT_URL=https://farm.example/auth/callback
 
-# core
-DATABASE_URL=postgres://...
-REDIS_URL=redis://redis:6379/0
-OBJECT_STORE_ENDPOINT=http://minio:9000
-
-# edge (Go)
-SITE_ID=shop-a
-FARM_MODE=farm_manager            # fleet_hub later
+# edge — mirror FM Client
+FARM_MANAGER_TRANSPORT=fm_native  # or: cdp
 FARM_MANAGER_URL=https://192.168.1.20:8888
-FARM_MANAGER_TRANSPORT=direct     # or: cdp
-FARM_MANAGER_USER=admin
-FARM_MANAGER_PASSWORD=...
-EDGE_CERT_DIR=/certs              # when transport=direct
-# CDP_URL=http://127.0.0.1:9222   # when transport=cdp
-REDIS_URL=redis://redis:6379/0
-CORE_INGEST_URL=http://gateway:8080/internal/edge
-EDGE_TOKEN=...
 
-# integrations
-SPOOLMAN_URL=http://spoolman:7912
-SPOOLMAN_API_TOKEN=...
-MANYFOLD_URL=https://manyfold.example
-MANYFOLD_CLIENT_ID=...
-MANYFOLD_CLIENT_SECRET=...
+# costing
+CURRENCY=USD
+MACHINE_RATE_PER_HOUR=...         # $/hr
+FILAMENT_PRICE_PER_KG=...         # $/kg
+FILAMENT_KG_PER_HOUR=...          # kg/hr
+
+# integrations (optional; empty = disabled)
+SPOOLMAN_URL=
+MANYFOLD_URL=
 ```
+
+Full knobs: `deploy/env.example`.
 
 ### 13.2 Compose topology (illustrative)
 
@@ -736,7 +743,8 @@ Organization
               └── circuit ↔ printer membership
   └── User (id, subject, display_name, auth_provider)
   └── RoleBinding (user_id, role, scope_org|site)
-  └── RateCard (machine_rate_per_hour, labor_flat, currency, failure_surcharge_pct)
+  └── RateCard (currency, machine_rate_per_hour $/hr, filament_price_per_kg $/kg,
+                filament_kg_per_hour kg/hr, labor_flat, failure_surcharge_pct)
   └── Artifact (id, object_key, md5, filename, plate_path, compatible_models[],
                 nozzle_mm, bed_type, est_seconds, est_grams, source_library_ref?)
   └── Job (see §7)
@@ -834,7 +842,7 @@ Versioned public API: `/api/v1/...`. OpenAPI 3 is the contract; web may call JSO
 
 | Method | Path | Notes |
 |--------|------|-------|
-| POST | `/api/v1/auth/login` | `local_insecure` only |
+| POST | `/api/v1/auth/login` | `AUTH_MODE=lan` (and alias `local_insecure`) |
 | GET | `/api/v1/auth/oidc/login` | redirect |
 | GET | `/api/v1/auth/oidc/callback` | code exchange |
 | POST | `/api/v1/auth/logout` | |
@@ -936,21 +944,21 @@ Maps to FM’s “Attention Needed” / “Completed Task” nav buckets.
 
 MVP is done when a single-site farm can:
 
-1. Run compose stack (`gateway`, `core`, `edge`, `analytics`, `web`, Postgres, Redis, MinIO) with `AUTH_MODE=local_insecure`
-2. Edge authenticates to Farm Manager (`direct` or `cdp`) and publishes printer deltas to Redis
+1. Run compose stack (`gateway`, `core`, `edge`, `analytics`, `web`, Postgres, Redis) with **`AUTH_MODE=lan`**
+2. Edge authenticates to Farm Manager via **`fm_native`** (or CDP escape hatch) and publishes printer deltas to Redis
 3. HTMX fleet page shows live states via SSE without browser polling FM
 4. Operator uploads `.gcode.3mf`, creates a job, prints on an idle compatible printer
 5. Pause / resume / stop / bed_clean work from UI for a selected printer
-6. Job completes → cost estimate/actual recorded (manual $/g OK)
-7. Analytics stores at least daily utilization + job success/fail counts and serves them via API (basic UI chart OK)
-8. Spoolman and Manyfold may be stubs/mocks in MVP if real instances unavailable—but ports and config exist
-9. Entire first-party codebase builds with the Go toolchain only
-10. Filament + print presets: CRUD, JSON import/export, attachable on job composer (empty catalog OK on first boot)
-11. Integration questions in `docs/MVP_CHECKLIST.md` section A answered or defaults explicitly accepted
+6. Job completes → cost estimate/actual with **$/hr**, **$/kg**, and **kg/hr**
+7. Analytics stores daily utilization + job success/fail + cost/rate rollups (basic UI OK)
+8. Spoolman/Manyfold optional — empty URL = disabled; live URL when configured
+9. Entire first-party codebase builds with Go only; one image per module
+10. Filament + print presets: CRUD, **version history**, JSON import/export
+11. Single site; web and gateway remain separate containers
 
-Out of MVP: OrcaSlicer, OIDC production hardening, Fleet Hub, multi-site, firmware upgrade UI, live RTSPS video (JPEG OK).
+Out of MVP: OrcaSlicer, forcing OIDC, Fleet Hub, multi-site, firmware upgrade UI, live RTSPS video (JPEG OK).
 
-**Design-phase exit:** scaffold builds via Compose **and** checklist §C Product items checked.
+**Design-phase exit:** checklist §A locked (done) + scaffold green; live FM IP/version smoke before adapter coding.
 
 ---
 
@@ -958,12 +966,12 @@ Out of MVP: OrcaSlicer, OIDC production hardening, Fleet Hub, multi-site, firmwa
 
 ### Phase 0 — Foundations
 - Go monorepo / multi-module layout + compose
-- Postgres schema, Redis Streams topics, gateway with `AUTH_MODE=local_insecure` + OIDC stubs
+- Postgres schema, Redis Streams topics, gateway with `AUTH_MODE=lan` + OIDC stubs
 - **analytics** service skeleton (stream consumer + empty rollup tables + health)
 - templ + HTMX shell with Farm-like design tokens (fleet page placeholder)
 
 ### Phase 1 — Farm Manager edge MVP
-- Go farm-edge FM adapter: auth (`direct` or `cdp`), devices, MQTT or REST-delta events → Redis Streams
+- Go farm-edge FM adapter: **fm_native** (mirror Client) or CDP escape hatch; devices; MQTT or REST-delta → Redis Streams
 - HTMX fleet UI live updates via SSE fragment swaps
 - Manual job: upload `.gcode.3mf` → print on selected idle printers
 - Analytics ingest of printer/job events (basic utilization)
@@ -980,12 +988,12 @@ Out of MVP: OrcaSlicer, OIDC production hardening, Fleet Hub, multi-site, firmwa
 
 ### Phase 4 — Multi-site + production auth
 - Multiple edge agents / sites
-- Turn on `AUTH_MODE=oidc` as default for exposed deploys; richer RBAC; exports/API for MES
+- Document `AUTH_MODE=oidc` for URL’d deploys; richer RBAC; exports/API for MES
 
 ### Phase 5 — Hardening (+ optional Fleet Hub)
 - Failure failover policies, alerting (webhook/email)
 - Optional Fleet Hub adapter behind same trait
-- Performance & security review; discourage `local_insecure` outside LAN
+- Performance & security review; refuse LAN mode behind public ingress
 
 ### Phase 6 — Slicer (post-MVP)
 - `bambufarmer-slicer` + OrcaSlicer container
@@ -1002,7 +1010,7 @@ Out of MVP: OrcaSlicer, OIDC production hardening, Fleet Hub, multi-site, firmwa
 | mTLS / CDP fragility | Support `direct` and `cdp` transports; edge-only secrets; never leak to browser |
 | Polling temptation | Code review rule: UI may not call device list on interval; use Redis→SSE → HTMX swaps |
 | HTMX fleet morph cost at scale | Row-level OOB targets; throttle SSE; coarsen updates; virtualize table if needed |
-| `local_insecure` exposed publicly | Boot warning; deploy docs; prefer OIDC whenever gateway leaves the LAN |
+| LAN mode (`AUTH_MODE=lan`) exposed publicly | Boot warning; bind LAN-only; prefer OIDC for any public URL |
 | Filament estimate inaccurate | Prefer slicer metadata (post-MVP Orca / Studio); allow manual override; Spoolman reconcile |
 | Manyfold API pre-v1 | Adapter isolation; pin tested Manyfold version |
 | OrcaSlicer image size / CPU | Separate optional container; queue + concurrency limits; not in MVP |
@@ -1042,16 +1050,13 @@ Each `services/*` has its own `Containerfile` and image `localhost/bambufarmer-<
 
 ## 23. Remaining Open Decisions
 
-Resolved: Farm Manager primary · **Go everywhere** · Redis Streams · OIDC-ready + `local_insecure` · **templ + HTMX** · dedicated analytics · per-install presets · OrcaSlicer post-MVP · SSE default.
+**Locked (see MVP_CHECKLIST):** FM-native mirror Client · single site · optional Spoolman/Manyfold live URLs · simple versioned presets · $/hr+$/kg+kg/hr · `AUTH_MODE=lan` + OIDC · separate web/gateway · Podman-first modular images · SSE default · Go everywhere.
 
-Track answers in [`MVP_CHECKLIST.md`](./MVP_CHECKLIST.md). Still open:
+Still needed for **live integration** (not design):
 
-1. **FM transport default:** CDP vs direct mTLS (and edge OS)
-2. **Multi-tenancy:** single-org MVP vs multi-tenant later
-3. **Spoolman / Manyfold:** live URLs vs stub for MVP
-4. **Preset import:** which files/formats you will supply first
-
-Locked deploy: **Podman-first**, one module → one image → one container (no fat app image).
+1. FM Server version + LAN IP/hostname + edge host OS  
+2. Optional: Spoolman/Manyfold URLs when ready  
+3. Prefer FM tags vs v3 groups as primary UI grouping (default: mirror FM)
 
 ---
 
