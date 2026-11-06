@@ -26,11 +26,13 @@ Host ports use the `1xxxx` range to avoid clashing with common local apps on 808
 ## Quick start (Podman)
 
 ```bash
-cp deploy/env.example deploy/.env   # edit FM / Spoolman / Manyfold when ready
+cp deploy/env.example deploy/.env   # AUTH_MODE=lan by default; optional Spoolman/Manyfold URLs
 make up                             # uses: podman compose -f deploy/compose.yml
 make health
 open http://127.0.0.1:13000
 ```
+
+Default auth is **LAN mode** (`AUTH_MODE=lan`) — local users, no IdP, private network only. Use `AUTH_MODE=oidc` when you have a real URL.
 
 Docker works as a fallback: `make up ENGINE=docker`.
 
