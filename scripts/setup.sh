@@ -18,7 +18,7 @@ Usage: $(basename "$0") [--no-build] [--seed]
   First bring-up for BambuFarmer (Podman/Docker Compose).
 
   --no-build   Skip image build (use existing images)
-  --seed       After healthy, apply packages/db/seed/lab.sql (lab only)
+  --seed       After healthy, apply lab seed via go run ./packages/db/cmd/seedlab
 
 Env:
   ENGINE=podman|docker   (default: podman, falls back to docker)
@@ -53,9 +53,9 @@ bf_health_wait "http://127.0.0.1:18080/healthz" 60 || true
 if [[ "$SEED" -eq 1 ]]; then
   echo "==> Waiting for core (migrate)"
   bf_health_wait "http://127.0.0.1:18081/healthz" 60 || true
-  echo "==> Applying lab seed"
-  bf_compose exec -T postgres psql -U "${POSTGRES_USER:-bambufarmer}" -d "${POSTGRES_DB:-bambufarmer}" \
-    -v ON_ERROR_STOP=1 < packages/db/seed/lab.sql
+  echo "==> Applying lab seed (packages/db)"
+  DATABASE_URL="${DATABASE_URL:-postgres://${POSTGRES_USER:-bambufarmer}:${POSTGRES_PASSWORD:-bambufarmer}@127.0.0.1:5432/${POSTGRES_DB:-bambufarmer}?sslmode=disable}" \
+    go run ./packages/db/cmd/seedlab
 fi
 
 cat <<EOF

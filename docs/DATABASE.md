@@ -19,35 +19,38 @@ Spoolman and Manyfold remain **optional external** URLs ([`docs/services/integra
 
 ---
 
-## 2. Schema layout
+## 2. Schema layout (Go, not committed `.sql`)
+
+Schema and lab seed are **Go string constants** under [`packages/db`](../packages/db). Raw `.sql` files are gitignored so dumps and one-off scripts never land in git.
 
 ```text
 packages/db/
-  schema/baseline.sql     # human-readable full schema (canonical docs copy)
-  migrations/
-    001_baseline.sql      # same end-state; applied by Migrate on boot
-    005_*.sql …           # forward-only deltas after the squash
-  seed/lab.sql            # lab defaults (presets, etc.)
+  migrations.go              # ordered list of migration names
+  migration_001_baseline.go  # baseline DDL const
+  migration_002_users.go     # users table const
+  seed_lab.go                # LabSeedSQL const
+  migrate.go                 # Migrate() applies orderedMigrations
+  cmd/seedlab/               # CLI: migrate + SeedLab via DATABASE_URL
 ```
 
-- **Fresh install:** empty Postgres → `db.Migrate` applies `001_baseline` (+ any `005+`) → optional `seed/lab.sql`.
-- **Forward changes:** add `005_….sql`, never edit the baseline in place on released branches.
-- Core (and analytics, when sharing migrate) call `db.Migrate` on boot.
+- **Fresh install:** empty Postgres → `db.Migrate` on core/gateway boot → optional `go run ./packages/db/cmd/seedlab` or `make db-reset`.
+- **Forward changes:** add `migration_00N_*.go` + register in `orderedMigrations` (keep stable `Name` like `003_foo.sql` for `schema_migrations` compatibility).
+- Do **not** commit `.sql` dumps, scratch scripts, or `pg_dump` text. Use `make db-snapshot` for local binary dumps only (`deploy/snapshots/*.dump`, gitignored).
 
 ---
 
 ## 3. Lab reset and snapshots
 
-Requires compose stack up (or at least `postgres` + ability to restart `core`).
+Requires compose stack up (or at least `postgres` + ability to restart `core`). Local Go 1.23+ recommended for seed CLI.
 
 ```bash
 make env
 make up                 # if not already running
-make db-reset           # wipe public schema, restart core (migrate), apply seed/lab.sql
+make db-reset           # wipe public schema, restart core (migrate), seedlab
 make db-snapshot        # optional: pg_dump -Fc → deploy/snapshots/lab.dump (local artifact)
 ```
 
-**Reconfigure base** = wipe volume/schema + `db-reset`. Prefer regenerating from `seed/lab.sql` over committing binary dumps. `deploy/snapshots/*.dump` is gitignored.
+**Reconfigure base** = wipe volume/schema + `db-reset`. Prefer regenerating from `LabSeedSQL` over committing dumps.
 
 ---
 

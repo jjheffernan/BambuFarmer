@@ -1,3 +1,7 @@
+package db
+
+// LabSeedSQL is idempotent lab defaults (sites, rates, sample presets).
+const LabSeedSQL = `
 -- Lab seed: safe to re-run (ON CONFLICT). Assumes migrate/baseline already applied.
 -- Applied by: make db-reset  ·  or db.SeedLab(ctx, pool)
 
@@ -55,3 +59,4 @@ ON CONFLICT (id) DO UPDATE SET
 INSERT INTO install_state (id, completed, step, site_name, timezone, auth_mode)
 VALUES (1, FALSE, 'welcome', 'Default Site', 'UTC', 'lan')
 ON CONFLICT (id) DO NOTHING;
+`

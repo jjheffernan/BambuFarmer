@@ -1,6 +1,9 @@
+package db
+
+// Baseline schema (sites, presets, jobs, analytics, install_state).
+const migration001Baseline = `
 -- BambuFarmer schema baseline (squashed from former 001–004).
--- Canonical docs copy: packages/db/schema/baseline.sql
--- Applied at runtime via packages/db/migrations/001_baseline.sql
+-- Applied as migration name 001_baseline.sql via db.Migrate.
 
 -- Single-site MVP schema: sites, rate cards, versioned presets.
 
@@ -227,3 +230,4 @@ CREATE TABLE IF NOT EXISTS install_state (
 INSERT INTO install_state (id)
 VALUES (1)
 ON CONFLICT (id) DO NOTHING;
+`
