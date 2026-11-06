@@ -17,7 +17,7 @@ import (
 
 	"github.com/jjheffernan/BambuFarmer/packages/events"
 	"github.com/jjheffernan/BambuFarmer/packages/httpserver"
-	"github.com/jjheffernan/BambuFarmer/services/gateway/app/auth"
+	"github.com/jjheffernan/BambuFarmer/services/gateway/auth"
 )
 
 func main() {

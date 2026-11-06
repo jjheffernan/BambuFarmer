@@ -52,9 +52,9 @@ Stub today: `/api/v1/auth/me`, `/api/v1/auth/login` (lan accepts any non-empty u
 ```text
 services/gateway/
   main.go
-  app/          # process-private (not packages/)
-    auth/       # lan + oidc helpers
-    # later: proxy/, sse/, middleware/
+  auth/         # lan + oidc helpers (gateway-private)
+  # later: proxy/, sse/, middleware/
+  tests/
 ```
 
 ---
