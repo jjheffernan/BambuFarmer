@@ -1,0 +1,21 @@
+{
+  "name": "BambuFarm_LAB",
+  "server_id": "00000000-0000-4000-8000-000000000001",
+  "release": "02.04.00.00",
+  "version": "fixture built at 00000000000000",
+  "serial_id": "000000000000000000000000000000000000000",
+  "owner": "0000000000",
+  "activate_state": "Activated",
+  "type": "release",
+  "env": "north-america",
+  "expire_time": "2027-01-08T14:25:45Z",
+  "left_time": 179,
+  "power_limit": 10,
+  "parallel_download": 10,
+  "parallel_download_wired": 50,
+  "finished_task_retention_min": 86400,
+  "alarming": 0,
+  "is_up_cloud": false,
+  "is_api_enabled": false,
+  "user_improve_plan": "disable"
+}
