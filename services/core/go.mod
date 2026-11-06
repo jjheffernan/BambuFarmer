@@ -5,6 +5,7 @@ go 1.23.0
 require (
 	github.com/jackc/pgx/v5 v5.7.6
 	github.com/jjheffernan/BambuFarmer/packages/api v0.0.0
+	github.com/jjheffernan/BambuFarmer/packages/config v0.0.0
 	github.com/jjheffernan/BambuFarmer/packages/db v0.0.0
 	github.com/jjheffernan/BambuFarmer/packages/events v0.0.0
 	github.com/jjheffernan/BambuFarmer/packages/httpserver v0.0.0
@@ -25,6 +26,8 @@ require (
 )
 
 replace github.com/jjheffernan/BambuFarmer/packages/api => ../../packages/api
+
+replace github.com/jjheffernan/BambuFarmer/packages/config => ../../packages/config
 
 replace github.com/jjheffernan/BambuFarmer/packages/db => ../../packages/db
 

@@ -18,18 +18,25 @@
 
 ---
 
-## 2. Domain modules (target)
+## 2. Domain modules
+
+`main.go` is wiring only. HTTP + consumers live under `internal/`:
 
 ```text
-services/core/internal/
-  presets/      # CRUD + import/export + revisions  (partially in packages/db)
-  rates/        # RateCard
-  printers/     # projection from bf.events.printer
-  jobs/         # state machine, assignments
-  scheduler/    # idle + model + nozzle + circuit caps (Phase 2)
-  users/        # lan user store for gateway
-  commands/     # emit bf.commands.edge.{site}
+services/core/
+  main.go                 # boot: db/redis, register routes, listen
+  internal/
+    config/               # SITE_ID, DATABASE_URL, REDIS_URL, …
+    httpx/                # WriteJSON, RequireDB
+    presets/              # filament/print CRUD + import/export
+    rates/                # RateCard admin
+    printers/             # list projection + Redis consumer
+    jobs/                 # create/list/transition (+ command emit)
+    setup/                # install wizard API
+    # later: scheduler/, users/
 ```
+
+Persistence stays in [`packages/db`](../../packages/db); core packages are thin HTTP/event adapters.
 
 ---
 

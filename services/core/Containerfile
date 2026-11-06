@@ -10,6 +10,7 @@ ARG BUILT_AT
 WORKDIR /src
 ENV GOWORK=off
 COPY packages/api ./packages/api
+COPY packages/config ./packages/config
 COPY packages/httpserver ./packages/httpserver
 COPY packages/db ./packages/db
 COPY packages/events ./packages/events
