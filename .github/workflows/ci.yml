@@ -23,6 +23,7 @@ jobs:
         module:
           - packages/api
           - packages/config
+          - packages/db
           - packages/events
           - packages/httpserver
           - services/gateway

@@ -36,4 +36,4 @@ health:
 # Requires local Go 1.23+
 tidy:
 	@for s in $(SERVICES); do (cd services/$$s && go mod tidy); done
-	@for p in api config events httpserver; do (cd packages/$$p && go mod tidy); done
+	@for p in api config db events httpserver; do (cd packages/$$p && go mod tidy); done
