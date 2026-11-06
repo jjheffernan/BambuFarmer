@@ -31,3 +31,6 @@ services/web/tmp/
 # Data volumes
 data/
 .minio/
+
+# Local Postgres dumps (regenerate via make db-snapshot; prefer seed/lab.sql)
+deploy/snapshots/*.dump

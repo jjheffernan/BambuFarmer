@@ -10,6 +10,8 @@ open http://127.0.0.1:18080   # gateway redirects to /setup until complete
 
 Complete the wizard, then use the fleet UI. Secrets (FM password, OIDC client secret, etc.) stay in **`.env`** — the wizard only stores non-secret site defaults in Postgres.
 
+Lab DB reset / seed snapshot: [`DATABASE.md`](./DATABASE.md) (`make db-reset`).
+
 ## Wizard steps
 
 | Step | Writes |

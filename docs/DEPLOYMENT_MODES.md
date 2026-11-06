@@ -126,6 +126,7 @@ First visit hits the **install wizard** at `/setup` (see [`INSTALL.md`](./INSTAL
 ## 7. Related docs
 
 - Design: [`DESIGN_SPEC.md`](./DESIGN_SPEC.md) §10 (identity) · §13 (12-factor)
+- Database / snapshots: [`DATABASE.md`](./DATABASE.md) (Postgres SoR; Appwrite rejected)
 - Gateway shape: [`services/gateway.md`](./services/gateway.md)
 - Edge / FM: [`services/edge.md`](./services/edge.md), [`services/edge-farm-manager.md`](./services/edge-farm-manager.md)
 - Compose / Podman: [`../deploy/podman/README.md`](../deploy/podman/README.md)
