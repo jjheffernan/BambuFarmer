@@ -21,7 +21,9 @@ Cross-cutting: [`DEPLOYMENT_MODES.md`](../DEPLOYMENT_MODES.md) (LAN vs OIDC) · 
 |------|---------|
 | `packages/*` | Shared libraries (API DTOs, db, events, farm abstraction, …) |
 | `services/core/internal/*` | Core process-private modules (unique name; Go `internal` rule) |
-| `services/<name>/app/*` | Process-private modules for edge, gateway, integrations, web |
+| `services/gateway/auth/*` | Gateway auth helpers |
+| `services/web/setup/*` | Web install-wizard pages |
+| `services/<name>/app/*` | Process-private modules for edge, integrations |
 | `services/<name>/tests/*` | Black-box unit tests for that module |
 
 Do not put service-private code under `packages/`. Edge Farm Manager HTTP lives in `services/edge/app/farmmanager` (distinct from shared `packages/farm`).

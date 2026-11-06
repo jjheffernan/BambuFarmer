@@ -22,7 +22,7 @@ services/edge/
 1. **No colocated `*_test.go`** next to implementation (keeps source trees scannable).
 2. **`package tests`** black-box imports the code under test (exported API only).
 3. **`go test ./...`** from each module still discovers `tests/` automatically.
-4. Testable logic in `package main` belongs in **`internal/…` (core)** or **`app/…` (other services)** so `tests/` can import it.
+4. Testable logic in `package main` belongs in **`internal/…` (core)**, **`auth/…` (gateway)**, **`setup/…` (web)**, or **`app/…` (edge/integrations)** so `tests/` can import it.
 5. Shared libraries live in repo-root **`packages/`**.
 6. Fixtures stay in repo-root **`fixtures/`** (or `testdata/` when Go’s convention fits).
 

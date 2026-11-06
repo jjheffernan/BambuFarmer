@@ -9,11 +9,12 @@ VERSION ?= $(shell tr -d '[:space:]' < VERSION 2>/dev/null || echo 0.1.0-dev)
 POSTGRES_USER ?= bambufarmer
 POSTGRES_DB ?= bambufarmer
 
-.PHONY: help env up down build logs health tidy images release-tag db-reset db-snapshot
+.PHONY: help env up down build logs health tidy images release-tag db-reset db-snapshot setup update
 
 help:
 	@echo "Preferred engine: podman (ENGINE=docker for Docker)"
 	@echo "Targets: env up down build images logs health tidy release-tag"
+	@echo "         setup update          (CLI deploy — scripts/setup.sh, scripts/update.sh)"
 	@echo "         db-reset db-snapshot  (see docs/DATABASE.md)"
 	@echo "Secrets: cp .env.example .env  (see docs/DEPLOYMENT_MODES.md)"
 	@echo "Install wizard: docs/INSTALL.md  ·  Version: $(VERSION)"
@@ -25,6 +26,14 @@ env:
 
 up: env
 	$(COMPOSE) up -d --build
+
+# First bring-up / rebuild via CLI (see scripts/README.md).
+setup:
+	ENGINE=$(ENGINE) ./scripts/setup.sh
+
+# Routine upgrade: git pull --ff-only, rebuild, up (keeps volumes).
+update:
+	ENGINE=$(ENGINE) ./scripts/update.sh
 
 down:
 	$(COMPOSE) down

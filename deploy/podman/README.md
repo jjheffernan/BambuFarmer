@@ -22,10 +22,18 @@ Do **not** combine these into a fat “all-in-one” app container. Backing serv
 From repo root:
 
 ```bash
-cp .env.example .env   # secrets; see docs/DEPLOYMENT_MODES.md (LAN vs OIDC)
-# or: make env
-make up                # podman compose --env-file .env -f deploy/compose.yml up -d --build
+./scripts/setup.sh     # preferred: .env + build + up
+# or: make setup
+# or: make env && make up
 ```
+
+Routine upgrades (keeps Postgres/Redis volumes):
+
+```bash
+./scripts/update.sh    # or: make update
+```
+
+See [`../../scripts/README.md`](../../scripts/README.md). Secrets: [`docs/DEPLOYMENT_MODES.md`](../../docs/DEPLOYMENT_MODES.md).
 
 Optional MinIO: `podman compose --env-file .env -f deploy/compose.yml --profile object up -d`
 

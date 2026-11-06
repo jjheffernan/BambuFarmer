@@ -3,10 +3,19 @@
 ## Quick path
 
 ```bash
-cp .env.example .env          # set SESSION_SECRET + POSTGRES_PASSWORD at minimum
-make up                       # creates .env if missing
+./scripts/setup.sh            # creates .env if missing, builds, starts stack
+# or: make setup
 open http://127.0.0.1:18080   # gateway redirects to /setup until complete
 ```
+
+Upgrade later without wiping data:
+
+```bash
+./scripts/update.sh           # git pull --ff-only, rebuild, recreate containers
+# or: make update
+```
+
+Scripts: [`scripts/README.md`](../scripts/README.md).
 
 Complete the wizard, then use the fleet UI. Secrets (FM password, OIDC client secret, etc.) stay in **`.env`** — the wizard only stores non-secret site defaults in Postgres.
 
