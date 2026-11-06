@@ -3,6 +3,7 @@ go 1.23.0
 use (
 	./packages/api
 	./packages/config
+	./packages/db
 	./packages/events
 	./packages/httpserver
 	./services/analytics
