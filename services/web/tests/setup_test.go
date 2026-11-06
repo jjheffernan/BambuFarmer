@@ -23,4 +23,7 @@ func TestSetupRouteRegistered(t *testing.T) {
 	if !strings.Contains(body, "Install") && !strings.Contains(body, "wizard") && !strings.Contains(body, "BambuFarmer") {
 		t.Fatalf("unexpected body prefix: %.120s", body)
 	}
+	if !strings.Contains(body, "/static/css/app.css") {
+		t.Fatalf("setup page missing shared stylesheet link")
+	}
 }

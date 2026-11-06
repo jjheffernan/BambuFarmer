@@ -10,7 +10,7 @@ Per-module design docs that expand [`DESIGN_SPEC.md`](../DESIGN_SPEC.md) into im
 | **edge / FM research** | [edge-farm-manager.md](./edge-farm-manager.md) | Protocol research, endpoints, lab checklist |
 | **integrations** | [integrations.md](./integrations.md) | Spoolman + Manyfold adapters |
 | **analytics** | [analytics.md](./analytics.md) | Event rollups, reports |
-| **web** | [web.md](./web.md) | templ + HTMX operator UI |
+| **web** | [web.md](./web.md) | HTMX + Tailwind operator UI |
 | **slicer** | [slicer.md](./slicer.md) | Post-MVP OrcaSlicer wrapper |
 
 Cross-cutting: [`DEPLOYMENT_MODES.md`](../DEPLOYMENT_MODES.md) (LAN vs OIDC) · [`INSTALL.md`](../INSTALL.md) (wizard + releases) · [`TESTING.md`](../TESTING.md) (module `tests/` layout).

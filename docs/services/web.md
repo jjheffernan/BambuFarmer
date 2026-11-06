@@ -1,6 +1,6 @@
 # Service shape: `bambufarmer-web`
 
-**Language:** Go (`html/template` → templ), HTMX, minimal Alpine  
+**Language:** Go (`html/template` → templ), HTMX, Tailwind CSS (compiled), minimal Alpine  
 **Container:** `localhost/bambufarmer-web`  
 **Role:** Operator GUI mirroring Farm Manager interaction patterns  
 
@@ -12,7 +12,8 @@
 |------|----------------|
 | HTML routes + design tokens | Business rules |
 | HTMX partials / SSE-driven swaps | Direct FM calls |
-| Client column prefs (later) | Auth IdP (gateway cookies/tokens) |
+| Compiled CSS (`static/css/app.css`, `go:embed`) | Auth IdP (gateway cookies/tokens) |
+| Client column prefs (later) | |
 
 Prefer browsing via **gateway** (`:18080`) so API + UI share origin. Direct `:13000` remains for debug.
 
@@ -40,7 +41,9 @@ Fleet/SSE and setup wizard are live; other panels are still light.
 - Bulk action bar with multi-select (Alpine)  
 - No browser polling of printers — gateway SSE only  
 
-Tokens: see DESIGN_SPEC §11.4 (`--bf-accent`, etc.).
+Tokens live in Tailwind `@theme` (`static/css/input.css`) as `bf-*` colors/fonts, matching DESIGN_SPEC §11.4.
+
+**CSS build:** edit `static/css/input.css`, then `make web-css` (or `cd services/web && npm run build:css`). Commit the minified `app.css` — the binary embeds it; no Tailwind CDN at runtime.
 
 ---
 
@@ -49,8 +52,12 @@ Tokens: see DESIGN_SPEC §11.4 (`--bf-accent`, etc.).
 ```text
 services/web/
   main.go
-  setup/         # install wizard (web-private)
-  # later: pages/, components/, static/
+  setup/           # install wizard (web-private)
+  static/
+    embed.go       # GET /static/…
+    css/input.css  # Tailwind source
+    css/app.css    # compiled (embedded)
+  package.json     # Tailwind CLI (dev)
   tests/
 ```
 
