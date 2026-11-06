@@ -1,0 +1,114 @@
+# Weekly dependency updates for Go modules and GitHub Actions.
+# Each service/package has its own go.mod — list them explicitly.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - github-actions
+
+  # Shared packages
+  - package-ecosystem: gomod
+    directory: /packages/api
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    labels: [dependencies, go]
+    groups:
+      go-packages:
+        patterns: ["*"]
+
+  - package-ecosystem: gomod
+    directory: /packages/config
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    labels: [dependencies, go]
+    groups:
+      go-packages:
+        patterns: ["*"]
+
+  - package-ecosystem: gomod
+    directory: /packages/events
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    labels: [dependencies, go]
+    groups:
+      go-packages:
+        patterns: ["*"]
+
+  - package-ecosystem: gomod
+    directory: /packages/httpserver
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    labels: [dependencies, go]
+    groups:
+      go-packages:
+        patterns: ["*"]
+
+  # App modules (one image each)
+  - package-ecosystem: gomod
+    directory: /services/gateway
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    labels: [dependencies, go]
+    groups:
+      go-services:
+        patterns: ["*"]
+
+  - package-ecosystem: gomod
+    directory: /services/core
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    labels: [dependencies, go]
+    groups:
+      go-services:
+        patterns: ["*"]
+
+  - package-ecosystem: gomod
+    directory: /services/edge
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    labels: [dependencies, go]
+    groups:
+      go-services:
+        patterns: ["*"]
+
+  - package-ecosystem: gomod
+    directory: /services/integrations
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    labels: [dependencies, go]
+    groups:
+      go-services:
+        patterns: ["*"]
+
+  - package-ecosystem: gomod
+    directory: /services/analytics
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    labels: [dependencies, go]
+    groups:
+      go-services:
+        patterns: ["*"]
+
+  - package-ecosystem: gomod
+    directory: /services/web
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    labels: [dependencies, go]
+    groups:
+      go-services:
+        patterns: ["*"]
