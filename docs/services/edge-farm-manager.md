@@ -221,6 +221,17 @@ Run these before coding the full adapter; paste results into an internal runbook
 
 ### Connectivity
 
+Point edge at your lab FM via **`.env` only** (never hardcode host/port in source):
+
+```bash
+FARM_MANAGER_URL=http://<fm-lan-ip>:8888
+FARM_MANAGER_USER=...
+FARM_MANAGER_PASSWORD=...
+FARM_MANAGER_TRANSPORT=fm_native
+```
+
+You may need a Farm Manager local account (or API access) created on that server first. Leave `FARM_MANAGER_URL` empty for fixture mode / CI.
+
 - [ ] From edge host: `curl -vk https://<fm-ip>:8888/captain` (expect TLS/cert behavior)  
 - [ ] From edge host: TCP connect to `:1883`  
 - [ ] Note FM Server `release` from `/captain` or Server Monitor UI  

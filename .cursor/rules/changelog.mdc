@@ -1,0 +1,26 @@
+---
+description: Keep CHANGELOG.md Unreleased section current with notable changes
+alwaysApply: true
+---
+
+# Changelog discipline
+
+BambuFarmer uses [Keep a Changelog](https://keepachangelog.com/) in [`CHANGELOG.md`](CHANGELOG.md).
+
+## When landing work
+
+For any **user-visible**, **API**, **CLI**, **deploy**, or **ops** change in the same change set:
+
+1. Edit `CHANGELOG.md` under `## [Unreleased]`.
+2. Use categories: `Added`, `Changed`, `Fixed`, `Deprecated`, `Removed`, `Security`.
+3. One short bullet per notable item (why/impact, not a file list).
+4. Skip pure renames/refactors with no behavior change unless they affect operators (paths, env, CLI).
+
+## When releasing
+
+1. Move `[Unreleased]` bullets into a new `## [X.Y.Z] — YYYY-MM-DD`.
+2. Leave an empty `## [Unreleased]` section at the top.
+3. Bump `VERSION` to `X.Y.Z` and update compare links at the bottom of `CHANGELOG.md`.
+4. Tag `vX.Y.Z` (release workflow extracts that section for GitHub Release notes).
+
+Do not invent version bumps unless the user asked to release.

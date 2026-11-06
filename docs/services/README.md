@@ -31,7 +31,7 @@ Do not put service-private code under `packages/`. Edge Farm Manager HTTP lives 
 ## Cross-cutting contracts
 
 - **Events:** [`packages/events`](../../packages/events) — Redis Streams keys + envelope
-- **API DTOs:** [`packages/api`](../../packages/api)
+- **API DTOs / errors:** [`packages/api`](../../packages/api) — `api.Error` + `httpserver.WriteError` → JSON `{error,code,details?}`
 - **DB:** [`packages/db`](../../packages/db) — baseline + forward migrations; see [`DATABASE.md`](../DATABASE.md)
 - **Config / secrets:** [`.env.example`](../../.env.example) → `.env` (gitignored)
 - **Bambu integration:** [`packages/farm`](../../packages/farm) — `ControlPlane` abstraction (edge-only implementations)

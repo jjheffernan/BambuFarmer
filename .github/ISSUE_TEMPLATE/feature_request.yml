@@ -1,0 +1,51 @@
+name: Feature request
+description: Propose a capability or improvement
+title: "feat: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / motivation
+      description: What operator pain does this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed approach
+      description: Sketch the design or UX; link DESIGN_SPEC sections if relevant.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Optional — what else was considered and why not.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected area
+      multiple: true
+      options:
+        - gateway
+        - core
+        - edge
+        - integrations
+        - analytics
+        - web
+        - packages
+        - deploy / CLI
+        - docs
+    validations:
+      required: true
+  - type: dropdown
+    id: horizon
+    attributes:
+      label: Horizon
+      options:
+        - MVP
+        - soon after MVP
+        - later
+    validations:
+      required: true

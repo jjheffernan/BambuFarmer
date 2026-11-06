@@ -27,14 +27,16 @@ Host ports use the `1xxxx` range to avoid clashing with common local apps on 808
 ## Quick start (Podman)
 
 ```bash
-cp .env.example .env   # secrets + AUTH_MODE (never commit .env)
-# edit .env — at least SESSION_SECRET / POSTGRES_PASSWORD; FM_* if talking to a live Farm Manager
+cp .env.example .env   # never commit .env (gitignored)
+# edit .env: SESSION_SECRET, POSTGRES_PASSWORD, and optional FARM_MANAGER_* / OIDC_*
 make up                # creates .env if missing; podman compose --env-file .env -f deploy/compose.yml
 make health
 open http://127.0.0.1:18080   # first visit → /setup install wizard
 ```
 
-Install wizard + releases: [`docs/INSTALL.md`](docs/INSTALL.md) · [`CHANGELOG.md`](CHANGELOG.md).
+Do **not** put real passwords, tokens, or private LAN addresses in the README, docs examples, or committed config. Use `.env` locally; commit only `.env.example` placeholders (`change-me-…`). Schema lives in Go under `packages/db` — `*.sql` files are gitignored.
+
+Install wizard + releases: [`docs/INSTALL.md`](docs/INSTALL.md) · [`CHANGELOG.md`](CHANGELOG.md) (Keep a Changelog — update **Unreleased** with each notable PR).
 
 **Auth / deploy modes:** default is **LAN mode** (`AUTH_MODE=lan`) — local users, no IdP, **private network only**. Use `AUTH_MODE=oidc` when the stack has a real URL or reverse proxy. Full comparison: [`docs/DEPLOYMENT_MODES.md`](docs/DEPLOYMENT_MODES.md).
 

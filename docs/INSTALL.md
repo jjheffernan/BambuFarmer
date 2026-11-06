@@ -23,7 +23,9 @@ Tear down:
 
 CLI overview: `./scripts/bf help` · [`scripts/README.md`](../scripts/README.md).
 
-Complete the wizard, then use the fleet UI. Secrets (FM password, OIDC client secret, etc.) stay in **`.env`** — the wizard only stores non-secret site defaults in Postgres.
+Complete the wizard (including admin password), then sign in at `/login` and use the fleet UI. Farm Manager / OIDC secrets stay in **`.env`**. Operator passwords are Argon2id hashes in Postgres `users` only. Set a real `SESSION_SECRET` before production.
+
+**Password reset (LAN):** signed-in users change their own password via Admin → “Change my password” (`POST /api/v1/auth/password`). Admins can set a new password for any user (`POST /api/v1/admin/users/{id}/password`). There is no email-based forgot-password flow in LAN mode.
 
 Lab DB reset / seed snapshot: [`DATABASE.md`](./DATABASE.md) (`make db-reset`).
 
@@ -32,8 +34,8 @@ Lab DB reset / seed snapshot: [`DATABASE.md`](./DATABASE.md) (`make db-reset`).
 | Step | Writes |
 |------|--------|
 | Welcome | — |
-| Site | `sites.name`, timezone, admin username intent |
-| Auth | Records `lan` / `oidc` intent — still set `AUTH_MODE` in `.env` and restart gateway |
+| Site | `sites.name`, timezone, admin username |
+| Auth | Records `lan` / `oidc` intent — still set `AUTH_MODE` in `.env`. Finish step sets admin **password** (hashed into `users`; not stored on `install_state`). |
 | Costing | `rate_cards` ($/hr, $/kg, kg/hr) |
 | Farm Manager | URL + transport intent — set `FARM_MANAGER_*` in `.env` on the edge host |
 | Integrations | Spoolman/Manyfold URL intent — tokens in `.env` |
@@ -56,10 +58,16 @@ See [`DEPLOYMENT_MODES.md`](./DEPLOYMENT_MODES.md). Default is **LAN mode**. Cho
 
 Published from git tags `vMAJOR.MINOR.PATCH` (see [`../CHANGELOG.md`](../CHANGELOG.md) and [`.github/workflows/release.yml`](../.github/workflows/release.yml)).
 
+**Changelog hygiene:** every user/ops-visible change gets a bullet under `## [Unreleased]` in the same PR. On release:
+
+1. Move Unreleased bullets into `## [X.Y.Z] — YYYY-MM-DD`
+2. Set [`VERSION`](../VERSION) to `X.Y.Z`
+3. Update compare links at the bottom of `CHANGELOG.md`
+4. Tag and push:
+
 ```bash
-# After merging to main and updating CHANGELOG + VERSION:
 git tag -a v0.1.0 -m "v0.1.0"
 git push origin v0.1.0
 ```
 
-The release workflow builds linux/amd64 service binaries (version ldflags), OCI images tagged `:v0.1.0` / `:0.1.0`, and attaches checksums to the GitHub Release.
+The release workflow builds linux/amd64 service binaries (version ldflags), OCI images tagged `:v0.1.0` / `:0.1.0`, attaches checksums, and uses that changelog section as GitHub Release notes.

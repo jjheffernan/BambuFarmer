@@ -36,7 +36,7 @@ Canonical secrets template: [`.env.example`](../.env.example) → copy to **`.en
 
 - It does **not** change Farm Manager transport (`FARM_MANAGER_TRANSPORT` stays `fm_native` / `cdp`).
 - It does **not** move edge off the printer LAN — edge secrets and FM reachability are always LAN concerns.
-- It does **not** make the stack “secure enough” for the public internet (password stub today; even with real Argon2id users, LAN mode assumes a private network boundary).
+- It does **not** make the stack “secure enough” for the public internet (Argon2id local users + session cookies still assume a private network boundary).
 
 Alias: `AUTH_MODE=local_insecure` ≡ `lan`.
 
