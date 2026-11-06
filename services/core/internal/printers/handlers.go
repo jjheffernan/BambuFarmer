@@ -15,7 +15,7 @@ func Register(mux *http.ServeMux, pool *pgxpool.Pool, siteID string) {
 		httpx.RequireDB(w, pool, func() {
 			items, err := db.ListPrinters(r.Context(), pool, siteID)
 			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+				httpx.WriteError(w, err)
 				return
 			}
 			if items == nil {

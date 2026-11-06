@@ -75,11 +75,15 @@ func main() {
 			Opt api.ControlOpt `json:"opt"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			http.Error(w, "bad json", http.StatusBadRequest)
+			httpserver.WriteError(w, api.BadRequest("invalid JSON body"))
 			return
 		}
 		if err := ag.Control(r.Context(), sn, body.Opt); err != nil {
-			http.Error(w, err.Error(), http.StatusBadGateway)
+			if _, ok := api.AsError(err); ok {
+				httpserver.WriteError(w, err)
+				return
+			}
+			httpserver.WriteError(w, api.Wrap(http.StatusBadGateway, api.CodeBadGateway, "control failed", err))
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")

@@ -31,4 +31,11 @@ func TestRequireDBNil(t *testing.T) {
 	if called || rec.Code != http.StatusServiceUnavailable {
 		t.Fatalf("called=%v code=%d", called, rec.Code)
 	}
+	var body map[string]string
+	if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
+		t.Fatal(err)
+	}
+	if body["code"] != "not_configured" {
+		t.Fatalf("body=%v", body)
+	}
 }

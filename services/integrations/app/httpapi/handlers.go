@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/jjheffernan/BambuFarmer/packages/httpserver"
 	"github.com/jjheffernan/BambuFarmer/services/integrations/app/manyfold"
 	"github.com/jjheffernan/BambuFarmer/services/integrations/app/spoolman"
 	"github.com/jjheffernan/BambuFarmer/services/integrations/app/status"
@@ -38,7 +39,7 @@ func Register(mux *http.ServeMux, d Deps) {
 		}
 		spools, err := d.Spoolman.ListSpools(r.Context(), 1000)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadGateway)
+			httpserver.WriteError(w, err)
 			return
 		}
 		writeJSON(w, map[string]any{"configured": true, "spools": spools})
@@ -51,7 +52,7 @@ func Register(mux *http.ServeMux, d Deps) {
 		}
 		models, err := d.Manyfold.ListModels(r.Context(), 1, "name")
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadGateway)
+			httpserver.WriteError(w, err)
 			return
 		}
 		writeJSON(w, map[string]any{"configured": true, "models": models})

@@ -16,7 +16,7 @@ func Register(mux *http.ServeMux, pool *pgxpool.Pool, siteID string) {
 		httpx.RequireDB(w, pool, func() {
 			rc, err := db.GetRateCard(r.Context(), pool, siteID)
 			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+				httpx.WriteError(w, err)
 				return
 			}
 			httpx.WriteJSON(w, rc)
@@ -26,12 +26,12 @@ func Register(mux *http.ServeMux, pool *pgxpool.Pool, siteID string) {
 		httpx.RequireDB(w, pool, func() {
 			var rc api.RateCard
 			if err := json.NewDecoder(r.Body).Decode(&rc); err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
+				httpx.WriteError(w, api.BadRequest("invalid JSON body"))
 				return
 			}
 			out, err := db.UpsertRateCard(r.Context(), pool, siteID, rc)
 			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+				httpx.WriteError(w, err)
 				return
 			}
 			httpx.WriteJSON(w, out)

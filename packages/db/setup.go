@@ -90,17 +90,38 @@ func SaveInstallDraft(ctx context.Context, pool *pgxpool.Pool, siteID string, re
 }
 
 // CompleteInstall marks the wizard done and applies final config.
+// When no users exist yet, AdminPassword is required and creates the first admin.
 func CompleteInstall(ctx context.Context, pool *pgxpool.Pool, siteID, appVersion string, req api.SetupRequest) (api.InstallState, error) {
+	n, err := CountUsers(ctx, pool)
+	if err != nil {
+		return api.InstallState{}, err
+	}
+	if n == 0 {
+		if req.AdminPassword == "" {
+			return api.InstallState{}, Validation("admin_password required to finish setup")
+		}
+	}
+
 	req.Step = "done"
 	if _, err := SaveInstallDraft(ctx, pool, siteID, req); err != nil {
 		return api.InstallState{}, err
 	}
 	now := time.Now().UTC()
-	_, err := pool.Exec(ctx, `
+	_, err = pool.Exec(ctx, `
 		UPDATE install_state SET completed=TRUE, completed_at=$1, version=$2, step='done', updated_at=$1
 		WHERE id=1`, now, appVersion)
 	if err != nil {
 		return api.InstallState{}, err
+	}
+
+	if n == 0 {
+		admin := req.AdminUsername
+		if admin == "" {
+			admin = "admin"
+		}
+		if _, err := CreateUser(ctx, pool, admin, req.AdminPassword, admin, []string{RoleAdmin}); err != nil {
+			return api.InstallState{}, err
+		}
 	}
 
 	if req.ImportExamplePresets {

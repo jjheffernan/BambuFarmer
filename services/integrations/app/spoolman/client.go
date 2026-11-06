@@ -57,7 +57,7 @@ type spoolDTO struct {
 // ListSpools calls GET /api/v1/spool?limit=… (Spoolman paginates; high limit for MVP).
 func (c *Client) ListSpools(ctx context.Context, limit int) ([]api.SpoolSummary, error) {
 	if c == nil || c.base == "" {
-		return nil, fmt.Errorf("spoolman: not configured")
+		return nil, api.NotConfigured("spoolman: not configured")
 	}
 	if limit <= 0 {
 		limit = 1000
@@ -84,7 +84,7 @@ func (c *Client) ListSpools(ctx context.Context, limit int) ([]api.SpoolSummary,
 	}
 	defer res.Body.Close()
 	if res.StatusCode >= 300 {
-		return nil, fmt.Errorf("spoolman: list spools: %s", res.Status)
+		return nil, api.BadGateway(fmt.Sprintf("spoolman: list spools: %s", res.Status))
 	}
 	var raw []spoolDTO
 	if err := json.NewDecoder(res.Body).Decode(&raw); err != nil {

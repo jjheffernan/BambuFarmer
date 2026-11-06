@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"fmt"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -77,7 +76,7 @@ func GetJob(ctx context.Context, pool *pgxpool.Pool, siteID, id string) (api.Job
 		&j.CreatedAt, &j.UpdatedAt, &started, &finished,
 	)
 	if err != nil {
-		return j, err
+		return j, MapQueryError(err)
 	}
 	_ = artifactID
 	j.StartedAt = started
@@ -127,7 +126,7 @@ func TransitionJob(ctx context.Context, pool *pgxpool.Pool, siteID, id, to, acto
 		return j, nil
 	}
 	if !jobTransitions[j.State][to] {
-		return j, fmt.Errorf("invalid job transition %s → %s", j.State, to)
+		return j, InvalidJobTransition(j.State, to)
 	}
 	now := time.Now().UTC()
 	_, err = pool.Exec(ctx, `

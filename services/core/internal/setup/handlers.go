@@ -17,7 +17,7 @@ func Register(mux *http.ServeMux, pool *pgxpool.Pool, siteID string) {
 		httpx.RequireDB(w, pool, func() {
 			st, err := db.GetInstallState(r.Context(), pool)
 			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+				httpx.WriteError(w, err)
 				return
 			}
 			rc, _ := db.GetRateCard(r.Context(), pool, siteID)
@@ -33,7 +33,7 @@ func Register(mux *http.ServeMux, pool *pgxpool.Pool, siteID string) {
 		httpx.RequireDB(w, pool, func() {
 			var req api.SetupRequest
 			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
+				httpx.WriteError(w, api.BadRequest("invalid JSON body"))
 				return
 			}
 			var (
@@ -46,7 +46,7 @@ func Register(mux *http.ServeMux, pool *pgxpool.Pool, siteID string) {
 				st, err = db.SaveInstallDraft(r.Context(), pool, siteID, req)
 			}
 			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+				httpx.WriteError(w, err)
 				return
 			}
 			httpx.WriteJSON(w, st)
@@ -55,12 +55,12 @@ func Register(mux *http.ServeMux, pool *pgxpool.Pool, siteID string) {
 	mux.HandleFunc("POST /api/v1/setup/reset", func(w http.ResponseWriter, r *http.Request) {
 		httpx.RequireDB(w, pool, func() {
 			if err := db.ResetInstall(r.Context(), pool); err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+				httpx.WriteError(w, err)
 				return
 			}
 			st, err := db.GetInstallState(r.Context(), pool)
 			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+				httpx.WriteError(w, err)
 				return
 			}
 			httpx.WriteJSON(w, st)

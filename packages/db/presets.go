@@ -221,7 +221,7 @@ func UpsertPrintPreset(ctx context.Context, pool *pgxpool.Pool, siteID string, p
 func ImportPresetBundle(ctx context.Context, pool *pgxpool.Pool, siteID string, bundle api.PresetBundle) error {
 	for _, f := range bundle.FilamentPresets {
 		if f.ID == "" {
-			return fmt.Errorf("filament preset missing id")
+			return Validation("filament preset missing id")
 		}
 		if _, err := UpsertFilamentPreset(ctx, pool, siteID, f); err != nil {
 			return err
@@ -229,7 +229,7 @@ func ImportPresetBundle(ctx context.Context, pool *pgxpool.Pool, siteID string, 
 	}
 	for _, p := range bundle.PrintPresets {
 		if p.ID == "" {
-			return fmt.Errorf("print preset missing id")
+			return Validation("print preset missing id")
 		}
 		if _, err := UpsertPrintPreset(ctx, pool, siteID, p); err != nil {
 			return err

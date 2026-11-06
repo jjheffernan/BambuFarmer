@@ -63,7 +63,7 @@ type memberDTO struct {
 // ListModels calls GET /models?page=&order= (JSON-LD hydra:Collection).
 func (c *Client) ListModels(ctx context.Context, page int, order string) ([]api.ModelSummary, error) {
 	if c == nil || c.base == "" {
-		return nil, fmt.Errorf("manyfold: not configured")
+		return nil, api.NotConfigured("manyfold: not configured")
 	}
 	if page <= 0 {
 		page = 1
@@ -95,7 +95,7 @@ func (c *Client) ListModels(ctx context.Context, page int, order string) ([]api.
 	defer res.Body.Close()
 	body, _ := io.ReadAll(io.LimitReader(res.Body, 4<<20))
 	if res.StatusCode >= 300 {
-		return nil, fmt.Errorf("manyfold: list models: %s: %s", res.Status, truncate(string(body), 200))
+		return nil, api.BadGateway(fmt.Sprintf("manyfold: list models: %s: %s", res.Status, truncate(string(body), 200)))
 	}
 	var col collectionDTO
 	if err := json.Unmarshal(body, &col); err != nil {
@@ -161,7 +161,7 @@ func (c *Client) oauthToken(ctx context.Context) (string, error) {
 	defer res.Body.Close()
 	body, _ := io.ReadAll(io.LimitReader(res.Body, 1<<20))
 	if res.StatusCode >= 300 {
-		return "", fmt.Errorf("manyfold: oauth token: %s: %s", res.Status, truncate(string(body), 200))
+		return "", api.BadGateway(fmt.Sprintf("manyfold: oauth token: %s: %s", res.Status, truncate(string(body), 200)))
 	}
 	var tok struct {
 		AccessToken string `json:"access_token"`
@@ -171,7 +171,7 @@ func (c *Client) oauthToken(ctx context.Context) (string, error) {
 		return "", err
 	}
 	if tok.AccessToken == "" {
-		return "", fmt.Errorf("manyfold: oauth token empty")
+		return "", api.BadGateway("manyfold: oauth token empty")
 	}
 	exp := 30 * time.Minute
 	if tok.ExpiresIn > 0 {

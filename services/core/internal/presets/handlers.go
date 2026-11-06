@@ -16,7 +16,7 @@ func Register(mux *http.ServeMux, pool *pgxpool.Pool, siteID string) {
 		httpx.RequireDB(w, pool, func() {
 			items, err := db.ListFilamentPresets(r.Context(), pool, siteID)
 			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+				httpx.WriteError(w, err)
 				return
 			}
 			if items == nil {
@@ -29,16 +29,16 @@ func Register(mux *http.ServeMux, pool *pgxpool.Pool, siteID string) {
 		httpx.RequireDB(w, pool, func() {
 			var p api.FilamentPreset
 			if err := json.NewDecoder(r.Body).Decode(&p); err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
+				httpx.WriteError(w, api.BadRequest("invalid JSON body"))
 				return
 			}
 			if p.ID == "" || p.Name == "" {
-				http.Error(w, "id and name required", http.StatusBadRequest)
+				httpx.WriteError(w, api.BadRequest("id and name required"))
 				return
 			}
 			out, err := db.UpsertFilamentPreset(r.Context(), pool, siteID, p)
 			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+				httpx.WriteError(w, err)
 				return
 			}
 			httpx.WriteJSON(w, out)
@@ -48,7 +48,7 @@ func Register(mux *http.ServeMux, pool *pgxpool.Pool, siteID string) {
 		httpx.RequireDB(w, pool, func() {
 			items, err := db.ListPrintPresets(r.Context(), pool, siteID)
 			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+				httpx.WriteError(w, err)
 				return
 			}
 			if items == nil {
@@ -61,16 +61,16 @@ func Register(mux *http.ServeMux, pool *pgxpool.Pool, siteID string) {
 		httpx.RequireDB(w, pool, func() {
 			var p api.PrintPreset
 			if err := json.NewDecoder(r.Body).Decode(&p); err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
+				httpx.WriteError(w, api.BadRequest("invalid JSON body"))
 				return
 			}
 			if p.ID == "" || p.Name == "" {
-				http.Error(w, "id and name required", http.StatusBadRequest)
+				httpx.WriteError(w, api.BadRequest("id and name required"))
 				return
 			}
 			out, err := db.UpsertPrintPreset(r.Context(), pool, siteID, p)
 			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+				httpx.WriteError(w, err)
 				return
 			}
 			httpx.WriteJSON(w, out)
@@ -80,7 +80,7 @@ func Register(mux *http.ServeMux, pool *pgxpool.Pool, siteID string) {
 		httpx.RequireDB(w, pool, func() {
 			bundle, err := db.ExportPresetBundle(r.Context(), pool, siteID)
 			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+				httpx.WriteError(w, err)
 				return
 			}
 			httpx.WriteJSON(w, bundle)
@@ -90,11 +90,11 @@ func Register(mux *http.ServeMux, pool *pgxpool.Pool, siteID string) {
 		httpx.RequireDB(w, pool, func() {
 			var bundle api.PresetBundle
 			if err := json.NewDecoder(r.Body).Decode(&bundle); err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
+				httpx.WriteError(w, api.BadRequest("invalid JSON body"))
 				return
 			}
 			if err := db.ImportPresetBundle(r.Context(), pool, siteID, bundle); err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+				httpx.WriteError(w, err)
 				return
 			}
 			w.WriteHeader(http.StatusNoContent)

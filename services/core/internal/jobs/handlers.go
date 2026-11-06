@@ -17,7 +17,7 @@ func Register(mux *http.ServeMux, pool *pgxpool.Pool, bus *events.Bus, siteID st
 		httpx.RequireDB(w, pool, func() {
 			items, err := db.ListJobs(r.Context(), pool, siteID, 50)
 			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+				httpx.WriteError(w, err)
 				return
 			}
 			if items == nil {
@@ -30,12 +30,12 @@ func Register(mux *http.ServeMux, pool *pgxpool.Pool, bus *events.Bus, siteID st
 		httpx.RequireDB(w, pool, func() {
 			var req api.CreateJobRequest
 			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
+				httpx.WriteError(w, api.BadRequest("invalid JSON body"))
 				return
 			}
 			job, err := db.CreateJob(r.Context(), pool, siteID, req)
 			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+				httpx.WriteError(w, err)
 				return
 			}
 			if rc, err := db.GetRateCard(r.Context(), pool, siteID); err == nil {
@@ -63,7 +63,7 @@ func Register(mux *http.ServeMux, pool *pgxpool.Pool, bus *events.Bus, siteID st
 		httpx.RequireDB(w, pool, func() {
 			job, err := db.GetJob(r.Context(), pool, siteID, r.PathValue("id"))
 			if err != nil {
-				http.Error(w, err.Error(), http.StatusNotFound)
+				httpx.WriteError(w, err)
 				return
 			}
 			httpx.WriteJSON(w, job)
@@ -76,12 +76,16 @@ func Register(mux *http.ServeMux, pool *pgxpool.Pool, bus *events.Bus, siteID st
 				Reason string `json:"reason"`
 			}
 			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
+				httpx.WriteError(w, api.BadRequest("invalid JSON body"))
+				return
+			}
+			if body.State == "" {
+				httpx.WriteError(w, api.BadRequest("state required"))
 				return
 			}
 			job, err := db.TransitionJob(r.Context(), pool, siteID, r.PathValue("id"), body.State, "api", body.Reason)
 			if err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
+				httpx.WriteError(w, err)
 				return
 			}
 			httpx.WriteJSON(w, job)
