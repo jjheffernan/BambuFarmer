@@ -22,11 +22,12 @@ Do **not** combine these into a fat “all-in-one” app container. Backing serv
 From repo root:
 
 ```bash
-podman compose -f deploy/compose.yml up -d --build
-# or: make up
+cp .env.example .env   # secrets; see docs/DEPLOYMENT_MODES.md (LAN vs OIDC)
+# or: make env
+make up                # podman compose --env-file .env -f deploy/compose.yml up -d --build
 ```
 
-Optional MinIO: `podman compose -f deploy/compose.yml --profile object up -d`
+Optional MinIO: `podman compose --env-file .env -f deploy/compose.yml --profile object up -d`
 
 ## Build a single module
 
@@ -45,4 +46,4 @@ systemctl --user daemon-reload
 systemctl --user start bambufarmer-gateway
 ```
 
-Build images first (`make build`). Adjust `EnvironmentFile` paths to your `deploy/.env`.
+Build images first (`make build`). Point Quadlet `EnvironmentFile=` at the repo-root `.env` (same keys as `.env.example`).
