@@ -6,6 +6,8 @@
 
 **Pre-build gate:** integration answers are recorded in [`MVP_CHECKLIST.md`](./MVP_CHECKLIST.md). Remaining items are live-box smoke tests (FM IP/version), not open design.
 
+**Per-service design shapes:** [`docs/services/`](./services/README.md) — including Farm Manager research for edge ([`edge-farm-manager.md`](./services/edge-farm-manager.md)).
+
 ### Locked decisions
 
 | Topic | Decision |

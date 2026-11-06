@@ -3,7 +3,8 @@
 Operations layer for a Bambu Lab print farm: Farm Manager integration, jobs, presets, Spoolman/Manyfold adapters, costing, and analytics.
 
 **Status:** design freeze in progress + scaffold stubs.  
-See [`docs/DESIGN_SPEC.md`](docs/DESIGN_SPEC.md) and answer [`docs/MVP_CHECKLIST.md`](docs/MVP_CHECKLIST.md) before wiring live Farm Manager.
+See [`docs/DESIGN_SPEC.md`](docs/DESIGN_SPEC.md), [`docs/MVP_CHECKLIST.md`](docs/MVP_CHECKLIST.md), and per-service shapes in [`docs/services/`](docs/services/).  
+Edge / Farm Manager research: [`docs/services/edge-farm-manager.md`](docs/services/edge-farm-manager.md).
 
 [![CI](https://github.com/jjheffernan/BambuFarmer/actions/workflows/ci.yml/badge.svg)](https://github.com/jjheffernan/BambuFarmer/actions/workflows/ci.yml)
 
