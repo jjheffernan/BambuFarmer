@@ -77,10 +77,10 @@ Where do install-specific presets live today, and how should we import them?
 - Prefer FM tags, FM v3 groups, or our own groups as primary?
 
 ### B3. Deploy shape
-- [ ] Separate `web` + `gateway` containers
-- [ ] Combine `web+gateway` for tiny farms
+- [x] Separate containers per module (gateway, core, edge, web, …) — **required**
+- [ ] ~~Combine web+gateway~~ — rejected; keep modules split
 
-*Assumed default: separate in compose; document combine option.*
+*Locked: one module → one image → one container (Podman-first).*
 
 ### B4. SSE vs WebSocket
 *Assumed default: SSE + HTMX (already in design).* Confirm if you need browser→server push beyond forms.
@@ -100,11 +100,12 @@ Where do install-specific presets live today, and how should we import them?
 - [ ] Out-of-MVP list accepted (slicer, Fleet Hub, multi-site, firmware UI)
 
 ### Scaffold (engineering ready)
-- [x] Go workspace + all service stubs build via Docker
-- [x] `docker compose` brings up postgres, redis, stub services with `/healthz` (MinIO via `--profile object`)
+- [x] Go workspace + per-service `Containerfile` (small images, not one fat image)
+- [x] Podman Compose (`deploy/compose.yml`) brings up postgres, redis, stub services with `/healthz`
+- [x] Quadlet stubs under `deploy/podman/`
 - [x] Shared `packages/events` + `packages/api` (+ config, httpserver)
 - [x] `deploy/env.example` documents all config knobs
-- [x] README explains run path without local Go (Docker) and with Go
+- [x] README explains Podman-first run path (Docker fallback) and local Go
 - [x] Example preset bundle + core import/export stub
 
 ### Integration readiness (before coding FM adapter for real)

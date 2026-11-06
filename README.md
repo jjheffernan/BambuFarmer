@@ -5,32 +5,43 @@ Operations layer for a Bambu Lab print farm: Farm Manager integration, jobs, pre
 **Status:** design freeze in progress + scaffold stubs.  
 See [`docs/DESIGN_SPEC.md`](docs/DESIGN_SPEC.md) and answer [`docs/MVP_CHECKLIST.md`](docs/MVP_CHECKLIST.md) before wiring live Farm Manager.
 
-## Architecture (MVP services)
+[![CI](https://github.com/jjheffernan/BambuFarmer/actions/workflows/ci.yml/badge.svg)](https://github.com/jjheffernan/BambuFarmer/actions/workflows/ci.yml)
 
-| Service | Host port (compose) | Role |
-|---------|---------------------|------|
-| `gateway` | 18080 | Auth + API edge |
-| `core` | 18081 | Jobs, presets, domain |
-| `edge` | 18082 | Farm Manager adapter |
-| `integrations` | 18083 | Spoolman / Manyfold |
-| `analytics` | 18084 | Rollups / reports |
-| `web` | 13000 | templ + HTMX UI |
-| Postgres / Redis / MinIO | 5432 / 6379 / 19000 | Backing stores |
+## Modules (one container each)
+
+| Service | Image | Host port | Role |
+|---------|-------|-----------|------|
+| `gateway` | `localhost/bambufarmer-gateway` | 18080 | Auth + API ingress |
+| `core` | `localhost/bambufarmer-core` | 18081 | Jobs, presets, domain |
+| `edge` | `localhost/bambufarmer-edge` | 18082 | Farm Manager LAN adapter |
+| `integrations` | `localhost/bambufarmer-integrations` | 18083 | Spoolman / Manyfold |
+| `analytics` | `localhost/bambufarmer-analytics` | 18084 | Rollups / reports |
+| `web` | `localhost/bambufarmer-web` | 13000 | templ + HTMX UI |
+| Postgres / Redis | upstream images | 5432 / 6379 | Backing stores |
+
+Each app service is a **separate distroless image** with a single Go binary (`services/<name>/Containerfile`). We do not ship an all-in-one app container.
 
 Host ports use the `1xxxx` range to avoid clashing with common local apps on 8080/3000.
 
-All first-party code is **Go**.
-
-## Quick start (Docker)
-
-No local Go required:
+## Quick start (Podman)
 
 ```bash
 cp deploy/env.example deploy/.env   # edit FM / Spoolman / Manyfold when ready
-make up
+make up                             # uses: podman compose -f deploy/compose.yml
 make health
 open http://127.0.0.1:13000
 ```
+
+Docker works as a fallback: `make up ENGINE=docker`.
+
+Build one module only:
+
+```bash
+podman build -t localhost/bambufarmer-edge:dev -f services/edge/Containerfile .
+# or: make images
+```
+
+Systemd / Quadlets: see [`deploy/podman/README.md`](deploy/podman/README.md).
 
 Import example presets into the core stub:
 

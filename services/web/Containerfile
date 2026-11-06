@@ -1,0 +1,16 @@
+# bambufarmer-web — standalone image (one binary, distroless)
+# podman build -t localhost/bambufarmer-web:dev -f services/web/Containerfile .
+FROM golang:1.23-bookworm AS build
+WORKDIR /src
+ENV GOWORK=off
+COPY packages/api ./packages/api
+COPY packages/httpserver ./packages/httpserver
+COPY services/web ./services/web
+WORKDIR /src/services/web
+RUN go mod tidy && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/service .
+
+FROM gcr.io/distroless/static-debian12:nonroot
+COPY --from=build /out/service /service
+USER nonroot:nonroot
+EXPOSE 8080
+ENTRYPOINT ["/service"]

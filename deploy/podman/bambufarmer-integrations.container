@@ -1,0 +1,15 @@
+[Unit]
+Description=BambuFarmer integrations
+
+[Container]
+Image=localhost/bambufarmer-integrations:dev
+ContainerName=bambufarmer-integrations
+Network=bambufarmer.network
+PublishPort=18083:8080
+Environment=HTTP_ADDR=:8080
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,19 @@
+[Unit]
+Description=BambuFarmer Postgres
+After=network-online.target
+
+[Container]
+Image=docker.io/library/postgres:16-alpine
+ContainerName=bambufarmer-postgres
+Network=bambufarmer.network
+PublishPort=5432:5432
+Environment=POSTGRES_USER=bambufarmer
+Environment=POSTGRES_PASSWORD=bambufarmer
+Environment=POSTGRES_DB=bambufarmer
+Volume=bambufarmer-pgdata:/var/lib/postgresql/data:Z
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target

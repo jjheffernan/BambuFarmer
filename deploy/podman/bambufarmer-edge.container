@@ -1,0 +1,20 @@
+[Unit]
+Description=BambuFarmer edge (Farm Manager LAN)
+After=bambufarmer-redis.service
+
+[Container]
+Image=localhost/bambufarmer-edge:dev
+ContainerName=bambufarmer-edge
+Network=bambufarmer.network
+PublishPort=18082:8080
+Environment=HTTP_ADDR=:8080
+Environment=SITE_ID=default
+Environment=FARM_MODE=farm_manager
+Environment=FARM_MANAGER_TRANSPORT=cdp
+Environment=REDIS_URL=redis://bambufarmer-redis:6379/0
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target

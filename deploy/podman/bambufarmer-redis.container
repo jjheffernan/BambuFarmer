@@ -1,0 +1,15 @@
+[Unit]
+Description=BambuFarmer Redis
+After=network-online.target
+
+[Container]
+Image=docker.io/library/redis:7-alpine
+ContainerName=bambufarmer-redis
+Network=bambufarmer.network
+PublishPort=6379:6379
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target

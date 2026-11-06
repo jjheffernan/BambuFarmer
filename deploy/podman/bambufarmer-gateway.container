@@ -1,0 +1,19 @@
+[Unit]
+Description=BambuFarmer gateway
+After=bambufarmer-postgres.service bambufarmer-redis.service
+
+[Container]
+Image=localhost/bambufarmer-gateway:dev
+ContainerName=bambufarmer-gateway
+Network=bambufarmer.network
+PublishPort=18080:8080
+Environment=HTTP_ADDR=:8080
+Environment=AUTH_MODE=local_insecure
+Environment=DATABASE_URL=postgres://bambufarmer:bambufarmer@bambufarmer-postgres:5432/bambufarmer?sslmode=disable
+Environment=REDIS_URL=redis://bambufarmer-redis:6379/0
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target

@@ -1,6 +1,6 @@
 # BambuFarmer — Design Specification
 
-**Status:** Draft v0.6 (MVP freeze in progress)  
+**Status:** Draft v0.7 (Podman-first; modular containers)  
 **Date:** 2026-11-06  
 **Scope:** Architecture and module design for a containerized print-farm operations platform that integrates with the Bambu Lab ecosystem (Farm Manager Server primary; Fleet Hub optional later), Spoolman (and peers), Manyfold (and peers), with multi-user access, costing, analytics, and **per-install filament/print presets**. Post-MVP: OrcaSlicer-backed slice service.
 
@@ -19,6 +19,8 @@
 | Presets | **Per-install** filament + print presets in Postgres; JSON import/export (not baked into images) |
 | Slicing | **Out of MVP**; future `slicer` module wrapping **OrcaSlicer** CLI |
 | Analytics | Dedicated **`bambufarmer-analytics`** service (not folded into core) |
+| Runtime | **Podman-first** (Compose + Quadlets); Docker fallback |
+| Packaging | **One module → one Containerfile → one image → one container** (no fat all-in-one app image) |
 
 ---
 
@@ -44,7 +46,7 @@ Bambu Farm Manager Server remains the trusted LAN control plane for printers in 
 | ID | Goal |
 |----|------|
 | G1 | Easily web-hosted; works behind reverse proxies / Traefik / Caddy / nginx |
-| G2 | Fully containerized; deployable to Docker, Podman, Proxmox LXC/VMs with containers, K8s-light |
+| G2 | Fully containerized; **Podman-first**, also Docker / Proxmox / k3s; one module → one image → one container |
 | G3 | 12-factor compliant (config via env, stateless app processes, backing services) |
 | G4 | Pluggable filament managers (Spoolman primary) |
 | G5 | Pluggable file libraries (Manyfold primary) |
@@ -72,7 +74,7 @@ Bambu Farm Manager Server remains the trusted LAN control plane for printers in 
 4. **Adapters, not hardcodes.** Spoolman/Manyfold are first adapters behind stable internal ports.
 5. **Jobs are first-class.** Every print is a Job with state machine, audit trail, and cost accrual.
 6. **12-factor.** Config = env; processes are disposable; logs to stdout; backing services (Postgres, Redis, object store) are attached, not embedded as durable state in the app image.
-7. **Modular containers.** Each major module is its own image/service; compose them for a farm.
+7. **Modular containers (hard rule).** Each major module is its own image and container (distroless, single binary). No fat “all-in-one” app image. Prefer **Podman** (compose or Quadlets).
 8. **Auth modes.** Production path is OIDC; `AUTH_MODE=local_insecure` enables local users without external IdP (lab/dev only—never expose publicly without understanding the risk).
 
 ---
@@ -121,7 +123,7 @@ Bambu Farm Manager Server remains the trusted LAN control plane for printers in 
 │                   Bambu printers                                         │
 └──────────────────────────────────────────────────────────────────────────┘
 
-External (same Docker network or linked hosts):
+External (same Podman/Compose network or linked hosts):
   Spoolman · Manyfold · Postgres · Redis · Object storage (S3/MinIO) · optional OIDC
 ```
 
@@ -522,7 +524,7 @@ Farm Manager local admin credentials are **service accounts** held by edge—not
 - Edge must sit on printer LAN (or routable to Farm Manager Server)
 - Core/web can be LAN-only or reverse-proxied with auth
 - mTLS / CDP materials: edge-only (`EDGE_CERT_DIR` or sidecar FM Client); never mount into web
-- All inter-service traffic on internal Docker network; gateway is the only public ingress by default
+- All inter-service traffic on internal Podman/Compose network; gateway is the only public ingress by default
 - When `AUTH_MODE=local_insecure`, recommend binding gateway to LAN / VPN only
 
 ---
@@ -629,7 +631,7 @@ Status color mapping: `IDLE` muted · `RUNNING` info · `PAUSE`/`FAILED` warn/da
 | web-frontend | **Go + templ + HTMX** | Unified Go; SSE fragment updates; tiny Alpine only where needed |
 | slicer | **Go** + **OrcaSlicer** binary | Post-MVP sidecar; CLI wrapper only |
 | DB | **Postgres 16+** | System of record |
-| Bus / cache | **Redis** (Streams + optional session/cache) | One small container; easy on Docker/Podman/Proxmox |
+| Bus / cache | **Redis** (Streams + optional session/cache) | One small container; easy on Podman/Proxmox |
 | Objects | **MinIO** / S3 | Slice files & snapshots |
 
 **Why Redis over NATS for us:** fewer moving parts at small scale, ops familiarity, and one service covers Streams (events) plus optional gateway sessions/rate-limit keys. Revisit NATS only if we outgrow Redis Streams semantics.
@@ -683,30 +685,29 @@ MANYFOLD_CLIENT_SECRET=...
 ### 13.2 Compose topology (illustrative)
 
 ```yaml
+# deploy/compose.yml — each build uses services/<name>/Containerfile
 services:
-  gateway:
-  core:
-  edge:          # may use network_mode / macvlan for LAN / FM reachability
-  integrations:
-  analytics:     # dedicated; include in MVP compose
-  web:           # Go templ + HTMX (or combine with gateway in tiny deploys)
+  gateway:       # localhost/bambufarmer-gateway
+  core:          # localhost/bambufarmer-core
+  edge:          # localhost/bambufarmer-edge (LAN / FM)
+  integrations:  # localhost/bambufarmer-integrations
+  analytics:     # localhost/bambufarmer-analytics
+  web:           # localhost/bambufarmer-web
   postgres:
   redis:
-  minio:
-  # optional / post-MVP:
-  # slicer:      # OrcaSlicer CLI sidecar
-  # spoolman:
-  # manyfold:
+  # minio:       # profile "object"
+  # slicer:      # post-MVP, separate heavy image
 ```
 
 ### 13.3 Host targets
 
 | Host | Notes |
 |------|-------|
-| Docker Compose | Default developer + small farm |
-| Podman Quadlets | Rootless-friendly |
-| Proxmox | CT or VM running Podman/Docker; edge VM on printer VLAN |
-| K8s / k3s | Later; same images, Ingress instead of compose ports |
+| **Podman Compose** | **Preferred** developer + small farm (`make up`) |
+| **Podman Quadlets** | Preferred systemd/rootless production (`deploy/podman/`) |
+| Docker Compose | Compatible fallback (`ENGINE=docker`) |
+| Proxmox | CT/VM with Podman; edge on printer VLAN |
+| K8s / k3s | Later; same per-module images, Ingress instead of compose ports |
 
 Edge may need host networking or a VLAN interface for SSDP discovery—document as a deployment profile `edge-lan`.
 
@@ -1017,17 +1018,17 @@ BambuFarmer/
   docs/
     DESIGN_SPEC.md          ← this document
   deploy/
-    docker-compose.yml
-    podman/
+    compose.yml             # Podman-first (Docker-compatible)
+    podman/                 # Quadlets — one .container per module
     env.example
   services/
-    gateway/                # Go
-    core/                   # Go
-    edge/                   # Go
-    integrations/           # Go
-    analytics/              # Go — dedicated
-    web/                    # Go + templ + HTMX
-    slicer/                 # post-MVP — OrcaSlicer wrapper (Go)
+    gateway/                # Go + Containerfile
+    core/                   # Go + Containerfile
+    edge/                   # Go + Containerfile
+    integrations/           # Go + Containerfile
+    analytics/              # Go + Containerfile
+    web/                    # Go + templ + HTMX + Containerfile
+    slicer/                 # post-MVP — own heavy Containerfile
   packages/
     api/                    # shared request/response types
     events/                 # shared stream envelopes
@@ -1035,7 +1036,7 @@ BambuFarmer/
   scripts/
 ```
 
-Each `services/*` builds to its own container image tagged `bambufarmer/<name>:<version>`. Prefer a Go workspace (`go.work`) at repo root.
+Each `services/*` has its own `Containerfile` and image `localhost/bambufarmer-<name>:<version>` (single binary, distroless). Prefer a Go workspace (`go.work`) at repo root. **Never** collapse app modules into one large container.
 
 ---
 
@@ -1047,9 +1048,10 @@ Track answers in [`MVP_CHECKLIST.md`](./MVP_CHECKLIST.md). Still open:
 
 1. **FM transport default:** CDP vs direct mTLS (and edge OS)
 2. **Multi-tenancy:** single-org MVP vs multi-tenant later
-3. **Deploy shape:** separate `web` + `gateway` vs combine
-4. **Spoolman / Manyfold:** live URLs vs stub for MVP
-5. **Preset import:** which files/formats you will supply first
+3. **Spoolman / Manyfold:** live URLs vs stub for MVP
+4. **Preset import:** which files/formats you will supply first
+
+Locked deploy: **Podman-first**, one module → one image → one container (no fat app image).
 
 ---
 
@@ -1082,9 +1084,9 @@ Track answers in [`MVP_CHECKLIST.md`](./MVP_CHECKLIST.md). Still open:
 | UI | web (templ+HTMX) | Deploy frontend cadence separately |
 | CPU-heavy slicing | slicer | Optional; isolate OrcaSlicer from control plane |
 
-All modules are **Go**; the split is about process/trust boundaries, not languages.
+All modules are **Go**; the split is about process/trust boundaries **and** deploy units (separate images).
 
-Bundling into fewer containers is fine for tiny farms (combine gateway+web+core); keep **edge** separate whenever printers are on a different trust/network boundary; keep **analytics** separate once history grows; keep **slicer** optional.
+**Do not** combine gateway/web/core/edge/analytics into one container to “save resources.” Scale or omit modules instead. Keep **edge** on the printer LAN trust boundary; keep **analytics** and **slicer** optional/isolated when unused.
 
 ---
 
