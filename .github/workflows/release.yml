@@ -1,0 +1,139 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to release (e.g. v0.1.0) — for manual rebuilds only"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  GO_VERSION: "1.23.x"
+  REGISTRY: ghcr.io
+
+jobs:
+  release:
+    name: Build & publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Resolve version
+        id: ver
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.tag }}" ]; then
+            TAG="${{ inputs.tag }}"
+          else
+            TAG="${GITHUB_REF_NAME}"
+          fi
+          VERSION="${TAG#v}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if [ -f VERSION ]; then
+            FILE_VER=$(tr -d '[:space:]' < VERSION)
+            if [ "$FILE_VER" != "$VERSION" ]; then
+              echo "::warning::VERSION file ($FILE_VER) != tag version ($VERSION)"
+            fi
+          fi
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: |
+            **/go.sum
+            **/go.mod
+
+      - name: Build service binaries
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+          COMMIT: ${{ github.sha }}
+          BUILT_AT: ${{ github.event.head_commit.timestamp || github.event.repository.updated_at }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          LDFLAGS="-s -w -X github.com/jjheffernan/BambuFarmer/packages/version.Version=${VERSION} -X github.com/jjheffernan/BambuFarmer/packages/version.Commit=${COMMIT} -X github.com/jjheffernan/BambuFarmer/packages/version.BuiltAt=${BUILT_AT}"
+          for s in gateway core edge integrations analytics web; do
+            echo "==> $s"
+            (
+              cd "services/$s"
+              GOWORK=off CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+                go build -trimpath -ldflags="$LDFLAGS" -o "../../dist/bambufarmer-${s}-linux-amd64" .
+            )
+          done
+          (
+            cd dist
+            sha256sum bambufarmer-*-linux-amd64 > SHA256SUMS
+            tar -czf "bambufarmer-${VERSION}-linux-amd64.tar.gz" bambufarmer-*-linux-amd64 SHA256SUMS
+          )
+
+      - name: Extract changelog section
+        id: notes
+        run: |
+          python3 <<'PY'
+          import pathlib, re, os
+          version = os.environ["VERSION"]
+          text = pathlib.Path("CHANGELOG.md").read_text()
+          # Match ## [0.1.0] ... until next ## [
+          pat = rf"## \[({re.escape(version)})\][^\n]*\n(.*?)(?=\n## \[|\Z)"
+          m = re.search(pat, text, re.S)
+          body = m.group(2).strip() if m else f"Release v{version}"
+          pathlib.Path("dist/RELEASE_NOTES.md").write_text(body + "\n")
+          print(body[:500])
+          PY
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & push module images
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+          TAG: ${{ steps.ver.outputs.tag }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          OWNER_LC=$(echo "$OWNER" | tr '[:upper:]' '[:lower:]')
+          for s in gateway core edge integrations analytics web; do
+            IMAGE="${REGISTRY}/${OWNER_LC}/bambufarmer-${s}"
+            echo "==> $IMAGE:$VERSION"
+            docker build \
+              --build-arg "VERSION=${VERSION}" \
+              --build-arg "COMMIT=${GITHUB_SHA}" \
+              --build-arg "BUILT_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+              -t "${IMAGE}:${VERSION}" \
+              -t "${IMAGE}:${TAG}" \
+              -t "${IMAGE}:latest" \
+              -f "services/${s}/Containerfile" \
+              .
+            docker push "${IMAGE}:${VERSION}"
+            docker push "${IMAGE}:${TAG}"
+            docker push "${IMAGE}:latest"
+          done
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.ver.outputs.tag }}
+          name: BambuFarmer ${{ steps.ver.outputs.tag }}
+          body_path: dist/RELEASE_NOTES.md
+          files: |
+            dist/bambufarmer-${{ steps.ver.outputs.version }}-linux-amd64.tar.gz
+            dist/SHA256SUMS
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

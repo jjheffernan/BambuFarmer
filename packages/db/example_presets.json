@@ -1,0 +1,29 @@
+{
+  "filament_presets": [
+    {
+      "id": "pla-generic",
+      "name": "Generic PLA",
+      "material": "PLA",
+      "vendor": "Generic",
+      "color_hex": "#00AE42",
+      "diameter_mm": 1.75,
+      "nozzle_temp_min": 190,
+      "nozzle_temp_max": 220,
+      "bed_temp": 55,
+      "price_per_kg": 20,
+      "active": true
+    }
+  ],
+  "print_presets": [
+    {
+      "id": "0.20-standard",
+      "name": "0.20mm Standard",
+      "compatible_models": ["P1S", "X1C", "A1"],
+      "nozzle_diameter_mm": 0.4,
+      "layer_height_mm": 0.2,
+      "infill_pct": 15,
+      "est_speed_factor": 1,
+      "active": true
+    }
+  ]
+}

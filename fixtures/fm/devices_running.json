@@ -1,0 +1,29 @@
+{
+  "devices": [
+    {
+      "dev_id": "01P00CREDACTED01",
+      "dev_model": "C12",
+      "dev_name": "",
+      "dev_ip": "192.168.1.101",
+      "name": "3DP-01P-101",
+      "report_status": {
+        "gcode_state": "RUNNING",
+        "nozzle_temper": 220.0,
+        "nozzle_target_temper": 220,
+        "bed_temper": 55.0,
+        "bed_target_temper": 55,
+        "chamber_temper": 32,
+        "mc_percent": 37,
+        "mc_remaining_time": 5400,
+        "wifi_signal": "-48dBm",
+        "spd_mag": 100,
+        "spd_lvl": 2,
+        "print_error": 0,
+        "layer_num": 120,
+        "total_layer_num": 320,
+        "nozzle_diameter": "0.4",
+        "nozzle_type": "stainless_steel"
+      }
+    }
+  ]
+}

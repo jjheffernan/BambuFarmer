@@ -23,8 +23,12 @@ jobs:
         module:
           - packages/api
           - packages/config
+          - packages/db
           - packages/events
+          - packages/farm
           - packages/httpserver
+          - packages/printerstate
+          - packages/version
           - services/gateway
           - services/core
           - services/edge
@@ -35,9 +39,9 @@ jobs:
       run:
         working-directory: ${{ matrix.module }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           go-version: ${{ env.GO_VERSION }}
           cache-dependency-path: |
@@ -52,6 +56,33 @@ jobs:
 
       - name: Test
         run: go test ./...
+
+  # Proves the harness reports failures: intentional canary must fail under FORCE_TEST_FAIL=1.
+  test-harness-force-fail:
+    name: Force-fail canary
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: |
+            **/go.sum
+            **/go.mod
+
+      - name: Expect force-fail canary to fail
+        working-directory: packages/config
+        run: |
+          set +e
+          FORCE_TEST_FAIL=1 go test -count=1 -run TestForceFailCanary ./tests
+          code=$?
+          set -e
+          if [ "$code" -eq 0 ]; then
+            echo "force-fail canary passed unexpectedly — harness may not be detecting failures"
+            exit 1
+          fi
+          echo "force-fail canary failed as expected (exit $code)"
 
   go-build:
     name: Go build services
@@ -68,9 +99,9 @@ jobs:
           - analytics
           - web
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           go-version: ${{ env.GO_VERSION }}
           cache-dependency-path: |
@@ -100,7 +131,7 @@ jobs:
           - analytics
           - web
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # OCI Containerfiles; Docker on GITHUB_ACTIONS runners (Podman locally).
       - name: Build ${{ matrix.service }} image
@@ -114,6 +145,9 @@ jobs:
     name: Compose config
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Validate compose file
-        run: docker compose -f deploy/compose.yml config --quiet
+        run: |
+          # compose services reference ../.env via env_file; CI has no secrets file
+          cp .env.example .env
+          docker compose -f deploy/compose.yml config --quiet

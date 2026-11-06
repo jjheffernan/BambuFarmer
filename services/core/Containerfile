@@ -1,13 +1,25 @@
 # bambufarmer-core — standalone image (one binary, distroless)
 # podman build -t localhost/bambufarmer-core:dev -f services/core/Containerfile .
+ARG VERSION=0.1.0-dev
+ARG COMMIT=unknown
+ARG BUILT_AT=unknown
 FROM golang:1.23-bookworm AS build
+ARG VERSION
+ARG COMMIT
+ARG BUILT_AT
 WORKDIR /src
 ENV GOWORK=off
 COPY packages/api ./packages/api
+COPY packages/config ./packages/config
 COPY packages/httpserver ./packages/httpserver
+COPY packages/db ./packages/db
+COPY packages/events ./packages/events
+COPY packages/version ./packages/version
 COPY services/core ./services/core
 WORKDIR /src/services/core
-RUN go mod tidy && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/service .
+RUN go mod tidy && CGO_ENABLED=0 go build -trimpath \
+    -ldflags="-s -w -X github.com/jjheffernan/BambuFarmer/packages/version.Version=${VERSION} -X github.com/jjheffernan/BambuFarmer/packages/version.Commit=${COMMIT} -X github.com/jjheffernan/BambuFarmer/packages/version.BuiltAt=${BUILT_AT}" \
+    -o /out/service .
 
 FROM gcr.io/distroless/static-debian12:nonroot
 COPY --from=build /out/service /service

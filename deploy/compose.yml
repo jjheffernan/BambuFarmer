@@ -1,25 +1,34 @@
 # Podman-first compose (also works with Docker Compose v2).
+#   cp .env.example .env    # repo root — secrets live here
 #   podman compose -f deploy/compose.yml up -d --build
 #   make up
 #
 # Each app service is a separate small image (one Go binary / distroless).
 # Do not merge gateway/core/edge/web into a single container.
+#
+# Auth / placement modes: docs/DEPLOYMENT_MODES.md
 
 name: bambufarmer
+
+# Injected into containers. Interpolation (${VAR}) also uses repo-root .env
+# via `make up` → `compose --env-file .env`. Optional fallback: deploy/.env.
+x-env-file: &env_file
+  - ../.env
 
 services:
   postgres:
     image: docker.io/library/postgres:16-alpine
+    env_file: *env_file
     environment:
-      POSTGRES_USER: bambufarmer
-      POSTGRES_PASSWORD: bambufarmer
-      POSTGRES_DB: bambufarmer
+      POSTGRES_USER: ${POSTGRES_USER:-bambufarmer}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bambufarmer}
+      POSTGRES_DB: ${POSTGRES_DB:-bambufarmer}
     ports:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U bambufarmer"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-bambufarmer}"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -39,9 +48,10 @@ services:
     profiles: ["object"]
     image: docker.io/minio/minio:RELEASE.2024-12-18T13-15-44Z
     command: server /data --console-address ":9001"
+    env_file: *env_file
     environment:
-      MINIO_ROOT_USER: minio
-      MINIO_ROOT_PASSWORD: minioadmin
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
     ports:
       - "19000:9000"
       - "19001:9001"
@@ -53,28 +63,48 @@ services:
     build:
       context: ..
       dockerfile: services/gateway/Containerfile
+    env_file: *env_file
     environment:
       HTTP_ADDR: ":8080"
-      AUTH_MODE: lan
-      DATABASE_URL: postgres://bambufarmer:bambufarmer@postgres:5432/bambufarmer?sslmode=disable
-      REDIS_URL: redis://redis:6379/0
+      AUTH_MODE: ${AUTH_MODE:-lan}
+      SESSION_SECRET: ${SESSION_SECRET:-change-me}
+      CORE_URL: http://core:8080
+      WEB_URL: http://web:8080
+      ANALYTICS_URL: http://analytics:8080
+      INTEGRATIONS_URL: http://integrations:8080
+      EDGE_URL: http://edge:8080
+      EDGE_TOKEN: ${EDGE_TOKEN:-}
+      DATABASE_URL: ${DATABASE_URL:-postgres://bambufarmer:bambufarmer@postgres:5432/bambufarmer?sslmode=disable}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      # SSE fan-out requires Redis Streams from edge/core
+      OIDC_ISSUER: ${OIDC_ISSUER:-}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+      OIDC_REDIRECT_URL: ${OIDC_REDIRECT_URL:-}
     ports:
       - "18080:8080"
     depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+      - core
+      - web
+      - analytics
+      - integrations
+      - edge
 
   core:
     image: localhost/bambufarmer-core:dev
     build:
       context: ..
       dockerfile: services/core/Containerfile
+    env_file: *env_file
     environment:
       HTTP_ADDR: ":8080"
-      DATABASE_URL: postgres://bambufarmer:bambufarmer@postgres:5432/bambufarmer?sslmode=disable
-      REDIS_URL: redis://redis:6379/0
+      SITE_ID: ${SITE_ID:-default}
+      DATABASE_URL: ${DATABASE_URL:-postgres://bambufarmer:bambufarmer@postgres:5432/bambufarmer?sslmode=disable}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      CURRENCY: ${CURRENCY:-USD}
+      MACHINE_RATE_PER_HOUR: ${MACHINE_RATE_PER_HOUR:-0}
+      FILAMENT_PRICE_PER_KG: ${FILAMENT_PRICE_PER_KG:-0}
+      FILAMENT_KG_PER_HOUR: ${FILAMENT_KG_PER_HOUR:-0}
     ports:
       - "18081:8080"
     depends_on:
@@ -88,13 +118,23 @@ services:
     build:
       context: ..
       dockerfile: services/edge/Containerfile
+    env_file: *env_file
     environment:
       HTTP_ADDR: ":8080"
-      SITE_ID: default
-      FARM_MODE: farm_manager
-      FARM_MANAGER_TRANSPORT: fm_native
-      FARM_MANAGER_URL: ""
-      REDIS_URL: redis://redis:6379/0
+      SITE_ID: ${SITE_ID:-default}
+      FARM_MODE: ${FARM_MODE:-farm_manager}
+      FARM_MANAGER_TRANSPORT: ${FARM_MANAGER_TRANSPORT:-fm_native}
+      # Empty URL → fixture mode (image embeds /fixtures/fm). Set URL for live FM.
+      FARM_MANAGER_URL: ${FARM_MANAGER_URL:-}
+      FARM_MANAGER_USER: ${FARM_MANAGER_USER:-}
+      FARM_MANAGER_PASSWORD: ${FARM_MANAGER_PASSWORD:-}
+      FARM_MANAGER_TLS_INSECURE: ${FARM_MANAGER_TLS_INSECURE:-false}
+      FARM_MANAGER_POLL_INTERVAL: ${FARM_MANAGER_POLL_INTERVAL:-3s}
+      EDGE_FIXTURE_DIR: ${EDGE_FIXTURE_DIR:-/fixtures/fm}
+      EDGE_CERT_DIR: ${EDGE_CERT_DIR:-}
+      CDP_URL: ${CDP_URL:-}
+      EDGE_TOKEN: ${EDGE_TOKEN:-}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
     ports:
       - "18082:8080"
     depends_on:
@@ -106,10 +146,15 @@ services:
     build:
       context: ..
       dockerfile: services/integrations/Containerfile
+    env_file: *env_file
     environment:
       HTTP_ADDR: ":8080"
-      SPOOLMAN_URL: ""
-      MANYFOLD_URL: ""
+      SPOOLMAN_URL: ${SPOOLMAN_URL:-}
+      SPOOLMAN_API_TOKEN: ${SPOOLMAN_API_TOKEN:-}
+      MANYFOLD_URL: ${MANYFOLD_URL:-}
+      MANYFOLD_CLIENT_ID: ${MANYFOLD_CLIENT_ID:-}
+      MANYFOLD_CLIENT_SECRET: ${MANYFOLD_CLIENT_SECRET:-}
+      MANYFOLD_TOKEN: ${MANYFOLD_TOKEN:-}
     ports:
       - "18083:8080"
 
@@ -118,10 +163,11 @@ services:
     build:
       context: ..
       dockerfile: services/analytics/Containerfile
+    env_file: *env_file
     environment:
       HTTP_ADDR: ":8080"
-      DATABASE_URL: postgres://bambufarmer:bambufarmer@postgres:5432/bambufarmer?sslmode=disable
-      REDIS_URL: redis://redis:6379/0
+      DATABASE_URL: ${DATABASE_URL:-postgres://bambufarmer:bambufarmer@postgres:5432/bambufarmer?sslmode=disable}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
     ports:
       - "18084:8080"
     depends_on:
@@ -135,8 +181,10 @@ services:
     build:
       context: ..
       dockerfile: services/web/Containerfile
+    env_file: *env_file
     environment:
       HTTP_ADDR: ":8080"
+      PUBLIC_API_BASE: ${PUBLIC_API_BASE:-http://127.0.0.1:18080}
     ports:
       - "13000:8080"
 

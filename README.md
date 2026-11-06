@@ -3,7 +3,8 @@
 Operations layer for a Bambu Lab print farm: Farm Manager integration, jobs, presets, Spoolman/Manyfold adapters, costing, and analytics.
 
 **Status:** design freeze in progress + scaffold stubs.  
-See [`docs/DESIGN_SPEC.md`](docs/DESIGN_SPEC.md) and answer [`docs/MVP_CHECKLIST.md`](docs/MVP_CHECKLIST.md) before wiring live Farm Manager.
+See [`docs/DESIGN_SPEC.md`](docs/DESIGN_SPEC.md), [`docs/MVP_CHECKLIST.md`](docs/MVP_CHECKLIST.md), and per-service shapes in [`docs/services/`](docs/services/).  
+Edge / Farm Manager research: [`docs/services/edge-farm-manager.md`](docs/services/edge-farm-manager.md).
 
 [![CI](https://github.com/jjheffernan/BambuFarmer/actions/workflows/ci.yml/badge.svg)](https://github.com/jjheffernan/BambuFarmer/actions/workflows/ci.yml)
 
@@ -26,13 +27,18 @@ Host ports use the `1xxxx` range to avoid clashing with common local apps on 808
 ## Quick start (Podman)
 
 ```bash
-cp deploy/env.example deploy/.env   # AUTH_MODE=lan by default; optional Spoolman/Manyfold URLs
-make up                             # uses: podman compose -f deploy/compose.yml
+cp .env.example .env   # secrets + AUTH_MODE (never commit .env)
+# edit .env — at least SESSION_SECRET / POSTGRES_PASSWORD; FM_* if talking to a live Farm Manager
+make up                # creates .env if missing; podman compose --env-file .env -f deploy/compose.yml
 make health
-open http://127.0.0.1:13000
+open http://127.0.0.1:18080   # first visit → /setup install wizard
 ```
 
-Default auth is **LAN mode** (`AUTH_MODE=lan`) — local users, no IdP, private network only. Use `AUTH_MODE=oidc` when you have a real URL.
+Install wizard + releases: [`docs/INSTALL.md`](docs/INSTALL.md) · [`CHANGELOG.md`](CHANGELOG.md).
+
+**Auth / deploy modes:** default is **LAN mode** (`AUTH_MODE=lan`) — local users, no IdP, **private network only**. Use `AUTH_MODE=oidc` when the stack has a real URL or reverse proxy. Full comparison: [`docs/DEPLOYMENT_MODES.md`](docs/DEPLOYMENT_MODES.md).
+
+With `FARM_MANAGER_URL` empty, edge runs **fixture mode** (`fixtures/fm` → Redis → gateway SSE → fleet UI) so you can exercise the spine without a live Farm Manager.
 
 Docker works as a fallback: `make up ENGINE=docker`.
 

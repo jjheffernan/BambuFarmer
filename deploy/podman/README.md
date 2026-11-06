@@ -22,11 +22,22 @@ Do **not** combine these into a fat “all-in-one” app container. Backing serv
 From repo root:
 
 ```bash
-podman compose -f deploy/compose.yml up -d --build
-# or: make up
+./scripts/bf setup     # preferred: .env + build + up
+./scripts/bf doctor
+# or: make setup && make doctor
 ```
 
-Optional MinIO: `podman compose -f deploy/compose.yml --profile object up -d`
+Routine upgrades (keeps Postgres/Redis volumes):
+
+```bash
+./scripts/bf update    # or: make update
+```
+
+Uninstall: `./scripts/bf uninstall --yes` (add `--volumes` to wipe DB).
+
+See [`../../scripts/README.md`](../../scripts/README.md). Secrets: [`docs/DEPLOYMENT_MODES.md`](../../docs/DEPLOYMENT_MODES.md).
+
+Optional MinIO: `podman compose --env-file .env -f deploy/compose.yml --profile object up -d`
 
 ## Build a single module
 
@@ -45,4 +56,4 @@ systemctl --user daemon-reload
 systemctl --user start bambufarmer-gateway
 ```
 
-Build images first (`make build`). Adjust `EnvironmentFile` paths to your `deploy/.env`.
+Build images first (`make build`). Point Quadlet `EnvironmentFile=` at the repo-root `.env` (same keys as `.env.example`).

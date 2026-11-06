@@ -1,0 +1,73 @@
+# Service shape: `bambufarmer-analytics`
+
+**Language:** Go  
+**Container:** `localhost/bambufarmer-analytics`  
+**Role:** Dedicated read models / rollups — never blocks job OLTP  
+
+---
+
+## 1. Responsibility
+
+| Owns | Does not own |
+|------|----------------|
+| Consume Redis Streams → fact/agg tables | Job transitions |
+| Dashboard query APIs | Rate card writes |
+| CSV/JSON export | FM live control |
+
+---
+
+## 2. Ingest
+
+Subscribe (consumer group `analytics`):
+
+- `bf.events.printer`  
+- `bf.events.job`  
+- `bf.events.filament`  
+- `bf.events.alert`  
+
+Idempotent by event `id`.
+
+---
+
+## 3. Schema (target, analytics DB or shared Postgres schema `analytics`)
+
+- `fact_job_completed`  
+- `agg_utilization_daily` (by printer/group/site)  
+- `agg_hms_daily`  
+- `agg_cost_daily` (material, machine; expose $/hr, $/kg, kg/hr)  
+
+---
+
+## 4. HTTP
+
+| Path | Notes |
+|------|-------|
+| `GET /api/v1/analytics/utilization` | `from`, `to`, `group_by` |
+| `GET /api/v1/analytics/costs` | includes kg/hr rollups |
+| `GET /api/v1/analytics/failures` | HMS / fail rates |
+| `GET /api/v1/analytics/export` | CSV/JSON |
+
+Stub today returns empty series.
+
+---
+
+## 5. Package layout
+
+```text
+services/analytics/
+  main.go
+  app/          # process-private (when split out of main)
+    consume/
+    store/
+    query/
+```
+
+---
+
+## 6. MVP milestones
+
+1. Health + empty utilization (done)  
+2. Consumer writing utilization intervals  
+3. Job success/fail counts  
+4. Cost rollups from finalized jobs  
+5. Basic charts via web

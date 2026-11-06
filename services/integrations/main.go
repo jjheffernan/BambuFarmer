@@ -1,38 +1,44 @@
 package main
 
 import (
-	"encoding/json"
 	"log/slog"
-	"net/http"
 	"os"
 
 	"github.com/jjheffernan/BambuFarmer/packages/httpserver"
+	"github.com/jjheffernan/BambuFarmer/services/integrations/app/config"
+	"github.com/jjheffernan/BambuFarmer/services/integrations/app/httpapi"
+	"github.com/jjheffernan/BambuFarmer/services/integrations/app/manyfold"
+	"github.com/jjheffernan/BambuFarmer/services/integrations/app/spoolman"
 )
 
 func main() {
-	service := "integrations"
-	mux := httpserver.NewMux(service)
-	mux.HandleFunc("GET /api/v1/integrations/status", func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"spoolman":  statusURL(os.Getenv("SPOOLMAN_URL")),
-			"manyfold":  statusURL(os.Getenv("MANYFOLD_URL")),
-			"mode":      "stub_until_configured",
-		})
-	})
+	cfg := config.Load()
+	deps := httpapi.Deps{
+		SpoolURL: cfg.SpoolmanURL,
+		ManyURL:  cfg.ManyfoldURL,
+	}
+	if cfg.SpoolmanURL != "" {
+		deps.Spoolman = spoolman.New(cfg.SpoolmanURL, cfg.SpoolmanToken, cfg.HTTPTimeout)
+		slog.Info("spoolman configured", "url", cfg.SpoolmanURL)
+	} else {
+		slog.Info("spoolman disabled (SPOOLMAN_URL empty)")
+	}
+	if cfg.ManyfoldURL != "" {
+		deps.Manyfold = manyfold.New(cfg.ManyfoldURL, cfg.ManyfoldToken, cfg.ManyfoldClientID, cfg.ManyfoldClientSecret, cfg.HTTPTimeout)
+		slog.Info("manyfold configured", "url", cfg.ManyfoldURL)
+	} else {
+		slog.Info("manyfold disabled (MANYFOLD_URL empty)")
+	}
+
+	mux := httpserver.NewMux("integrations")
+	httpapi.Register(mux, deps)
+
 	if err := httpserver.ListenAndServe(httpserver.Options{
-		Service: service,
-		Addr:    httpserver.DefaultAddr(),
+		Service: "integrations",
+		Addr:    cfg.HTTPAddr,
 		Mux:     mux,
 	}); err != nil {
 		slog.Error("server stopped", "err", err)
 		os.Exit(1)
 	}
-}
-
-func statusURL(u string) map[string]any {
-	if u == "" {
-		return map[string]any{"configured": false}
-	}
-	return map[string]any{"configured": true, "url": u}
 }

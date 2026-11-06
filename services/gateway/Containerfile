@@ -5,6 +5,7 @@ WORKDIR /src
 ENV GOWORK=off
 COPY packages/api ./packages/api
 COPY packages/httpserver ./packages/httpserver
+COPY packages/events ./packages/events
 COPY services/gateway ./services/gateway
 WORKDIR /src/services/gateway
 RUN go mod tidy && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/service .

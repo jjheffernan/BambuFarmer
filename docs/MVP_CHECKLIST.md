@@ -46,6 +46,7 @@ Still needed before coding against a live box (not design blockers):
 - [x] **`AUTH_MODE=lan`** (LAN mode): local users, no public URL / IdP required — insecure by design for private networks
 - [x] OIDC remains available for URL’d / secured deploys (`AUTH_MODE=oidc`)
 - [x] Alias: `local_insecure` accepted as synonym of `lan`
+- [x] Differences documented in [`DEPLOYMENT_MODES.md`](./DEPLOYMENT_MODES.md); secrets via [`.env.example`](../.env.example) → `.env`
 
 ### A7. Power / circuit limits
 
@@ -92,15 +93,20 @@ MinIO optional (`--profile object`) until a live S3 endpoint is set.
 - [x] Go workspace + per-service Containerfiles
 - [x] Podman Compose + Quadlets
 - [x] Shared packages
-- [x] env.example + README
+- [x] `.env.example` → `.env` + README + [`DEPLOYMENT_MODES.md`](./DEPLOYMENT_MODES.md)
 - [x] Example preset bundle
 - [x] Dependabot + CI
+- [x] Redis Streams bus (`packages/events`) + gateway SSE
+- [x] Edge fixture mode (no live FM) + delta publish
+- [x] Jobs + rate cards APIs; analytics consumer/rollups
+- [x] HTMX fleet shell + sample `.gcode.3mf` fixture
+- [x] First-run install wizard (`/setup`) + tagged releases workflow
 
 ### Integration readiness (before live FM adapter)
 - [ ] FM reachable from edge host
 - [ ] FM-native (or CDP) smoke once
 - [ ] Spoolman/Manyfold URLs filled or left empty intentionally
-- [ ] Sample `.gcode.3mf` fixture
+- [x] Sample `.gcode.3mf` fixture (`fixtures/artifacts/sample.gcode.3mf`)
 
 ---
 

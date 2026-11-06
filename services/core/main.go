@@ -1,68 +1,92 @@
 package main
 
 import (
-	"encoding/json"
+	"context"
 	"log/slog"
 	"net/http"
 	"os"
-	"sync"
+	"os/signal"
+	"syscall"
+	"time"
 
-	"github.com/jjheffernan/BambuFarmer/packages/api"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jjheffernan/BambuFarmer/packages/db"
+	"github.com/jjheffernan/BambuFarmer/packages/events"
 	"github.com/jjheffernan/BambuFarmer/packages/httpserver"
+	"github.com/jjheffernan/BambuFarmer/packages/version"
+	"github.com/jjheffernan/BambuFarmer/services/core/internal/config"
+	"github.com/jjheffernan/BambuFarmer/services/core/internal/httpx"
+	"github.com/jjheffernan/BambuFarmer/services/core/internal/jobs"
+	"github.com/jjheffernan/BambuFarmer/services/core/internal/presets"
+	"github.com/jjheffernan/BambuFarmer/services/core/internal/printers"
+	"github.com/jjheffernan/BambuFarmer/services/core/internal/rates"
+	"github.com/jjheffernan/BambuFarmer/services/core/internal/setup"
 )
 
-// In-memory preset store for scaffold / local smoke tests.
-// Replaced by Postgres in Phase 0+.
-type presetStore struct {
-	mu       sync.RWMutex
-	filament []api.FilamentPreset
-	print    []api.PrintPreset
-}
-
 func main() {
-	service := "core"
-	store := &presetStore{}
-	mux := httpserver.NewMux(service)
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
 
-	mux.HandleFunc("GET /api/v1/presets/filament", func(w http.ResponseWriter, _ *http.Request) {
-		store.mu.RLock()
-		defer store.mu.RUnlock()
-		writeJSON(w, store.filament)
-	})
-	mux.HandleFunc("GET /api/v1/presets/print", func(w http.ResponseWriter, _ *http.Request) {
-		store.mu.RLock()
-		defer store.mu.RUnlock()
-		writeJSON(w, store.print)
-	})
-	mux.HandleFunc("GET /api/v1/presets/export", func(w http.ResponseWriter, _ *http.Request) {
-		store.mu.RLock()
-		defer store.mu.RUnlock()
-		writeJSON(w, api.PresetBundle{FilamentPresets: store.filament, PrintPresets: store.print})
-	})
-	mux.HandleFunc("POST /api/v1/presets/import", func(w http.ResponseWriter, r *http.Request) {
-		var bundle api.PresetBundle
-		if err := json.NewDecoder(r.Body).Decode(&bundle); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
+	cfg := config.Load()
+
+	var pool *pgxpool.Pool
+	if cfg.DatabaseURL != "" {
+		var err error
+		pool, err = db.Open(ctx, cfg.DatabaseURL)
+		if err != nil {
+			slog.Error("database open failed", "err", err)
+			os.Exit(1)
 		}
-		store.mu.Lock()
-		store.filament = bundle.FilamentPresets
-		store.print = bundle.PrintPresets
-		store.mu.Unlock()
-		w.WriteHeader(http.StatusNoContent)
+		defer pool.Close()
+		if err := db.Migrate(ctx, pool); err != nil {
+			slog.Error("migrate failed", "err", err)
+			os.Exit(1)
+		}
+		slog.Info("database ready", "site_id", cfg.SiteID)
+	} else {
+		slog.Warn("DATABASE_URL unset; APIs will return 503")
+	}
+
+	var bus *events.Bus
+	if cfg.RedisURL != "" {
+		var err error
+		bus, err = events.Dial(ctx, cfg.RedisURL)
+		if err != nil {
+			slog.Warn("redis unavailable; printer projection consumer disabled", "err", err)
+		} else {
+			defer bus.Close()
+			go printers.ConsumePrinterEvents(ctx, bus, pool, cfg.SiteID, "core-"+cfg.Hostname)
+		}
+	}
+
+	mux := httpserver.NewMux("core")
+	presets.Register(mux, pool, cfg.SiteID)
+	rates.Register(mux, pool, cfg.SiteID)
+	jobs.Register(mux, pool, bus, cfg.SiteID)
+	printers.Register(mux, pool, cfg.SiteID)
+	setup.Register(mux, pool, cfg.SiteID)
+	mux.HandleFunc("GET /api/v1/version", func(w http.ResponseWriter, _ *http.Request) {
+		httpx.WriteJSON(w, version.Get())
 	})
 
-	if err := httpserver.ListenAndServe(httpserver.Options{
-		Service: service,
-		Addr:    httpserver.DefaultAddr(),
-		Mux:     mux,
-	}); err != nil {
-		slog.Error("server stopped", "err", err)
-		os.Exit(1)
+	addr := cfg.HTTPAddr
+	if addr == "" {
+		addr = httpserver.DefaultAddr()
 	}
-}
-
-func writeJSON(w http.ResponseWriter, v any) {
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(v)
+	srv := &http.Server{
+		Addr:              addr,
+		Handler:           mux,
+		ReadHeaderTimeout: 5 * time.Second,
+	}
+	go func() {
+		slog.Info("listening", "service", "core", "addr", srv.Addr)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			slog.Error("server stopped", "err", err)
+			os.Exit(1)
+		}
+	}()
+	<-ctx.Done()
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	_ = srv.Shutdown(shutdownCtx)
 }

@@ -14,16 +14,24 @@ vendor/
 *.swp
 .DS_Store
 
-# Env / secrets
+# Env / secrets (commit .env.example only)
 .env
+.env.*
+!.env.example
 deploy/.env
+deploy/.env.*
+!deploy/env.example
 *.pem
 certs/
 
 # Build artifacts
 services/web/tmp/
+services/web/node_modules/
 **/*.templ.go
 
 # Data volumes
 data/
 .minio/
+
+# Local Postgres dumps (regenerate via make db-snapshot; prefer seed/lab.sql)
+deploy/snapshots/*.dump
