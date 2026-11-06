@@ -3,7 +3,7 @@ package tests
 import (
 	"testing"
 
-	"github.com/jjheffernan/BambuFarmer/services/gateway/internal/auth"
+	"github.com/jjheffernan/BambuFarmer/services/gateway/app/auth"
 )
 
 func TestNormalizeMode(t *testing.T) {

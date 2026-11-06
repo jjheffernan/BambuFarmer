@@ -49,10 +49,9 @@ Tokens: see DESIGN_SPEC §11.4 (`--bf-accent`, etc.).
 ```text
 services/web/
   main.go
-  internal/
-    pages/       # handlers
-    components/  # templ partials
-    static/      # css (or embedded)
+  app/           # process-private (not packages/)
+    setup/       # install wizard
+    # later: pages/, components/, static/
 ```
 
 Migrate from inline `html/template` to [templ](https://templ.guide/) once pages grow.

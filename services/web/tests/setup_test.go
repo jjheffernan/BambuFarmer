@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/jjheffernan/BambuFarmer/packages/httpserver"
-	"github.com/jjheffernan/BambuFarmer/services/web/internal/setup"
+	"github.com/jjheffernan/BambuFarmer/services/web/app/setup"
 )
 
 func TestSetupRouteRegistered(t *testing.T) {
