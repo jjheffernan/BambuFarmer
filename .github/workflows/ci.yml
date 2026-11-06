@@ -35,7 +35,7 @@ jobs:
       run:
         working-directory: ${{ matrix.module }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-go@v5
         with:
@@ -68,7 +68,7 @@ jobs:
           - analytics
           - web
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-go@v5
         with:
@@ -100,7 +100,7 @@ jobs:
           - analytics
           - web
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # OCI Containerfiles; Docker on GITHUB_ACTIONS runners (Podman locally).
       - name: Build ${{ matrix.service }} image
@@ -114,6 +114,6 @@ jobs:
     name: Compose config
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Validate compose file
         run: docker compose -f deploy/compose.yml config --quiet
