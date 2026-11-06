@@ -10,7 +10,7 @@ PublishPort=18082:8080
 Environment=HTTP_ADDR=:8080
 Environment=SITE_ID=default
 Environment=FARM_MODE=farm_manager
-Environment=FARM_MANAGER_TRANSPORT=cdp
+Environment=FARM_MANAGER_TRANSPORT=fm_native
 Environment=REDIS_URL=redis://bambufarmer-redis:6379/0
 
 [Service]
