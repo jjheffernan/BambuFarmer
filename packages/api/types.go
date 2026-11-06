@@ -55,13 +55,23 @@ type PresetBundle struct {
 
 // PrinterSummary is a normalized fleet list item.
 type PrinterSummary struct {
-	ID          string  `json:"id"`
-	SiteID      string  `json:"site_id"`
-	ExternalSN  string  `json:"external_sn"`
-	Name        string  `json:"name"`
-	Model       string  `json:"model"`
-	Online      bool    `json:"online"`
-	GcodeState  string  `json:"gcode_state"`
-	MCPercent   int     `json:"mc_percent"`
-	RemainingS  int     `json:"mc_remaining_time"`
+	ID         string `json:"id"`
+	SiteID     string `json:"site_id"`
+	ExternalSN string `json:"external_sn"`
+	Name       string `json:"name"`
+	Model      string `json:"model"`
+	Online     bool   `json:"online"`
+	GcodeState string `json:"gcode_state"`
+	MCPercent  int    `json:"mc_percent"`
+	RemainingS int    `json:"mc_remaining_time"`
+}
+
+// RateCard holds org/site costing defaults ($/hr, $/kg, kg/hr).
+type RateCard struct {
+	Currency            string  `json:"currency"`
+	MachineRatePerHour  float64 `json:"machine_rate_per_hour"`  // $/hr
+	FilamentPricePerKg  float64 `json:"filament_price_per_kg"`  // $/kg
+	FilamentKgPerHour   float64 `json:"filament_kg_per_hour"`   // kg/hr
+	LaborFlat           float64 `json:"labor_flat,omitempty"`
+	FailureSurchargePct float64 `json:"failure_surcharge_pct,omitempty"`
 }
