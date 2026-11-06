@@ -5,7 +5,10 @@ use (
 	./packages/config
 	./packages/db
 	./packages/events
+	./packages/farm
 	./packages/httpserver
+	./packages/printerstate
+	./packages/version
 	./services/analytics
 	./services/core
 	./services/edge

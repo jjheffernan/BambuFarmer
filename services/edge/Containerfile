@@ -6,12 +6,17 @@ WORKDIR /src
 ENV GOWORK=off
 COPY packages/api ./packages/api
 COPY packages/httpserver ./packages/httpserver
+COPY packages/printerstate ./packages/printerstate
+COPY packages/events ./packages/events
+COPY packages/farm ./packages/farm
 COPY services/edge ./services/edge
 WORKDIR /src/services/edge
 RUN go mod tidy && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/service .
 
 FROM gcr.io/distroless/static-debian12:nonroot
 COPY --from=build /out/service /service
+COPY fixtures/fm /fixtures/fm
 USER nonroot:nonroot
 EXPOSE 8080
+ENV EDGE_FIXTURE_DIR=/fixtures/fm
 ENTRYPOINT ["/service"]
