@@ -7,7 +7,7 @@ import (
 	"os"
 
 	"github.com/jjheffernan/BambuFarmer/packages/httpserver"
-	"github.com/jjheffernan/BambuFarmer/services/web/app/setup"
+	"github.com/jjheffernan/BambuFarmer/services/web/setup"
 )
 
 type pageData struct {

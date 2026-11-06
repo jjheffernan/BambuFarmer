@@ -49,9 +49,9 @@ Tokens: see DESIGN_SPEC §11.4 (`--bf-accent`, etc.).
 ```text
 services/web/
   main.go
-  app/           # process-private (not packages/)
-    setup/       # install wizard
-    # later: pages/, components/, static/
+  setup/         # install wizard (web-private)
+  # later: pages/, components/, static/
+  tests/
 ```
 
 Migrate from inline `html/template` to [templ](https://templ.guide/) once pages grow.
