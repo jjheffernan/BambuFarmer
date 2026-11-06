@@ -42,6 +42,7 @@ func main() {
 	mux.HandleFunc("GET /admin", func(w http.ResponseWriter, _ *http.Request) {
 		render(w, "Admin", "admin")
 	})
+	registerSetup(mux, apiBase)
 
 	if err := httpserver.ListenAndServe(httpserver.Options{
 		Service: service,
@@ -66,6 +67,7 @@ const layoutHTML = `<!DOCTYPE html>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>{{.Title}} · BambuFarmer</title>
+  <script src="https://unpkg.com/htmx.org@2.0.4"></script>
   <style>
     :root {
       --bf-bg-0: #0e1114;
@@ -108,12 +110,31 @@ const layoutHTML = `<!DOCTYPE html>
       border-radius: var(--bf-radius); padding: 1.25rem;
     }
     .panel code { color: var(--bf-info); }
-    .chips { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1rem; }
+    .chips { display: flex; flex-wrap: wrap; gap: .5rem; margin: 1rem 0; }
     .chip {
       border: 1px solid var(--bf-border); border-radius: 999px;
-      padding: .25rem .7rem; font-size: .8rem; color: var(--bf-muted);
+      padding: .25rem .7rem; font-size: .8rem; color: var(--bf-muted); cursor: pointer;
     }
     .chip.on { border-color: var(--bf-accent); color: var(--bf-accent); }
+    #printer-grid { display: grid; gap: .75rem; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+    .printer-card {
+      border: 1px solid var(--bf-border); border-radius: var(--bf-radius);
+      padding: .85rem 1rem; background: var(--bf-bg-2);
+    }
+    .printer-card .name { font-weight: 600; }
+    .printer-card .meta { color: var(--bf-muted); font-size: .85rem; margin-top: .35rem; }
+    .state-RUNNING, .state-PREPARE { color: var(--bf-accent); }
+    .state-PAUSE, .state-FAILED { color: var(--bf-danger); }
+    .state-FINISH { color: var(--bf-warn); }
+    .state-IDLE { color: var(--bf-muted); }
+    #sse-status { font-size: .8rem; color: var(--bf-muted); margin-bottom: .75rem; }
+    #sse-status.live { color: var(--bf-accent); }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: .5rem .4rem; border-bottom: 1px solid var(--bf-border); font-size: .9rem; }
+    button.ctrl {
+      background: var(--bf-bg-0); color: var(--bf-text); border: 1px solid var(--bf-border);
+      border-radius: var(--bf-radius); padding: .2rem .5rem; margin-right: .25rem; cursor: pointer; font-size: .75rem;
+    }
   </style>
 </head>
 <body>
@@ -129,28 +150,159 @@ const layoutHTML = `<!DOCTYPE html>
   </aside>
   <main>
     <h1>{{.Title}}</h1>
-    <p class="lede">Scaffold UI — live FM fleet and HTMX fragments land next.</p>
-    <div class="panel">
-      {{if eq .Active "fleet"}}
-        <p>Printer grid will stream from gateway SSE (<code>{{.APIBase}}/api/v1/events/stream</code>).</p>
-        <div class="chips">
-          <span class="chip on">Ready to Start</span>
-          <span class="chip">Attention Needed</span>
-          <span class="chip">Completed</span>
-          <span class="chip">Not in Task</span>
-        </div>
-      {{else if eq .Active "jobs"}}
-        <p>Job queue / composer will call core via gateway. Circuit limits are Phase 2.</p>
-      {{else if eq .Active "presets"}}
-        <p>Versioned filament + print presets persist in core Postgres.</p>
-        <p>Try: <code>curl {{.APIBase}}/api/v1/presets/export</code></p>
-      {{else if eq .Active "analytics"}}
-        <p>Dedicated analytics module — utilization, fail rates, $/hr · $/kg · kg/hr.</p>
-      {{else}}
-        <p>Site, LAN auth users, rate cards, and adapter URLs.</p>
-        <p>Auth mode default: <code>lan</code> (insecure private network).</p>
-      {{end}}
-    </div>
+    {{if eq .Active "fleet"}}
+      <p class="lede">Live fleet via gateway SSE — no browser polling of Farm Manager.</p>
+      <div id="sse-status">connecting…</div>
+      <div class="chips" id="bucket-chips">
+        <span class="chip on" data-bucket="all">All</span>
+        <span class="chip" data-bucket="ready_to_start">Ready to Start</span>
+        <span class="chip" data-bucket="attention_needed">Attention Needed</span>
+        <span class="chip" data-bucket="completed_task">Completed</span>
+        <span class="chip" data-bucket="not_in_task">Not in Task</span>
+        <span class="chip" data-bucket="printing">Printing</span>
+      </div>
+      <div id="printer-grid" class="panel"></div>
+      <script>
+        const API = {{printf "%q" .APIBase}};
+        const printers = new Map();
+        let filter = 'all';
+        const statusEl = document.getElementById('sse-status');
+        const grid = document.getElementById('printer-grid');
+
+        document.querySelectorAll('#bucket-chips .chip').forEach(chip => {
+          chip.addEventListener('click', () => {
+            document.querySelectorAll('#bucket-chips .chip').forEach(c => c.classList.remove('on'));
+            chip.classList.add('on');
+            filter = chip.dataset.bucket;
+            render();
+          });
+        });
+
+        function upsert(p) {
+          if (!p || !p.external_sn) return;
+          printers.set(p.external_sn, p);
+          render();
+        }
+
+        function render() {
+          const items = [...printers.values()].filter(p => filter === 'all' || p.bucket === filter);
+          if (!items.length) {
+            grid.innerHTML = '<p class="meta">Waiting for edge deltas (fixture or FM)…</p>';
+            return;
+          }
+          grid.innerHTML = items.map(p => {
+            const sn = p.external_sn;
+            return '<div class="printer-card" id="printer-' + sn + '">' +
+              '<div class="name">' + (p.name || sn) + '</div>' +
+              '<div class="meta">' + (p.model || '') + ' · <span class="state-' + (p.gcode_state||'') + '">' + (p.gcode_state||'?') + '</span>' +
+              (p.mc_percent ? ' · ' + p.mc_percent + '%' : '') + '</div>' +
+              '<div class="meta" style="margin-top:.6rem">' +
+              '<button class="ctrl" data-sn="' + sn + '" data-opt="pause">Pause</button>' +
+              '<button class="ctrl" data-sn="' + sn + '" data-opt="resume">Resume</button>' +
+              '<button class="ctrl" data-sn="' + sn + '" data-opt="stop">Stop</button>' +
+              '<button class="ctrl" data-sn="' + sn + '" data-opt="bed_clean">Bed clean</button>' +
+              '</div></div>';
+          }).join('');
+          grid.querySelectorAll('button.ctrl').forEach(btn => {
+            btn.addEventListener('click', async () => {
+              await fetch(API + '/api/v1/edge/control/' + btn.dataset.sn, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({opt: btn.dataset.opt})
+              });
+            });
+          });
+        }
+
+        async function bootstrap() {
+          try {
+            const r = await fetch(API + '/api/v1/printers');
+            if (r.ok) {
+              const list = await r.json();
+              (list || []).forEach(upsert);
+            }
+            const e = await fetch(API + '/api/v1/edge/status');
+            if (e.ok) {
+              const st = await e.json();
+              (st.devices || []).forEach(upsert);
+            }
+          } catch (_) {}
+        }
+
+        function connectSSE() {
+          const es = new EventSource(API + '/api/v1/events/stream');
+          es.addEventListener('ready', () => {
+            statusEl.textContent = 'SSE live';
+            statusEl.classList.add('live');
+          });
+          ['printer.state_changed','printer.online','printer.offline'].forEach(ev => {
+            es.addEventListener(ev, (msg) => {
+              try {
+                const env = JSON.parse(msg.data);
+                upsert(env.payload || {});
+              } catch (_) {}
+            });
+          });
+          es.onerror = () => {
+            statusEl.textContent = 'SSE reconnecting…';
+            statusEl.classList.remove('live');
+          };
+        }
+
+        bootstrap();
+        connectSSE();
+      </script>
+    {{else if eq .Active "jobs"}}
+      <p class="lede">Job queue via core. Create jobs with curl or wire a form next.</p>
+      <div class="panel">
+        <p><code>GET {{.APIBase}}/api/v1/jobs</code></p>
+        <p><code>POST {{.APIBase}}/api/v1/jobs</code> with <code>{"name":"demo","external_sn":"…","est_seconds":3600,"est_grams":100}</code></p>
+        <pre id="jobs-list">loading…</pre>
+      </div>
+      <script>
+        fetch({{printf "%q" .APIBase}} + '/api/v1/jobs').then(r => r.json()).then(j => {
+          document.getElementById('jobs-list').textContent = JSON.stringify(j, null, 2);
+        }).catch(e => { document.getElementById('jobs-list').textContent = String(e); });
+      </script>
+    {{else if eq .Active "presets"}}
+      <p class="lede">Versioned filament + print presets in Postgres.</p>
+      <div class="panel">
+        <p>Export: <code>curl {{.APIBase}}/api/v1/presets/export</code></p>
+        <pre id="presets-export">loading…</pre>
+      </div>
+      <script>
+        fetch({{printf "%q" .APIBase}} + '/api/v1/presets/export').then(r => r.json()).then(j => {
+          document.getElementById('presets-export').textContent = JSON.stringify(j, null, 2);
+        }).catch(e => { document.getElementById('presets-export').textContent = String(e); });
+      </script>
+    {{else if eq .Active "analytics"}}
+      <p class="lede">Utilization + event counters from analytics consumer.</p>
+      <div class="panel">
+        <pre id="analytics-out">loading…</pre>
+      </div>
+      <script>
+        Promise.all([
+          fetch({{printf "%q" .APIBase}} + '/api/v1/analytics/utilization').then(r => r.json()),
+          fetch({{printf "%q" .APIBase}} + '/api/v1/analytics/counters').then(r => r.json())
+        ]).then(([u, c]) => {
+          document.getElementById('analytics-out').textContent = JSON.stringify({utilization: u, counters: c}, null, 2);
+        }).catch(e => { document.getElementById('analytics-out').textContent = String(e); });
+      </script>
+    {{else}}
+      <p class="lede">Site, rate cards, auth mode.</p>
+      <div class="panel">
+        <p>Auth: see <code>docs/DEPLOYMENT_MODES.md</code> (LAN vs OIDC).</p>
+        <pre id="admin-out">loading…</pre>
+      </div>
+      <script>
+        Promise.all([
+          fetch({{printf "%q" .APIBase}} + '/api/v1/auth/me').then(r => r.json()),
+          fetch({{printf "%q" .APIBase}} + '/api/v1/admin/rate-cards').then(r => r.json())
+        ]).then(([me, rates]) => {
+          document.getElementById('admin-out').textContent = JSON.stringify({me, rates}, null, 2);
+        }).catch(e => { document.getElementById('admin-out').textContent = String(e); });
+      </script>
+    {{end}}
   </main>
 </body>
 </html>
