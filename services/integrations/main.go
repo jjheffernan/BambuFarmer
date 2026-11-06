@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/jjheffernan/BambuFarmer/packages/httpserver"
+	"github.com/jjheffernan/BambuFarmer/services/integrations/internal/status"
 )
 
 func main() {
@@ -17,8 +18,8 @@ func main() {
 	mux := httpserver.NewMux(service)
 	mux.HandleFunc("GET /api/v1/integrations/status", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, map[string]any{
-			"spoolman": statusURL(spoolman),
-			"manyfold": statusURL(manyfold),
+			"spoolman": status.URL(spoolman),
+			"manyfold": status.URL(manyfold),
 			"mode":     "optional_live_url",
 		})
 	})
@@ -46,13 +47,6 @@ func main() {
 		slog.Error("server stopped", "err", err)
 		os.Exit(1)
 	}
-}
-
-func statusURL(u string) map[string]any {
-	if u == "" {
-		return map[string]any{"configured": false}
-	}
-	return map[string]any{"configured": true, "url": u}
 }
 
 func writeJSON(w http.ResponseWriter, v any) {

@@ -1,15 +1,23 @@
-package main
+package setup
 
 import (
 	"html/template"
 	"net/http"
 )
 
-func registerSetup(mux *http.ServeMux, apiBase string) {
+// PageData is the install-wizard template model.
+type PageData struct {
+	Title   string
+	Active  string
+	APIBase string
+}
+
+// Register mounts GET /setup (first-run install wizard).
+func Register(mux *http.ServeMux, apiBase string) {
 	tpl := template.Must(template.New("setup").Parse(setupHTML))
 	mux.HandleFunc("GET /setup", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		_ = tpl.Execute(w, pageData{Title: "Setup", Active: "setup", APIBase: apiBase})
+		_ = tpl.Execute(w, PageData{Title: "Setup", Active: "setup", APIBase: apiBase})
 	})
 }
 

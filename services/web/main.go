@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/jjheffernan/BambuFarmer/packages/httpserver"
+	"github.com/jjheffernan/BambuFarmer/services/web/internal/setup"
 )
 
 type pageData struct {
@@ -42,7 +43,7 @@ func main() {
 	mux.HandleFunc("GET /admin", func(w http.ResponseWriter, _ *http.Request) {
 		render(w, "Admin", "admin")
 	})
-	registerSetup(mux, apiBase)
+	setup.Register(mux, apiBase)
 
 	if err := httpserver.ListenAndServe(httpserver.Options{
 		Service: service,

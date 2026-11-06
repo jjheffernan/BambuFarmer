@@ -17,6 +17,7 @@ import (
 
 	"github.com/jjheffernan/BambuFarmer/packages/events"
 	"github.com/jjheffernan/BambuFarmer/packages/httpserver"
+	"github.com/jjheffernan/BambuFarmer/services/gateway/internal/auth"
 )
 
 func main() {
@@ -24,7 +25,7 @@ func main() {
 	defer stop()
 
 	service := "gateway"
-	authMode := normalizeAuthMode(getenv("AUTH_MODE", "lan"))
+	authMode := auth.NormalizeMode(getenv("AUTH_MODE", "lan"))
 	coreURL := mustURL(getenv("CORE_URL", "http://core:8080"))
 	webURL := mustURL(getenv("WEB_URL", "http://web:8080"))
 	analyticsURL := mustURL(getenv("ANALYTICS_URL", "http://analytics:8080"))
@@ -60,7 +61,7 @@ func main() {
 			"auth_mode": authMode,
 			"user":      "stub",
 			"roles":     []string{"admin"},
-			"warning":   lanWarning(authMode),
+			"warning":   auth.LanWarning(authMode),
 		})
 	})
 	mux.HandleFunc("POST /api/v1/auth/login", func(w http.ResponseWriter, r *http.Request) {
@@ -322,20 +323,6 @@ func envBool(k string, d bool) bool {
 	default:
 		return d
 	}
-}
-
-func lanWarning(mode string) string {
-	if mode == "lan" {
-		return "insecure LAN mode — do not expose publicly"
-	}
-	return ""
-}
-
-func normalizeAuthMode(mode string) string {
-	if mode == "local_insecure" {
-		return "lan"
-	}
-	return mode
 }
 
 func getenv(k, d string) string {
