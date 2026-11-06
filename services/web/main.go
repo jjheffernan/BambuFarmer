@@ -45,6 +45,10 @@ func main() {
 	mux.HandleFunc("GET /admin", func(w http.ResponseWriter, _ *http.Request) {
 		render(w, "Admin", "admin")
 	})
+	mux.HandleFunc("GET /login", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_ = template.Must(template.New("login").Parse(loginHTML)).Execute(w, pageData{Title: "Login", APIBase: apiBase})
+	})
 	setup.Register(mux, apiBase)
 
 	if err := httpserver.ListenAndServe(httpserver.Options{
@@ -75,6 +79,26 @@ const layoutHTML = `<!DOCTYPE html>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&family=Syne:wght@600;700&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="/static/css/app.css"/>
   <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+  <script>
+    // Parse JSON API responses; surface non-JSON / error bodies clearly.
+    async function bfJSON(url, init) {
+      init = Object.assign({ credentials: 'include' }, init || {});
+      const r = await fetch(url, init);
+      const text = await r.text();
+      let data = null;
+      if (text) {
+        try { data = JSON.parse(text); }
+        catch (e) {
+          throw new Error(r.status + ' ' + url + ' — not JSON: ' + text.slice(0, 160));
+        }
+      }
+      if (!r.ok) {
+        const msg = (data && (data.error || data.message)) || text.slice(0, 160) || r.statusText;
+        throw new Error(r.status + ' ' + url + ' — ' + msg);
+      }
+      return data;
+    }
+  </script>
 </head>
 <body>
   <div class="bf-shell">
@@ -87,8 +111,34 @@ const layoutHTML = `<!DOCTYPE html>
         <a href="/analytics" {{if eq .Active "analytics"}}class="active"{{end}}>Analytics</a>
         <a href="/admin" {{if eq .Active "admin"}}class="active"{{end}}>Admin</a>
       </nav>
-      <p class="mt-auto text-xs text-bf-muted hidden md:block">Gateway API<br/><code class="text-[0.7rem] break-all">{{.APIBase}}</code></p>
+      <div class="mt-auto text-xs text-bf-muted space-y-2">
+        <p id="bf-user-label" class="hidden"></p>
+        <button type="button" id="bf-logout" class="bf-btn hidden w-full">Log out</button>
+        <p class="hidden md:block">Gateway API<br/><code class="text-[0.7rem] break-all">{{.APIBase}}</code></p>
+      </div>
     </aside>
+    <script>
+      (async () => {
+        const API = {{printf "%q" .APIBase}};
+        try {
+          const me = await bfJSON(API + '/api/v1/auth/me');
+          if (me.authenticated && me.user) {
+            const el = document.getElementById('bf-user-label');
+            const btn = document.getElementById('bf-logout');
+            if (el) { el.textContent = me.user.username + ' · ' + (me.roles||[]).join(','); el.classList.remove('hidden'); }
+            if (btn) {
+              btn.classList.remove('hidden');
+              btn.onclick = async () => {
+                await fetch(API + '/api/v1/auth/logout', { method: 'POST', credentials: 'include' });
+                location.href = '/login';
+              };
+            }
+          } else if (me.auth_mode === 'lan') {
+            // Gateway will 401/redirect protected routes; soft-hint only.
+          }
+        } catch (_) {}
+      })();
+    </script>
     <main class="bf-main">
       <h1 class="bf-title">{{.Title}}</h1>
       {{if eq .Active "fleet"}}
@@ -148,6 +198,7 @@ const layoutHTML = `<!DOCTYPE html>
               btn.addEventListener('click', async () => {
                 await fetch(API + '/api/v1/edge/control/' + btn.dataset.sn, {
                   method: 'POST',
+                  credentials: 'include',
                   headers: {'Content-Type': 'application/json'},
                   body: JSON.stringify({opt: btn.dataset.opt})
                 });
@@ -157,12 +208,12 @@ const layoutHTML = `<!DOCTYPE html>
 
           async function bootstrap() {
             try {
-              const r = await fetch(API + '/api/v1/printers');
+              const r = await fetch(API + '/api/v1/printers', { credentials: 'include' });
               if (r.ok) {
                 const list = await r.json();
                 (list || []).forEach(upsert);
               }
-              const e = await fetch(API + '/api/v1/edge/status');
+              const e = await fetch(API + '/api/v1/edge/status', { credentials: 'include' });
               if (e.ok) {
                 const st = await e.json();
                 (st.devices || []).forEach(upsert);
@@ -171,7 +222,7 @@ const layoutHTML = `<!DOCTYPE html>
           }
 
           function connectSSE() {
-            const es = new EventSource(API + '/api/v1/events/stream');
+            const es = new EventSource(API + '/api/v1/events/stream', { withCredentials: true });
             es.addEventListener('ready', () => {
               statusEl.textContent = 'SSE live';
               statusEl.classList.add('live');
@@ -203,7 +254,7 @@ const layoutHTML = `<!DOCTYPE html>
         </div>
         <script>
           const API = {{printf "%q" .APIBase}};
-          fetch(API + '/api/v1/jobs').then(r => r.json()).then(jobs => {
+          bfJSON(API + '/api/v1/jobs').then(jobs => {
             const tb = document.querySelector('#jobs-table tbody');
             if (!jobs || !jobs.length) {
               tb.innerHTML = '<tr><td colspan="5" class="bf-empty">No jobs yet — POST /api/v1/jobs to enqueue.</td></tr>';
@@ -241,8 +292,8 @@ const layoutHTML = `<!DOCTYPE html>
             el.innerHTML = '<ul class="space-y-2">' + items.map(map).join('') + '</ul>';
           }
           Promise.all([
-            fetch(API + '/api/v1/presets/filament').then(r => r.json()),
-            fetch(API + '/api/v1/presets/print').then(r => r.json())
+            bfJSON(API + '/api/v1/presets/filament'),
+            bfJSON(API + '/api/v1/presets/print')
           ]).then(([f, p]) => {
             list(document.getElementById('filament-list'), f, x =>
               '<li class="bf-card"><div class="bf-card-name">' + x.name + '</div>' +
@@ -263,23 +314,135 @@ const layoutHTML = `<!DOCTYPE html>
         <script>
           const API = {{printf "%q" .APIBase}};
           Promise.all([
-            fetch(API + '/api/v1/analytics/utilization').then(r => r.json()),
-            fetch(API + '/api/v1/analytics/counters').then(r => r.json())
+            bfJSON(API + '/api/v1/analytics/utilization'),
+            bfJSON(API + '/api/v1/analytics/counters')
           ]).then(([u, c]) => {
             document.getElementById('analytics-out').textContent = JSON.stringify({utilization: u, counters: c}, null, 2);
           }).catch(e => { document.getElementById('analytics-out').textContent = String(e); });
         </script>
       {{else}}
-        <p class="bf-lede">Site identity, rate cards, and auth mode.</p>
-        <div class="bf-panel">
-          <p class="text-sm text-bf-muted mb-4">Auth modes: see <code>docs/DEPLOYMENT_MODES.md</code> (LAN vs OIDC).</p>
-          <pre class="bf-pre" id="admin-out">loading…</pre>
+        <p class="bf-lede">Local accounts, password reset, rate cards, and auth mode.</p>
+        <div class="grid gap-4 md:grid-cols-2">
+          <div class="bf-panel">
+            <h2 class="font-display text-lg mb-3">Users</h2>
+            <div id="users-list" class="bf-empty text-left">loading…</div>
+            <form id="user-form" class="mt-4 space-y-2 border-t border-bf-border pt-4">
+              <label class="bf-field" for="nu">Username</label>
+              <input class="bf-input" id="nu" required/>
+              <label class="bf-field" for="np">Password</label>
+              <input class="bf-input" id="np" type="password" minlength="8" required/>
+              <label class="bf-field" for="nr">Role</label>
+              <select class="bf-input" id="nr">
+                <option value="viewer">viewer</option>
+                <option value="operator">operator</option>
+                <option value="admin">admin</option>
+              </select>
+              <button type="submit" class="bf-btn bf-btn-primary mt-2">Create user</button>
+              <p class="text-bf-danger text-sm" id="user-err"></p>
+            </form>
+          </div>
+          <div class="bf-panel space-y-4">
+            <div>
+              <h2 class="font-display text-lg mb-3">Change my password</h2>
+              <form id="pw-form" class="space-y-2">
+                <label class="bf-field" for="pw-cur">Current password</label>
+                <input class="bf-input" id="pw-cur" type="password" autocomplete="current-password" required/>
+                <label class="bf-field" for="pw-new">New password</label>
+                <input class="bf-input" id="pw-new" type="password" autocomplete="new-password" minlength="8" required/>
+                <label class="bf-field" for="pw-new2">Confirm new password</label>
+                <input class="bf-input" id="pw-new2" type="password" autocomplete="new-password" minlength="8" required/>
+                <button type="submit" class="bf-btn bf-btn-primary mt-2">Update password</button>
+                <p class="text-sm mt-2" id="pw-msg"></p>
+              </form>
+            </div>
+            <div>
+              <h2 class="font-display text-lg mb-3">Session / rates</h2>
+              <pre class="bf-pre" id="admin-out">loading…</pre>
+            </div>
+          </div>
         </div>
         <script>
           const API = {{printf "%q" .APIBase}};
+          const opts = { credentials: 'include' };
+          async function loadUsers() {
+            const users = await bfJSON(API + '/api/v1/admin/users', opts);
+            const el = document.getElementById('users-list');
+            if (!users || !users.length) { el.innerHTML = '<p class="bf-empty">No users</p>'; return; }
+            el.innerHTML = '<ul class="space-y-2">' + users.map(u =>
+              '<li class="bf-card">' +
+              '<div class="bf-card-name">' + u.username + (u.active ? '' : ' (disabled)') + '</div>' +
+              '<div class="bf-card-meta">' + (u.roles||[]).join(', ') + '</div>' +
+              '<div class="flex flex-wrap gap-1.5 mt-2 items-center">' +
+              '<input class="bf-input !w-auto min-w-[8rem] text-xs" type="password" placeholder="new password" data-reset-pw="' + u.id + '" minlength="8"/>' +
+              '<button type="button" class="bf-btn" data-reset="' + u.id + '">Reset password</button>' +
+              '</div></li>'
+            ).join('') + '</ul>';
+            el.querySelectorAll('button[data-reset]').forEach(btn => {
+              btn.onclick = async () => {
+                const id = btn.dataset.reset;
+                const input = el.querySelector('input[data-reset-pw="' + id + '"]');
+                const pw = (input && input.value) || '';
+                if (pw.length < 8) { alert('New password must be at least 8 characters'); return; }
+                try {
+                  await bfJSON(API + '/api/v1/admin/users/' + id + '/password', {
+                    method: 'POST', credentials: 'include',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ new_password: pw }),
+                  });
+                  if (input) input.value = '';
+                  btn.textContent = 'Reset ✓';
+                  setTimeout(() => { btn.textContent = 'Reset password'; }, 1500);
+                } catch (e) { alert(String(e.message || e)); }
+              };
+            });
+          }
+          document.getElementById('user-form').onsubmit = async (ev) => {
+            ev.preventDefault();
+            const err = document.getElementById('user-err');
+            err.textContent = '';
+            try {
+              await bfJSON(API + '/api/v1/admin/users', {
+                method: 'POST', credentials: 'include',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                  username: document.getElementById('nu').value.trim(),
+                  password: document.getElementById('np').value,
+                  roles: [document.getElementById('nr').value],
+                }),
+              });
+              document.getElementById('user-form').reset();
+              await loadUsers();
+            } catch (e) { err.textContent = String(e.message || e); }
+          };
+          document.getElementById('pw-form').onsubmit = async (ev) => {
+            ev.preventDefault();
+            const msg = document.getElementById('pw-msg');
+            msg.className = 'text-sm mt-2';
+            msg.textContent = '';
+            const a = document.getElementById('pw-new').value;
+            const b = document.getElementById('pw-new2').value;
+            if (a !== b) { msg.className = 'text-bf-danger text-sm mt-2'; msg.textContent = 'New passwords do not match'; return; }
+            try {
+              await bfJSON(API + '/api/v1/auth/password', {
+                method: 'POST', credentials: 'include',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                  current_password: document.getElementById('pw-cur').value,
+                  new_password: a,
+                }),
+              });
+              msg.className = 'text-bf-accent text-sm mt-2';
+              msg.textContent = 'Password updated';
+              document.getElementById('pw-form').reset();
+            } catch (e) {
+              msg.className = 'text-bf-danger text-sm mt-2';
+              msg.textContent = String(e.message || e);
+            }
+          };
           Promise.all([
-            fetch(API + '/api/v1/auth/me').then(r => r.json()),
-            fetch(API + '/api/v1/admin/rate-cards').then(r => r.json())
+            bfJSON(API + '/api/v1/auth/me', opts),
+            bfJSON(API + '/api/v1/admin/rate-cards', opts).catch(e => ({error: String(e)})),
+            loadUsers().catch(e => { document.getElementById('users-list').textContent = String(e); })
           ]).then(([me, rates]) => {
             document.getElementById('admin-out').textContent = JSON.stringify({me, rates}, null, 2);
           }).catch(e => { document.getElementById('admin-out').textContent = String(e); });
@@ -287,6 +450,63 @@ const layoutHTML = `<!DOCTYPE html>
       {{end}}
     </main>
   </div>
+</body>
+</html>
+`
+
+const loginHTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Login · BambuFarmer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Syne:wght@600;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="/static/css/app.css"/>
+</head>
+<body class="bf-wizard">
+  <div class="bf-wizard-shell">
+    <div class="bf-brand text-[1.35rem]">BambuFarmer<span>Sign in</span></div>
+    <h1 class="bf-title mt-5">Login</h1>
+    <p class="bf-lede">LAN mode local account. Forgot password? Ask an admin to reset it on the Admin page (no email reset on LAN).</p>
+    <form class="bf-panel" id="login-form">
+      <label class="bf-field" for="username">Username</label>
+      <input class="bf-input" id="username" name="username" autocomplete="username" required/>
+      <label class="bf-field" for="password">Password</label>
+      <input class="bf-input" id="password" name="password" type="password" autocomplete="current-password" required/>
+      <div class="bf-actions">
+        <button type="submit" class="bf-btn bf-btn-primary">Sign in</button>
+      </div>
+      <p class="text-bf-danger text-sm mt-3" id="err"></p>
+    </form>
+  </div>
+  <script>
+    const API = {{printf "%q" .APIBase}};
+    document.getElementById('login-form').onsubmit = async (ev) => {
+      ev.preventDefault();
+      const err = document.getElementById('err');
+      err.textContent = '';
+      try {
+        const r = await fetch(API + '/api/v1/auth/login', {
+          method: 'POST',
+          credentials: 'include',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            username: document.getElementById('username').value.trim(),
+            password: document.getElementById('password').value,
+          }),
+        });
+        const text = await r.text();
+        let data = null;
+        try { data = text ? JSON.parse(text) : null; } catch (_) {}
+        if (!r.ok) throw new Error((data && data.error) || text || r.statusText);
+        location.href = '/';
+      } catch (e) {
+        err.textContent = String(e.message || e);
+      }
+    };
+  </script>
 </body>
 </html>
 `

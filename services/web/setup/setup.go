@@ -62,6 +62,7 @@ const setupHTML = `<!DOCTYPE html>
       spoolman_url: '',
       manyfold_url: '',
       admin_username: 'admin',
+      admin_password: '',
       import_example_presets: true,
       rate_card: {
         currency: 'USD',
@@ -139,7 +140,7 @@ const setupHTML = `<!DOCTYPE html>
           field('Site name', 'site_name', state.site_name) +
           field('Timezone (IANA)', 'timezone', state.timezone) +
           field('Admin username (LAN)', 'admin_username', state.admin_username) +
-          '<p class="text-sm text-bf-muted mt-3 leading-relaxed">Admin password is not stored here — use LAN login stub for now; real user store lands next.</p>' +
+          '<p class="text-sm text-bf-muted mt-3 leading-relaxed">Set the admin password on the Finish step. It is hashed into Postgres (never written to install_state).</p>' +
           actions(true, true);
       } else if (s.id === 'auth') {
         title.textContent = 'Auth mode';
@@ -183,11 +184,15 @@ const setupHTML = `<!DOCTYPE html>
           actions(true, true);
       } else {
         title.textContent = 'Finish';
-        lede.textContent = 'Write config and open the fleet UI.';
+        lede.textContent = 'Create the first admin account and open the fleet UI.';
         panel.innerHTML =
-          '<div class="flex items-center gap-2 mt-1 text-sm text-bf-muted"><input type="checkbox" id="import_example_presets"' + (state.import_example_presets?' checked':'') + '/>' +
+          '<label class="bf-field" for="admin_password">Admin password (min 8 chars)</label>' +
+          '<input class="bf-input" id="admin_password" type="password" autocomplete="new-password" value=""/>' +
+          '<label class="bf-field" for="admin_password2">Confirm password</label>' +
+          '<input class="bf-input" id="admin_password2" type="password" autocomplete="new-password" value=""/>' +
+          '<div class="flex items-center gap-2 mt-4 text-sm text-bf-muted"><input type="checkbox" id="import_example_presets"' + (state.import_example_presets?' checked':'') + '/>' +
           '<label for="import_example_presets" class="m-0">Import starter filament/print presets</label></div>' +
-          '<p class="text-sm text-bf-muted mt-3 leading-relaxed">After finish, set matching env vars and restart gateway/edge if you changed auth or FM URL.</p>' +
+          '<p class="text-sm text-bf-muted mt-3 leading-relaxed">After finish, sign in with this admin. Keep <code>SESSION_SECRET</code> set in <code>.env</code>.</p>' +
           '<div id="msg"></div>' + actions(false, true, true);
       }
 
@@ -223,6 +228,7 @@ const setupHTML = `<!DOCTYPE html>
         state.spoolman_url = g('spoolman_url').value.trim();
         state.manyfold_url = g('manyfold_url').value.trim();
       }
+      if (g('admin_password')) state.admin_password = g('admin_password').value;
       if (g('import_example_presets')) state.import_example_presets = g('import_example_presets').checked;
     }
 
@@ -258,11 +264,16 @@ const setupHTML = `<!DOCTYPE html>
       if (finish) finish.onclick = async () => {
         try {
           err.textContent = '';
+          const p1 = (document.getElementById('admin_password') || {}).value || '';
+          const p2 = (document.getElementById('admin_password2') || {}).value || '';
+          if (p1.length < 8) { err.textContent = 'Admin password must be at least 8 characters'; return; }
+          if (p1 !== p2) { err.textContent = 'Passwords do not match'; return; }
+          state.admin_password = p1;
           finish.disabled = true;
           await save(true);
           const msg = document.getElementById('msg');
-          if (msg) msg.innerHTML = '<p class="text-bf-accent mt-3">Setup complete. Opening fleet…</p>';
-          setTimeout(() => { location.href = '/'; }, 600);
+          if (msg) msg.innerHTML = '<p class="text-bf-accent mt-3">Setup complete. Opening login…</p>';
+          setTimeout(() => { location.href = '/login'; }, 600);
         } catch (e) {
           err.textContent = String(e.message || e);
           finish.disabled = false;
