@@ -1,23 +1,26 @@
-package api
+package tests
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/jjheffernan/BambuFarmer/packages/api"
+)
 
 func TestControlOptConstants(t *testing.T) {
-	if ControlPause != "pause" || ControlResume != "resume" || ControlStop != "stop" || ControlBedClean != "bed_clean" {
-		t.Fatalf("unexpected control opts: %q %q %q %q", ControlPause, ControlResume, ControlStop, ControlBedClean)
+	if api.ControlPause != "pause" || api.ControlResume != "resume" || api.ControlStop != "stop" || api.ControlBedClean != "bed_clean" {
+		t.Fatalf("unexpected control opts: %q %q %q %q", api.ControlPause, api.ControlResume, api.ControlStop, api.ControlBedClean)
 	}
 }
 
 func TestRateCardZeroValue(t *testing.T) {
-	var rc RateCard
+	var rc api.RateCard
 	if rc.Currency != "" || rc.MachineRatePerHour != 0 {
 		t.Fatalf("unexpected zero RateCard: %+v", rc)
 	}
 }
 
 func TestPrinterSummaryJSONTagsPresent(t *testing.T) {
-	// Smoke: construct a summary the fleet UI expects.
-	p := PrinterSummary{
+	p := api.PrinterSummary{
 		ExternalSN: "01P00A",
 		Name:       "Bay-1",
 		GcodeState: "IDLE",

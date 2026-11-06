@@ -1,4 +1,4 @@
-package normalize_test
+package tests
 
 import (
 	"context"
@@ -13,7 +13,7 @@ import (
 )
 
 func TestFixturesViaControlPlane(t *testing.T) {
-	root := filepath.Join("..", "..", "..", "..", "fixtures", "fm")
+	root := filepath.Join("..", "..", "fixtures", "fm")
 	if _, err := os.Stat(root); err != nil {
 		t.Skip("fixtures not found:", err)
 	}

@@ -13,7 +13,7 @@ Per-module design docs that expand [`DESIGN_SPEC.md`](../DESIGN_SPEC.md) into im
 | **web** | [web.md](./web.md) | templ + HTMX operator UI |
 | **slicer** | [slicer.md](./slicer.md) | Post-MVP OrcaSlicer wrapper |
 
-Cross-cutting: [`DEPLOYMENT_MODES.md`](../DEPLOYMENT_MODES.md) (LAN vs OIDC) · [`INSTALL.md`](../INSTALL.md) (wizard + releases).
+Cross-cutting: [`DEPLOYMENT_MODES.md`](../DEPLOYMENT_MODES.md) (LAN vs OIDC) · [`INSTALL.md`](../INSTALL.md) (wizard + releases) · [`TESTING.md`](../TESTING.md) (module `tests/` layout).
 
 ## Cross-cutting contracts
 

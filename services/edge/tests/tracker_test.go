@@ -1,14 +1,15 @@
-package tracker
+package tests
 
 import (
 	"testing"
 
 	"github.com/jjheffernan/BambuFarmer/packages/farm"
 	"github.com/jjheffernan/BambuFarmer/packages/printerstate"
+	"github.com/jjheffernan/BambuFarmer/services/edge/internal/tracker"
 )
 
 func TestObserveHappyPath(t *testing.T) {
-	tr := New("site-a")
+	tr := tracker.New("site-a")
 	d := farm.DeviceReport{
 		ExternalSN: "01P00A000000001",
 		Model:      "C12",
@@ -45,7 +46,7 @@ func TestObserveHappyPath(t *testing.T) {
 }
 
 func TestForceSkip(t *testing.T) {
-	tr := New("s")
+	tr := tracker.New("s")
 	d := farm.DeviceReport{ExternalSN: "x", Online: true, GcodeState: "FINISH"}
 	_, _, to, forced, err := tr.Observe(d)
 	if err != nil {

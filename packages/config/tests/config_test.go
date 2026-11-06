@@ -1,30 +1,32 @@
-package config
+package tests
 
 import (
 	"os"
 	"testing"
+
+	"github.com/jjheffernan/BambuFarmer/packages/config"
 )
 
 func TestGetenv(t *testing.T) {
 	t.Setenv("BF_TEST_KEY", "hello")
-	if Getenv("BF_TEST_KEY", "fallback") != "hello" {
+	if config.Getenv("BF_TEST_KEY", "fallback") != "hello" {
 		t.Fatal("expected env value")
 	}
-	if Getenv("BF_TEST_MISSING_XYZ", "fallback") != "fallback" {
+	if config.Getenv("BF_TEST_MISSING_XYZ", "fallback") != "fallback" {
 		t.Fatal("expected fallback")
 	}
 }
 
 func TestGetenvInt(t *testing.T) {
 	t.Setenv("BF_TEST_INT", "42")
-	if GetenvInt("BF_TEST_INT", 1) != 42 {
+	if config.GetenvInt("BF_TEST_INT", 1) != 42 {
 		t.Fatal("expected 42")
 	}
 	t.Setenv("BF_TEST_INT", "nope")
-	if GetenvInt("BF_TEST_INT", 7) != 7 {
+	if config.GetenvInt("BF_TEST_INT", 7) != 7 {
 		t.Fatal("expected fallback on parse error")
 	}
-	if GetenvInt("BF_TEST_INT_MISSING", 9) != 9 {
+	if config.GetenvInt("BF_TEST_INT_MISSING", 9) != 9 {
 		t.Fatal("expected fallback when unset")
 	}
 }

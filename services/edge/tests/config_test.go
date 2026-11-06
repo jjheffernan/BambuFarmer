@@ -1,9 +1,13 @@
-package config
+package tests
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/jjheffernan/BambuFarmer/services/edge/internal/config"
+)
 
 func TestUseFixtures(t *testing.T) {
-	c := Config{FarmManagerURL: "", FixtureDir: "/fixtures/fm"}
+	c := config.Config{FarmManagerURL: "", FixtureDir: "/fixtures/fm"}
 	if !c.UseFixtures() {
 		t.Fatal("expected fixtures when URL empty")
 	}
@@ -14,10 +18,10 @@ func TestUseFixtures(t *testing.T) {
 }
 
 func TestConfigured(t *testing.T) {
-	if (Config{}).Configured() {
+	if (config.Config{}).Configured() {
 		t.Fatal("empty should be false")
 	}
-	if !(Config{FarmManagerURL: "http://x"}).Configured() {
+	if !(config.Config{FarmManagerURL: "http://x"}).Configured() {
 		t.Fatal("url should configure")
 	}
 }
@@ -27,7 +31,7 @@ func TestLoadDefaults(t *testing.T) {
 	t.Setenv("FARM_MANAGER_URL", "")
 	t.Setenv("FARM_MANAGER_TRANSPORT", "")
 	t.Setenv("EDGE_FIXTURE_DIR", "")
-	c := Load()
+	c := config.Load()
 	if c.SiteID != "default" || c.FarmManagerTransport != "fm_native" {
 		t.Fatalf("%+v", c)
 	}

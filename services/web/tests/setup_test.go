@@ -1,4 +1,4 @@
-package main
+package tests
 
 import (
 	"net/http"
@@ -7,11 +7,12 @@ import (
 	"testing"
 
 	"github.com/jjheffernan/BambuFarmer/packages/httpserver"
+	"github.com/jjheffernan/BambuFarmer/services/web/internal/setup"
 )
 
 func TestSetupRouteRegistered(t *testing.T) {
 	mux := httpserver.NewMux("web")
-	registerSetup(mux, "http://127.0.0.1:18080")
+	setup.Register(mux, "http://127.0.0.1:18080")
 	req := httptest.NewRequest(http.MethodGet, "/setup", nil)
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)

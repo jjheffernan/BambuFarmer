@@ -1,13 +1,14 @@
-package delta
+package tests
 
 import (
 	"testing"
 
 	"github.com/jjheffernan/BambuFarmer/packages/api"
+	"github.com/jjheffernan/BambuFarmer/services/edge/internal/delta"
 )
 
 func TestFilterChanged(t *testing.T) {
-	f := New()
+	f := delta.New()
 	snap := api.PrinterSnapshot{
 		PrinterSummary: api.PrinterSummary{ExternalSN: "sn1", GcodeState: "IDLE", Online: true},
 	}
@@ -25,7 +26,7 @@ func TestFilterChanged(t *testing.T) {
 }
 
 func TestFilterReset(t *testing.T) {
-	f := New()
+	f := delta.New()
 	snap := api.PrinterSnapshot{PrinterSummary: api.PrinterSummary{ExternalSN: "a", GcodeState: "IDLE"}}
 	_ = f.Changed(snap)
 	f.Reset()

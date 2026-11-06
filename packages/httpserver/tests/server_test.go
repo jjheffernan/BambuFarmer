@@ -1,4 +1,4 @@
-package httpserver
+package tests
 
 import (
 	"encoding/json"
@@ -7,10 +7,11 @@ import (
 	"testing"
 
 	"github.com/jjheffernan/BambuFarmer/packages/api"
+	"github.com/jjheffernan/BambuFarmer/packages/httpserver"
 )
 
 func TestHealthEndpoints(t *testing.T) {
-	mux := NewMux("probe")
+	mux := httpserver.NewMux("probe")
 	for _, path := range []string{"/healthz", "/readyz"} {
 		req := httptest.NewRequest(http.MethodGet, path, nil)
 		rec := httptest.NewRecorder()
@@ -30,11 +31,11 @@ func TestHealthEndpoints(t *testing.T) {
 
 func TestDefaultAddr(t *testing.T) {
 	t.Setenv("HTTP_ADDR", "")
-	if DefaultAddr() != ":8080" {
-		t.Fatal(DefaultAddr())
+	if httpserver.DefaultAddr() != ":8080" {
+		t.Fatal(httpserver.DefaultAddr())
 	}
 	t.Setenv("HTTP_ADDR", ":19090")
-	if DefaultAddr() != ":19090" {
-		t.Fatal(DefaultAddr())
+	if httpserver.DefaultAddr() != ":19090" {
+		t.Fatal(httpserver.DefaultAddr())
 	}
 }

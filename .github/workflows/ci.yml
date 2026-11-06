@@ -75,7 +75,7 @@ jobs:
         working-directory: packages/config
         run: |
           set +e
-          FORCE_TEST_FAIL=1 go test -count=1 -run TestForceFailCanary ./...
+          FORCE_TEST_FAIL=1 go test -count=1 -run TestForceFailCanary ./tests
           code=$?
           set -e
           if [ "$code" -eq 0 ]; then
