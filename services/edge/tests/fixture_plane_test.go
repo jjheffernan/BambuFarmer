@@ -8,8 +8,8 @@ import (
 	"testing"
 
 	"github.com/jjheffernan/BambuFarmer/packages/printerstate"
-	"github.com/jjheffernan/BambuFarmer/services/edge/internal/bambu/fixtureplane"
-	"github.com/jjheffernan/BambuFarmer/services/edge/internal/tracker"
+	"github.com/jjheffernan/BambuFarmer/services/edge/app/bambu/fixtureplane"
+	"github.com/jjheffernan/BambuFarmer/services/edge/app/tracker"
 )
 
 func TestFixturesViaControlPlane(t *testing.T) {

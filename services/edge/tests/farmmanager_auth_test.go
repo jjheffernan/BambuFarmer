@@ -5,29 +5,29 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/jjheffernan/BambuFarmer/services/edge/internal/fm"
+	"github.com/jjheffernan/BambuFarmer/services/edge/app/farmmanager"
 )
 
 func TestHashPasswordChallenge(t *testing.T) {
-	got := fm.HashPasswordChallenge("Secret1!", "salt", "challenge")
+	got := farmmanager.HashPasswordChallenge("Secret1!", "salt", "challenge")
 	if len(got) != 64 {
 		t.Fatalf("len=%d want 64, got %s", len(got), got)
 	}
-	again := fm.HashPasswordChallenge("Secret1!", "salt", "challenge")
+	again := farmmanager.HashPasswordChallenge("Secret1!", "salt", "challenge")
 	if got != again {
 		t.Fatal("not deterministic")
 	}
-	other := fm.HashPasswordChallenge("Secret1!", "salt", "other")
+	other := farmmanager.HashPasswordChallenge("Secret1!", "salt", "other")
 	if got == other {
 		t.Fatal("challenge should change hash")
 	}
 }
 
 func TestDecodeTicketPayload(t *testing.T) {
-	payload := fm.TicketPayload{Challenge: "ch", Salt: "sa"}
+	payload := farmmanager.TicketPayload{Challenge: "ch", Salt: "sa"}
 	raw, _ := json.Marshal(payload)
 	ticket := base64.StdEncoding.EncodeToString(raw)
-	got, err := fm.DecodeTicketPayload(ticket)
+	got, err := farmmanager.DecodeTicketPayload(ticket)
 	if err != nil {
 		t.Fatal(err)
 	}

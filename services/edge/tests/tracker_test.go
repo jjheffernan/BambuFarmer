@@ -5,7 +5,7 @@ import (
 
 	"github.com/jjheffernan/BambuFarmer/packages/farm"
 	"github.com/jjheffernan/BambuFarmer/packages/printerstate"
-	"github.com/jjheffernan/BambuFarmer/services/edge/internal/tracker"
+	"github.com/jjheffernan/BambuFarmer/services/edge/app/tracker"
 )
 
 func TestObserveHappyPath(t *testing.T) {

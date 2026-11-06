@@ -1,4 +1,4 @@
-package fm
+package farmmanager
 
 import "github.com/jjheffernan/BambuFarmer/packages/api"
 

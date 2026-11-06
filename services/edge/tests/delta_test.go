@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/jjheffernan/BambuFarmer/packages/api"
-	"github.com/jjheffernan/BambuFarmer/services/edge/internal/delta"
+	"github.com/jjheffernan/BambuFarmer/services/edge/app/delta"
 )
 
 func TestFilterChanged(t *testing.T) {

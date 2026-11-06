@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"sync/atomic"
 
-	"github.com/jjheffernan/BambuFarmer/services/edge/internal/fm"
+	"github.com/jjheffernan/BambuFarmer/services/edge/app/farmmanager"
 )
 
 // Source cycles redacted FM device fixtures for local/dev without a live server.
@@ -44,14 +44,14 @@ func New(dir string) (*Source, error) {
 }
 
 // NextDevices returns the next fixture device list (round-robin).
-func (s *Source) NextDevices() ([]fm.Device, error) {
+func (s *Source) NextDevices() ([]farmmanager.Device, error) {
 	i := s.idx.Add(1) - 1
 	path := s.files[int(i)%len(s.files)]
 	b, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
-	var resp fm.DevicesResponse
+	var resp farmmanager.DevicesResponse
 	if err := json.Unmarshal(b, &resp); err != nil {
 		return nil, err
 	}

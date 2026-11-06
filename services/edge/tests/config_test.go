@@ -3,7 +3,7 @@ package tests
 import (
 	"testing"
 
-	"github.com/jjheffernan/BambuFarmer/services/edge/internal/config"
+	"github.com/jjheffernan/BambuFarmer/services/edge/app/config"
 )
 
 func TestUseFixtures(t *testing.T) {

@@ -163,7 +163,7 @@ GeraldCox docs also capture a rich `POST /task` body used by the Client for mult
 ```text
 services/edge/
   main.go                 # process, health, status, control
-  internal/
+  app/
     config/               # env: SITE_ID, FARM_MANAGER_*, REDIS_URL, CDP_URL
     adapter/              # Connect + REST poll + Status (M1)
     fm/
@@ -185,7 +185,7 @@ packages/printerstate/    # IDLE/PREPARE/RUNNING/PAUSE/FINISH/FAILED + attention
 Canonical types live in [`packages/farm`](../../packages/farm):
 
 ```go
-// farm.ControlPlane — implemented by edge/internal/bambu/{native,fixture,cdp,none}
+// farm.ControlPlane — implemented by edge/app/bambu/{native,fixture,cdp,none}
 type ControlPlane interface {
     Kind() Kind
     Connect(ctx context.Context) error
@@ -203,7 +203,7 @@ type EventSource interface {
 }
 ```
 
-Edge agent (`internal/agent`) polls `ListDevices`, runs `printerstate` tracking, publishes Redis deltas, and consumes commands via the same plane.
+Edge agent (`app/agent`) polls `ListDevices`, runs `printerstate` tracking, publishes Redis deltas, and consumes commands via the same plane.
 
 ### Redis
 

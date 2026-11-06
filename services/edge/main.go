@@ -13,9 +13,9 @@ import (
 	"github.com/jjheffernan/BambuFarmer/packages/api"
 	"github.com/jjheffernan/BambuFarmer/packages/events"
 	"github.com/jjheffernan/BambuFarmer/packages/httpserver"
-	"github.com/jjheffernan/BambuFarmer/services/edge/internal/agent"
-	"github.com/jjheffernan/BambuFarmer/services/edge/internal/bambu"
-	"github.com/jjheffernan/BambuFarmer/services/edge/internal/config"
+	"github.com/jjheffernan/BambuFarmer/services/edge/app/agent"
+	"github.com/jjheffernan/BambuFarmer/services/edge/app/bambu"
+	"github.com/jjheffernan/BambuFarmer/services/edge/app/config"
 )
 
 func main() {

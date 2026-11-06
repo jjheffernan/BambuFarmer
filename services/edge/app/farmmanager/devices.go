@@ -1,4 +1,4 @@
-package fm
+package farmmanager
 
 import (
 	"context"

@@ -6,7 +6,7 @@ import (
 	"github.com/jjheffernan/BambuFarmer/packages/api"
 	"github.com/jjheffernan/BambuFarmer/packages/farm"
 	"github.com/jjheffernan/BambuFarmer/packages/printerstate"
-	"github.com/jjheffernan/BambuFarmer/services/edge/internal/normalize"
+	"github.com/jjheffernan/BambuFarmer/services/edge/app/normalize"
 )
 
 // Tracker holds per-SN gcode_state machines and applies DeviceReport updates.

@@ -9,7 +9,7 @@ import (
 
 	"github.com/jjheffernan/BambuFarmer/packages/api"
 	"github.com/jjheffernan/BambuFarmer/packages/farm"
-	"github.com/jjheffernan/BambuFarmer/services/edge/internal/fm"
+	"github.com/jjheffernan/BambuFarmer/services/edge/app/farmmanager"
 )
 
 // Config for the FM-native backend.
@@ -21,10 +21,10 @@ type Config struct {
 	CertDir     string
 }
 
-// Plane is a farm.ControlPlane backed by fm.Client.
+// Plane is a farm.ControlPlane backed by farmmanager.Client.
 type Plane struct {
 	cfg    Config
-	client *fm.Client
+	client *farmmanager.Client
 }
 
 // New constructs an unconnected native plane.
@@ -32,7 +32,7 @@ func New(cfg Config) (*Plane, error) {
 	if cfg.BaseURL == "" {
 		return nil, farm.ErrNotConfigured
 	}
-	cli, err := fm.NewClient(fm.ClientOptions{
+	cli, err := farmmanager.NewClient(farmmanager.ClientOptions{
 		BaseURL:     cfg.BaseURL,
 		TLSInsecure: cfg.TLSInsecure,
 		CertDir:     cfg.CertDir,
@@ -119,7 +119,7 @@ func (p *Plane) LiveviewJPEG(ctx context.Context, sn string) ([]byte, error) {
 	return nil, fmt.Errorf("%w: LiveviewJPEG", farm.ErrNotImplemented)
 }
 
-func mapDevice(d fm.Device) farm.DeviceReport {
+func mapDevice(d farmmanager.Device) farm.DeviceReport {
 	online := d.Online != nil && *d.Online
 	rep := farm.DeviceReport{
 		ExternalSN: d.DevID,

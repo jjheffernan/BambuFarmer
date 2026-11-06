@@ -10,8 +10,8 @@ import (
 
 	"github.com/jjheffernan/BambuFarmer/packages/api"
 	"github.com/jjheffernan/BambuFarmer/packages/farm"
-	"github.com/jjheffernan/BambuFarmer/services/edge/internal/fixture"
-	"github.com/jjheffernan/BambuFarmer/services/edge/internal/fm"
+	"github.com/jjheffernan/BambuFarmer/services/edge/app/fixture"
+	"github.com/jjheffernan/BambuFarmer/services/edge/app/farmmanager"
 )
 
 // Plane cycles fixtures/fm device JSON.
@@ -77,7 +77,7 @@ func (p *Plane) LiveviewJPEG(context.Context, string) ([]byte, error) {
 	return nil, fmt.Errorf("%w: LiveviewJPEG", farm.ErrNotImplemented)
 }
 
-func mapDevice(d fm.Device) farm.DeviceReport {
+func mapDevice(d farmmanager.Device) farm.DeviceReport {
 	rep := farm.DeviceReport{
 		ExternalSN: d.DevID,
 		Name:       d.Name,

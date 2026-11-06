@@ -61,11 +61,11 @@ Edge is the **only** process that speaks Bambu farm backends. It:
 ## 4. Packages
 
 ```text
-packages/farm/                 # ControlPlane + DeviceReport + PrintRequest
-services/edge/internal/
+packages/farm/                 # ControlPlane abstraction (shared)
+services/edge/app/             # process-private (not packages/)
   agent/                       # edge runtime
   bambu/                       # factory + native|fixture|cdp|none
-  fm/                          # low-level FM HTTP (native only)
+  farmmanager/                 # low-level Farm Manager HTTP (native only)
   tracker/ normalize/ delta/
   bus/ fixture/ config/
 ```

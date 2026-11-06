@@ -6,11 +6,11 @@ import (
 	"log/slog"
 
 	"github.com/jjheffernan/BambuFarmer/packages/farm"
-	"github.com/jjheffernan/BambuFarmer/services/edge/internal/bambu/cdp"
-	"github.com/jjheffernan/BambuFarmer/services/edge/internal/bambu/fixtureplane"
-	"github.com/jjheffernan/BambuFarmer/services/edge/internal/bambu/native"
-	"github.com/jjheffernan/BambuFarmer/services/edge/internal/bambu/none"
-	"github.com/jjheffernan/BambuFarmer/services/edge/internal/config"
+	"github.com/jjheffernan/BambuFarmer/services/edge/app/bambu/cdp"
+	"github.com/jjheffernan/BambuFarmer/services/edge/app/bambu/fixtureplane"
+	"github.com/jjheffernan/BambuFarmer/services/edge/app/bambu/native"
+	"github.com/jjheffernan/BambuFarmer/services/edge/app/bambu/none"
+	"github.com/jjheffernan/BambuFarmer/services/edge/app/config"
 )
 
 // Open builds the ControlPlane for this edge process from env-derived config.

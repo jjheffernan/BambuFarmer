@@ -10,10 +10,10 @@ import (
 	"github.com/jjheffernan/BambuFarmer/packages/api"
 	"github.com/jjheffernan/BambuFarmer/packages/events"
 	"github.com/jjheffernan/BambuFarmer/packages/farm"
-	"github.com/jjheffernan/BambuFarmer/services/edge/internal/bus"
-	"github.com/jjheffernan/BambuFarmer/services/edge/internal/config"
-	"github.com/jjheffernan/BambuFarmer/services/edge/internal/delta"
-	"github.com/jjheffernan/BambuFarmer/services/edge/internal/tracker"
+	"github.com/jjheffernan/BambuFarmer/services/edge/app/bus"
+	"github.com/jjheffernan/BambuFarmer/services/edge/app/config"
+	"github.com/jjheffernan/BambuFarmer/services/edge/app/delta"
+	"github.com/jjheffernan/BambuFarmer/services/edge/app/tracker"
 )
 
 // Agent owns the farm control plane and Redis workers for one site.

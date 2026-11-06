@@ -193,7 +193,7 @@ Do not invent a parallel protocol; stay aligned with observed FM Client ↔ Serv
 
 ### 5.3 Adapter interface (edge)
 
-Implemented in Go as [`packages/farm.ControlPlane`](../packages/farm/plane.go). Backends: `fm_native`, `fixture`, `cdp` (stub), later `fleet_hub`. The edge **agent** (`services/edge/internal/agent`) is the only runtime that calls a plane.
+Implemented in Go as [`packages/farm.ControlPlane`](../packages/farm/plane.go). Backends: `fm_native`, `fixture`, `cdp` (stub), later `fleet_hub`. The edge **agent** (`services/edge/app/agent`) is the only runtime that calls a plane.
 
 ```text
 farm.ControlPlane {
