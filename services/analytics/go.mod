@@ -1,9 +1,9 @@
 module github.com/jjheffernan/BambuFarmer/services/analytics
 
-go 1.23.0
+go 1.25.0
 
 require (
-	github.com/jackc/pgx/v5 v5.7.6
+	github.com/jackc/pgx/v5 v5.12.0
 	github.com/jjheffernan/BambuFarmer/packages/db v0.0.0
 	github.com/jjheffernan/BambuFarmer/packages/events v0.0.0
 	github.com/jjheffernan/BambuFarmer/packages/httpserver v0.0.0
@@ -18,9 +18,8 @@ require (
 	github.com/jjheffernan/BambuFarmer/packages/api v0.0.0 // indirect
 	github.com/redis/go-redis/v9 v9.18.0 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
-	golang.org/x/crypto v0.37.0 // indirect
-	golang.org/x/sync v0.13.0 // indirect
-	golang.org/x/text v0.24.0 // indirect
+	golang.org/x/sync v0.22.0 // indirect
+	golang.org/x/text v0.41.0 // indirect
 )
 
 replace github.com/jjheffernan/BambuFarmer/packages/api => ../../packages/api
