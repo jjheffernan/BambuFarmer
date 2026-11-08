@@ -23,6 +23,8 @@ On release: move that section to a new `## [X.Y.Z] — YYYY-MM-DD`, bump [`VERSI
 - GitHub issue/PR templates; CI changelog shape check
 
 ### Changed
+- Go toolchain raised to 1.26 (CI, Containerfiles, modules) for current dependency minimums
+- Dependencies: `pgx/v5` 5.12.0, `go-redis/v9` 9.23.0, `golang.org/x/crypto` 0.58.0
 - Schema/seed defined in Go (`packages/db`); `*.sql` gitignored (no committed SQL dumps)
 - Restyled fleet UI and install wizard with shared `bf-*` Tailwind components
 - Relocated layout: `core/internal`, `gateway/auth`, `web/setup`, `edge`/`integrations` `app/`
