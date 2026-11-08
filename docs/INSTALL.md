@@ -8,13 +8,22 @@
 open http://127.0.0.1:18080   # gateway redirects to /setup until complete
 ```
 
-Upgrade later without wiping data:
+## Updates (keep pace with Farm Manager)
+
+Containers do not rebuild themselves. Use **one host command**, or the Admin UI plus a host watcher.
 
 ```bash
-./scripts/bf update           # git pull --ff-only, rebuild, recreate containers
+./scripts/bf update              # git pull --ff-only, rebuild, recreate (volumes kept)
+make update                      # same
+./scripts/bf update --pull       # pull prebuilt registry images + recreate (no local build)
+./scripts/bf update --watch      # apply Admin → “Request update” automatically
 ```
 
-Tear down:
+**UI path:** Admin → System updates → **Request update** writes `data/ops/update.requested`. A host process running `./scripts/bf update --watch` applies it (status in `data/ops/update.status.json`).
+
+After upgrading Farm Manager on the printer LAN, update BambuFarmer the same day so edge/FM API assumptions stay aligned. Forward DB migrations run automatically on core boot.
+
+### Tear down
 
 ```bash
 ./scripts/bf uninstall --yes              # stop containers, keep volumes
@@ -47,6 +56,8 @@ APIs:
 - `POST /api/v1/setup` — save draft (`complete: false`) or finish (`complete: true`)  
 - `POST /api/v1/setup/reset` — re-open wizard (dev)  
 - `GET /api/v1/version` — build version / commit  
+- `GET /api/v1/admin/system` — version + update status (admin)  
+- `POST /api/v1/admin/system/update` — request host-side update (admin; needs `--watch`)  
 
 Gateway redirects HTML routes to `/setup` until completed. Bypass with `SKIP_SETUP_REDIRECT=true`.
 

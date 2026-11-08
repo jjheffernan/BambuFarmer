@@ -32,6 +32,9 @@ cp .env.example .env   # never commit .env (gitignored)
 make up                # creates .env if missing; podman compose --env-file .env -f deploy/compose.yml
 make health
 open http://127.0.0.1:18080   # first visit → /setup install wizard
+
+# later: one-command upgrade (volumes kept) — also Admin → Request update + bf update --watch
+./scripts/bf update
 ```
 
 Do **not** put real passwords, tokens, or private LAN addresses in the README, docs examples, or committed config. Use `.env` locally; commit only `.env.example` placeholders (`change-me-…`). Schema lives in Go under `packages/db` — `*.sql` files are gitignored.

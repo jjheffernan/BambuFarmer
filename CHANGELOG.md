@@ -13,6 +13,7 @@ On release: move that section to a new `## [X.Y.Z] — YYYY-MM-DD`, bump [`VERSI
 - LAN local accounts: Postgres `users`, Argon2id passwords, HMAC `bf_session` cookies
 - Setup wizard creates first admin (password on Finish); `/login` + admin user CRUD
 - Password change (self) and admin password reset APIs + Admin UI
+- Stack updates: `./scripts/bf update` / `make update`, `--pull`, Admin “Request update” + `--watch`
 - Operator CLI `./scripts/bf` (`setup`, `update`, `doctor`, `uninstall`, `help`)
 - Tailwind CSS toolchain for web (`make web-css`, embedded `/static/css/app.css`)
 - Shared API errors (`packages/api.Error`) with JSON `{error,code}` via `httpserver.WriteError`
