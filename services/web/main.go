@@ -321,7 +321,19 @@ const layoutHTML = `<!DOCTYPE html>
           }).catch(e => { document.getElementById('analytics-out').textContent = String(e); });
         </script>
       {{else}}
-        <p class="bf-lede">Local accounts, password reset, rate cards, and auth mode.</p>
+        <p class="bf-lede">Local accounts, stack updates, rate cards, and auth mode.</p>
+        <div class="bf-panel mb-4">
+          <h2 class="font-display text-lg mb-2">System updates</h2>
+          <p class="text-sm text-bf-muted mb-3">Keep BambuFarmer in step with Farm Manager: after upgrading FM, update this stack. One command on the host, or request from here while a host watcher is running.</p>
+          <pre class="bf-pre text-xs mb-3" id="sys-out">loading…</pre>
+          <div class="flex flex-wrap gap-2 items-center">
+            <button type="button" class="bf-btn bf-btn-primary" id="sys-update-btn">Request update</button>
+            <code class="text-xs text-bf-muted">./scripts/bf update</code>
+            <span class="text-xs text-bf-muted">or</span>
+            <code class="text-xs text-bf-muted">./scripts/bf update --watch</code>
+          </div>
+          <p class="text-sm mt-2" id="sys-msg"></p>
+        </div>
         <div class="grid gap-4 md:grid-cols-2">
           <div class="bf-panel">
             <h2 class="font-display text-lg mb-3">Users</h2>
@@ -439,10 +451,32 @@ const layoutHTML = `<!DOCTYPE html>
               msg.textContent = String(e.message || e);
             }
           };
+          async function loadSystem() {
+            const sys = await bfJSON(API + '/api/v1/admin/system', opts);
+            document.getElementById('sys-out').textContent = JSON.stringify(sys, null, 2);
+            return sys;
+          }
+          document.getElementById('sys-update-btn').onclick = async () => {
+            const msg = document.getElementById('sys-msg');
+            msg.className = 'text-sm mt-2';
+            msg.textContent = '';
+            try {
+              const res = await bfJSON(API + '/api/v1/admin/system/update', {
+                method: 'POST', credentials: 'include',
+              });
+              msg.className = 'text-bf-accent text-sm mt-2';
+              msg.textContent = res.hint || 'Update requested — host watcher will apply it.';
+              await loadSystem();
+            } catch (e) {
+              msg.className = 'text-bf-danger text-sm mt-2';
+              msg.textContent = String(e.message || e);
+            }
+          };
           Promise.all([
             bfJSON(API + '/api/v1/auth/me', opts),
             bfJSON(API + '/api/v1/admin/rate-cards', opts).catch(e => ({error: String(e)})),
-            loadUsers().catch(e => { document.getElementById('users-list').textContent = String(e); })
+            loadUsers().catch(e => { document.getElementById('users-list').textContent = String(e); }),
+            loadSystem().catch(e => { document.getElementById('sys-out').textContent = String(e); })
           ]).then(([me, rates]) => {
             document.getElementById('admin-out').textContent = JSON.stringify({me, rates}, null, 2);
           }).catch(e => { document.getElementById('admin-out').textContent = String(e); });
