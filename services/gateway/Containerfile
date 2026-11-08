@@ -1,6 +1,6 @@
 # bambufarmer-gateway — standalone image (one binary, distroless)
 # podman build -t localhost/bambufarmer-gateway:dev -f services/gateway/Containerfile .
-FROM golang:1.23-bookworm AS build
+FROM golang:1.26-bookworm AS build
 WORKDIR /src
 ENV GOWORK=off
 COPY packages/api ./packages/api

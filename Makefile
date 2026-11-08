@@ -76,7 +76,7 @@ health:
 web-css:
 	cd services/web && npm install && npm run build:css
 
-# Requires local Go 1.23+
+# Requires local Go 1.26+
 tidy:
 	@for s in $(SERVICES); do (cd services/$$s && go mod tidy); done
 	@for p in api config db events farm httpserver printerstate version; do (cd packages/$$p && go mod tidy); done

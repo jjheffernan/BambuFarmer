@@ -1,7 +1,7 @@
 # bambufarmer-analytics — standalone image (one binary, distroless)
 # Separate from core so rollups never share the job OLTP process.
 # podman build -t localhost/bambufarmer-analytics:dev -f services/analytics/Containerfile .
-FROM golang:1.23-bookworm AS build
+FROM golang:1.26-bookworm AS build
 WORKDIR /src
 ENV GOWORK=off
 COPY packages/api ./packages/api

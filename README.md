@@ -67,7 +67,7 @@ curl -sS http://127.0.0.1:18081/api/v1/presets/export | jq .
 
 ## Local Go (optional)
 
-Install Go 1.23+, then:
+Install Go 1.26+, then:
 
 ```bash
 make tidy

@@ -41,7 +41,7 @@ packages/db/
 
 ## 3. Lab reset and snapshots
 
-Requires compose stack up (or at least `postgres` + ability to restart `core`). Local Go 1.23+ recommended for seed CLI.
+Requires compose stack up (or at least `postgres` + ability to restart `core`). Local Go 1.26+ recommended for seed CLI.
 
 ```bash
 make env
