@@ -19,7 +19,7 @@ Usage:
 
 Deploy commands:
   setup       First bring-up (.env, build, start stack)
-  update      Upgrade in place (git pull --ff-only, rebuild, keep volumes)
+  update      Upgrade in place (git/rebuild or --pull; --watch for Admin UI)
   uninstall   Stop stack; optionally remove volumes/images/.env
   doctor      Run preflight + health checks
   help        Show this help (or: help <command>)
