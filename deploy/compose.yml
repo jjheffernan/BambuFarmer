@@ -76,6 +76,8 @@ services:
       EDGE_TOKEN: ${EDGE_TOKEN:-}
       DATABASE_URL: ${DATABASE_URL:-postgres://bambufarmer:bambufarmer@postgres:5432/bambufarmer?sslmode=disable}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      # Host updater drops/reads files here (./scripts/bf update --watch).
+      OPS_DIR: /ops
       # SSE fan-out requires Redis Streams from edge/core
       OIDC_ISSUER: ${OIDC_ISSUER:-}
       OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
@@ -83,6 +85,8 @@ services:
       OIDC_REDIRECT_URL: ${OIDC_REDIRECT_URL:-}
     ports:
       - "18080:8080"
+    volumes:
+      - ../data/ops:/ops
     depends_on:
       - core
       - web

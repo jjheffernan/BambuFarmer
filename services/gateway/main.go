@@ -20,7 +20,9 @@ import (
 	"github.com/jjheffernan/BambuFarmer/packages/db"
 	"github.com/jjheffernan/BambuFarmer/packages/events"
 	"github.com/jjheffernan/BambuFarmer/packages/httpserver"
+	"github.com/jjheffernan/BambuFarmer/packages/version"
 	"github.com/jjheffernan/BambuFarmer/services/gateway/auth"
+	"github.com/jjheffernan/BambuFarmer/services/gateway/ops"
 )
 
 func main() {
@@ -225,6 +227,30 @@ func main() {
 	mux.Handle("POST /api/v1/admin/users", auth.RequireAdmin(adminUsers))
 	mux.Handle("PATCH /api/v1/admin/users/{id}", auth.RequireAdmin(adminUsers))
 	mux.Handle("POST /api/v1/admin/users/{id}/password", auth.RequireAdmin(adminUsers))
+
+	mux.Handle("GET /api/v1/admin/system", auth.RequireAdmin(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		writeJSON(w, map[string]any{
+			"version": version.Get(),
+			"update":  ops.GetStatus(),
+		})
+	})))
+	mux.Handle("POST /api/v1/admin/system/update", auth.RequireAdmin(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		by := "admin"
+		if u, ok := auth.UserFromContext(r.Context()); ok {
+			by = u.Username
+		}
+		st, err := ops.RequestUpdate(by)
+		if err != nil {
+			httpserver.WriteError(w, api.Internal("could not write update request: "+err.Error()))
+			return
+		}
+		writeJSON(w, map[string]any{
+			"status":  "requested",
+			"version": version.Get(),
+			"update":  st,
+			"hint":    "Host must run: ./scripts/bf update --watch (or apply once with ./scripts/bf update)",
+		})
+	})))
 
 	mux.Handle("/api/v1/presets/", coreProxy)
 	mux.Handle("/api/v1/jobs", coreProxy)

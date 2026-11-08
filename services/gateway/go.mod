@@ -8,6 +8,7 @@ require (
 	github.com/jjheffernan/BambuFarmer/packages/db v0.0.0
 	github.com/jjheffernan/BambuFarmer/packages/events v0.0.0
 	github.com/jjheffernan/BambuFarmer/packages/httpserver v0.0.0
+	github.com/jjheffernan/BambuFarmer/packages/version v0.0.0
 )
 
 require (
@@ -31,3 +32,5 @@ replace github.com/jjheffernan/BambuFarmer/packages/api => ../../packages/api
 replace github.com/jjheffernan/BambuFarmer/packages/events => ../../packages/events
 
 replace github.com/jjheffernan/BambuFarmer/packages/db => ../../packages/db
+
+replace github.com/jjheffernan/BambuFarmer/packages/version => ../../packages/version
