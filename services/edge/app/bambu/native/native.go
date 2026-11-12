@@ -101,16 +101,52 @@ func (p *Plane) Control(ctx context.Context, sn string, opt api.ControlOpt) erro
 }
 
 func (p *Plane) Upload3MF(ctx context.Context, name string, r io.Reader) (farm.FileRef, error) {
-	_ = ctx
-	_ = name
-	_ = r
-	return farm.FileRef{}, fmt.Errorf("%w: Upload3MF", farm.ErrNotImplemented)
+	if err := p.client.EnsureSession(ctx, p.cfg.User, p.cfg.Password); err != nil {
+		return farm.FileRef{}, err
+	}
+	info, err := p.client.Upload3MF(ctx, name, r, "")
+	if err != nil {
+		return farm.FileRef{}, err
+	}
+	return farm.FileRef{ID: info.ID, Name: firstNonEmpty(info.Name, name)}, nil
 }
 
 func (p *Plane) StartPrint(ctx context.Context, req farm.PrintRequest) (farm.ExternalJobRef, error) {
-	_ = ctx
-	_ = req
-	return farm.ExternalJobRef{}, fmt.Errorf("%w: StartPrint", farm.ErrNotImplemented)
+	if err := p.client.EnsureSession(ctx, p.cfg.User, p.cfg.Password); err != nil {
+		return farm.ExternalJobRef{}, err
+	}
+	f3mfID := req.FileRef.ID
+	if f3mfID == "" {
+		return farm.ExternalJobRef{}, fmt.Errorf("StartPrint: FileRef.ID (f3mf_id) required")
+	}
+	if req.ExternalSN == "" {
+		return farm.ExternalJobRef{}, fmt.Errorf("StartPrint: empty ExternalSN")
+	}
+	taskName := req.Name
+	if taskName == "" {
+		taskName = req.JobID
+	}
+	if taskName == "" {
+		taskName = req.FileRef.Name
+	}
+	ref, err := p.client.CreateTask(ctx, farmmanager.CreateDirectPrint(f3mfID, req.ExternalSN, taskName))
+	if err != nil {
+		return farm.ExternalJobRef{}, err
+	}
+	return farm.ExternalJobRef{
+		TaskID:    ref.TaskID,
+		SubtaskID: ref.SubtaskID,
+		Raw:       req.JobID,
+	}, nil
+}
+
+func firstNonEmpty(vals ...string) string {
+	for _, v := range vals {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
 }
 
 func (p *Plane) LiveviewJPEG(ctx context.Context, sn string) ([]byte, error) {
