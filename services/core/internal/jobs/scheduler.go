@@ -86,7 +86,7 @@ func (s *Scheduler) Tick(ctx context.Context) error {
 			continue
 		}
 		delete(idleBySN, sn)
-		if err := PublishStartPrint(ctx, s.Bus, s.SiteID, assigned); err != nil {
+		if err := PublishStartPrintWithPool(ctx, s.Bus, s.Pool, s.SiteID, assigned); err != nil {
 			slog.Warn("publish start_print", "err", err, "job_id", assigned.ID)
 		}
 	}
@@ -125,7 +125,7 @@ func DispatchOne(ctx context.Context, pool *pgxpool.Pool, bus *events.Bus, siteI
 	if err != nil {
 		return assigned, err
 	}
-	if err := PublishStartPrint(ctx, bus, siteID, assigned); err != nil {
+	if err := PublishStartPrintWithPool(ctx, bus, pool, siteID, assigned); err != nil {
 		return assigned, err
 	}
 	return assigned, nil

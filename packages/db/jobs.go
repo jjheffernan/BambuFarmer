@@ -57,9 +57,9 @@ func CreateJob(ctx context.Context, pool *pgxpool.Pool, siteID string, req api.C
 		name = "job-" + id[:8]
 	}
 	_, err := pool.Exec(ctx, `
-		INSERT INTO jobs (id, site_id, name, state, external_sn, artifact_id, copies, est_seconds, est_grams, currency)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-		id, siteID, name, JobQueued, req.ExternalSN, nullStr(req.ArtifactID), copies, req.EstSeconds, req.EstGrams, "USD",
+		INSERT INTO jobs (id, site_id, name, state, external_sn, artifact_id, external_file_id, copies, est_seconds, est_grams, currency)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+		id, siteID, name, JobQueued, req.ExternalSN, nullStr(req.ArtifactID), req.FileID, copies, req.EstSeconds, req.EstGrams, "USD",
 	)
 	if err != nil {
 		return api.Job{}, err
@@ -80,12 +80,8 @@ func GetJob(ctx context.Context, pool *pgxpool.Pool, siteID, id string) (api.Job
 	var j api.Job
 	var started, finished *time.Time
 	var artifactID *string
-	err := pool.QueryRow(ctx, `
-		SELECT id, site_id, name, state, COALESCE(external_sn,''), COALESCE(artifact_id::text,''),
-		       copies, est_seconds, est_grams, cost_estimate, cost_actual, currency, error,
-		       created_at, updated_at, started_at, finished_at
-		FROM jobs WHERE id=$1 AND site_id=$2`, id, siteID).Scan(
-		&j.ID, &j.SiteID, &j.Name, &j.State, &j.ExternalSN, &j.ArtifactID,
+	err := pool.QueryRow(ctx, jobSelectSQL+` WHERE id=$1 AND site_id=$2`, id, siteID).Scan(
+		&j.ID, &j.SiteID, &j.Name, &j.State, &j.ExternalSN, &j.ArtifactID, &j.ExternalFileID,
 		&j.Copies, &j.EstSeconds, &j.EstGrams, &j.CostEstimate, &j.CostActual, &j.Currency, &j.Error,
 		&j.CreatedAt, &j.UpdatedAt, &started, &finished,
 	)
@@ -98,36 +94,24 @@ func GetJob(ctx context.Context, pool *pgxpool.Pool, siteID, id string) (api.Job
 	return j, nil
 }
 
+const jobSelectSQL = `
+		SELECT id, site_id, name, state, COALESCE(external_sn,''), COALESCE(artifact_id::text,''),
+		       COALESCE(external_file_id,''),
+		       copies, est_seconds, est_grams, cost_estimate, cost_actual, currency, error,
+		       created_at, updated_at, started_at, finished_at
+		FROM jobs`
+
 // ListJobs returns recent jobs for a site.
 func ListJobs(ctx context.Context, pool *pgxpool.Pool, siteID string, limit int) ([]api.Job, error) {
 	if limit <= 0 {
 		limit = 50
 	}
-	rows, err := pool.Query(ctx, `
-		SELECT id, site_id, name, state, COALESCE(external_sn,''), COALESCE(artifact_id::text,''),
-		       copies, est_seconds, est_grams, cost_estimate, cost_actual, currency, error,
-		       created_at, updated_at, started_at, finished_at
-		FROM jobs WHERE site_id=$1 ORDER BY created_at DESC LIMIT $2`, siteID, limit)
+	rows, err := pool.Query(ctx, jobSelectSQL+` WHERE site_id=$1 ORDER BY created_at DESC LIMIT $2`, siteID, limit)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var out []api.Job
-	for rows.Next() {
-		var j api.Job
-		var started, finished *time.Time
-		if err := rows.Scan(
-			&j.ID, &j.SiteID, &j.Name, &j.State, &j.ExternalSN, &j.ArtifactID,
-			&j.Copies, &j.EstSeconds, &j.EstGrams, &j.CostEstimate, &j.CostActual, &j.Currency, &j.Error,
-			&j.CreatedAt, &j.UpdatedAt, &started, &finished,
-		); err != nil {
-			return nil, err
-		}
-		j.StartedAt = started
-		j.FinishedAt = finished
-		out = append(out, j)
-	}
-	return out, rows.Err()
+	return scanJobs(rows)
 }
 
 // ListQueuedJobs returns oldest queued jobs (scheduler input).
@@ -135,22 +119,26 @@ func ListQueuedJobs(ctx context.Context, pool *pgxpool.Pool, siteID string, limi
 	if limit <= 0 {
 		limit = 20
 	}
-	rows, err := pool.Query(ctx, `
-		SELECT id, site_id, name, state, COALESCE(external_sn,''), COALESCE(artifact_id::text,''),
-		       copies, est_seconds, est_grams, cost_estimate, cost_actual, currency, error,
-		       created_at, updated_at, started_at, finished_at
-		FROM jobs WHERE site_id=$1 AND state=$2
+	rows, err := pool.Query(ctx, jobSelectSQL+` WHERE site_id=$1 AND state=$2
 		ORDER BY created_at ASC LIMIT $3`, siteID, JobQueued, limit)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
+	return scanJobs(rows)
+}
+
+func scanJobs(rows interface {
+	Next() bool
+	Scan(dest ...any) error
+	Err() error
+}) ([]api.Job, error) {
 	var out []api.Job
 	for rows.Next() {
 		var j api.Job
 		var started, finished *time.Time
 		if err := rows.Scan(
-			&j.ID, &j.SiteID, &j.Name, &j.State, &j.ExternalSN, &j.ArtifactID,
+			&j.ID, &j.SiteID, &j.Name, &j.State, &j.ExternalSN, &j.ArtifactID, &j.ExternalFileID,
 			&j.Copies, &j.EstSeconds, &j.EstGrams, &j.CostEstimate, &j.CostActual, &j.Currency, &j.Error,
 			&j.CreatedAt, &j.UpdatedAt, &started, &finished,
 		); err != nil {
@@ -204,12 +192,8 @@ func AssignJob(ctx context.Context, pool *pgxpool.Pool, siteID, jobID, preferred
 
 	var j api.Job
 	var started, finished *time.Time
-	err = tx.QueryRow(ctx, `
-		SELECT id, site_id, name, state, COALESCE(external_sn,''), COALESCE(artifact_id::text,''),
-		       copies, est_seconds, est_grams, cost_estimate, cost_actual, currency, error,
-		       created_at, updated_at, started_at, finished_at
-		FROM jobs WHERE id=$1 AND site_id=$2 FOR UPDATE`, jobID, siteID).Scan(
-		&j.ID, &j.SiteID, &j.Name, &j.State, &j.ExternalSN, &j.ArtifactID,
+	err = tx.QueryRow(ctx, jobSelectSQL+` WHERE id=$1 AND site_id=$2 FOR UPDATE`, jobID, siteID).Scan(
+		&j.ID, &j.SiteID, &j.Name, &j.State, &j.ExternalSN, &j.ArtifactID, &j.ExternalFileID,
 		&j.Copies, &j.EstSeconds, &j.EstGrams, &j.CostEstimate, &j.CostActual, &j.Currency, &j.Error,
 		&j.CreatedAt, &j.UpdatedAt, &started, &finished,
 	)
@@ -340,6 +324,9 @@ func newID() string {
 	_, _ = rand.Read(b[:])
 	return hex.EncodeToString(b[:])
 }
+
+// NewID returns a random hex id (artifacts, jobs, etc.).
+func NewID() string { return newID() }
 
 // ListPrinters returns projected printers.
 func ListPrinters(ctx context.Context, pool *pgxpool.Pool, siteID string) ([]api.PrinterSummary, error) {

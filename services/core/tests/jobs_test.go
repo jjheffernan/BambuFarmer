@@ -49,12 +49,15 @@ func TestTransitionTableMatchesDispatchPath(t *testing.T) {
 }
 
 func TestStartPrintPayloadShape(t *testing.T) {
-	// Compile-time / API contract for edge: fields edge.bus.ConsumeCommands reads.
+	// Compile-time / API contract for edge: FM file_id is separate from our artifact_id.
 	p := jobs.StartPrintPayload{
-		JobID: "j1", ExternalSN: "SN1", SN: "SN1", ArtifactID: "art", FileID: "art",
+		JobID: "j1", ExternalSN: "SN1", SN: "SN1", ArtifactID: "art", ObjectKey: "art", FileID: "503",
 	}
-	if p.FileID == "" || p.JobID == "" {
+	if p.JobID == "" || p.ArtifactID == "" {
 		t.Fatal("required fields")
+	}
+	if p.FileID == p.ArtifactID {
+		t.Fatal("file_id must not be aliased from artifact_id")
 	}
 	_ = api.Job{} // keep api import for future HTTP fixture tests
 }
