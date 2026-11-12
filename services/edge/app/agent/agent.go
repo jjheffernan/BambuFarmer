@@ -3,6 +3,7 @@ package agent
 
 import (
 	"context"
+	"io"
 	"log/slog"
 	"sync"
 	"time"
@@ -66,7 +67,12 @@ func New(opts Options) *Agent {
 		jobs:  make(map[string]activeJob),
 	}
 	if opts.Bus != nil {
-		a.pub = &bus.Publisher{Bus: opts.Bus, SiteID: opts.Config.SiteID, Log: log}
+		a.pub = &bus.Publisher{
+			Bus:          opts.Bus,
+			SiteID:       opts.Config.SiteID,
+			ArtifactsDir: opts.Config.ArtifactsDir,
+			Log:          log,
+		}
 	}
 	return a
 }
@@ -164,6 +170,11 @@ func (a *Agent) Control(ctx context.Context, sn string, opt api.ControlOpt) erro
 // StartPrint implements bus.Commander.
 func (a *Agent) StartPrint(ctx context.Context, req farm.PrintRequest) (farm.ExternalJobRef, error) {
 	return a.plane.StartPrint(ctx, req)
+}
+
+// Upload3MF implements bus.Uploader for artifact → FM staging before StartPrint.
+func (a *Agent) Upload3MF(ctx context.Context, name string, r io.Reader) (farm.FileRef, error) {
+	return a.plane.Upload3MF(ctx, name, r)
 }
 
 // BindJob implements bus.JobBinder after a successful start_print command.

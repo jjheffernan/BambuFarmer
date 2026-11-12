@@ -2,7 +2,12 @@ package bus
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"log/slog"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/jjheffernan/BambuFarmer/packages/api"
 	"github.com/jjheffernan/BambuFarmer/packages/events"
@@ -15,11 +20,17 @@ type Commander interface {
 	StartPrint(ctx context.Context, req farm.PrintRequest) (farm.ExternalJobRef, error)
 }
 
+// Uploader is optionally implemented by Commander for artifact → FM Upload3MF.
+type Uploader interface {
+	Upload3MF(ctx context.Context, name string, r io.Reader) (farm.FileRef, error)
+}
+
 // Publisher wraps events.Bus for edge printer deltas + command consume + job events.
 type Publisher struct {
-	Bus    *events.Bus
-	SiteID string
-	Log    *slog.Logger
+	Bus          *events.Bus
+	SiteID       string
+	ArtifactsDir string // shared volume with core; object_key is relative
+	Log          *slog.Logger
 }
 
 // PublishPrinterDelta emits printer.state_changed (and offline heuristic).
@@ -118,9 +129,33 @@ func (p *Publisher) HandleCommand(ctx context.Context, cmd Commander, env events
 func (p *Publisher) handleStartPrint(ctx context.Context, cmd Commander, env events.Envelope, sn string) error {
 	jobID := payloadString(env.Payload, "job_id")
 	fileID := payloadString(env.Payload, "file_id", "f3mf_id")
-	name := payloadString(env.Payload, "task_name", "name")
+	name := payloadString(env.Payload, "task_name", "name", "filename")
+	objectKey := payloadString(env.Payload, "object_key")
+	artifactID := payloadString(env.Payload, "artifact_id")
 	plateIndex := payloadInt(env.Payload, "plate_index")
 	copies := payloadInt(env.Payload, "copies")
+
+	if fileID == "" {
+		key := objectKey
+		if key == "" {
+			key = artifactID
+		}
+		uploaded, upName, err := p.uploadArtifact(ctx, cmd, key, name)
+		if err != nil {
+			if p.Log != nil {
+				p.Log.Warn("upload before start_print", "err", err, "job_id", jobID, "key", key)
+			}
+			p.PublishJob(ctx, events.TypeJobFailed, jobID, map[string]any{
+				"job_id": jobID, "external_sn": sn, "error": err.Error(), "artifact_id": artifactID,
+			})
+			return nil
+		}
+		fileID = uploaded
+		if name == "" {
+			name = upName
+		}
+	}
+
 	req := farm.PrintRequest{
 		JobID:      jobID,
 		ExternalSN: sn,
@@ -144,21 +179,80 @@ func (p *Publisher) handleStartPrint(ctx context.Context, cmd Commander, env eve
 		return nil
 	}
 	if p.Log != nil {
-		p.Log.Info("start_print ok", "sn", sn, "job_id", jobID, "task_id", ref.TaskID)
+		p.Log.Info("start_print ok", "sn", sn, "job_id", jobID, "task_id", ref.TaskID, "file_id", fileID)
 	}
 	p.PublishJob(ctx, events.TypeJobDispatched, jobID, map[string]any{
-		"job_id":         jobID,
-		"external_sn":    sn,
-		"external_task":  ref.TaskID,
+		"job_id":           jobID,
+		"external_sn":      sn,
+		"external_task":    ref.TaskID,
 		"external_subtask": ref.SubtaskID,
-		"file_id":        fileID,
-		"task_id":        ref.TaskID,
-		"subtask_id":     ref.SubtaskID,
+		"file_id":          fileID,
+		"task_id":          ref.TaskID,
+		"subtask_id":       ref.SubtaskID,
 	})
 	if binder, ok := cmd.(JobBinder); ok {
 		binder.BindJob(sn, jobID, ref)
 	}
 	return nil
+}
+
+func (p *Publisher) uploadArtifact(ctx context.Context, cmd Commander, objectKey, name string) (fileID, filename string, err error) {
+	if objectKey == "" {
+		return "", "", fmt.Errorf("start_print: file_id or artifact object_key required")
+	}
+	up, ok := cmd.(Uploader)
+	if !ok {
+		return "", "", fmt.Errorf("start_print: commander cannot Upload3MF")
+	}
+	dir := ""
+	if p != nil {
+		dir = p.ArtifactsDir
+	}
+	if dir == "" {
+		return "", "", fmt.Errorf("start_print: ARTIFACTS_DIR unset and no file_id")
+	}
+	path, err := absArtifact(dir, objectKey)
+	if err != nil {
+		return "", "", err
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return "", "", fmt.Errorf("open artifact %s: %w", objectKey, err)
+	}
+	defer f.Close()
+	if name == "" {
+		name = filepath.Base(path)
+	}
+	ref, err := up.Upload3MF(ctx, name, f)
+	if err != nil {
+		return "", "", err
+	}
+	if ref.ID == "" {
+		return "", "", fmt.Errorf("upload returned empty file id")
+	}
+	return ref.ID, firstNonEmpty(ref.Name, name), nil
+}
+
+func absArtifact(dir, objectKey string) (string, error) {
+	key := strings.TrimSpace(objectKey)
+	if key == "" || strings.Contains(key, "..") || strings.HasPrefix(key, "/") {
+		return "", fmt.Errorf("invalid object_key")
+	}
+	abs := filepath.Join(dir, filepath.FromSlash(key))
+	rel, err := filepath.Rel(dir, abs)
+	if err != nil || strings.HasPrefix(rel, "..") {
+		return "", fmt.Errorf("artifact path escape")
+	}
+	return abs, nil
+}
+
+func firstNonEmpty(vals ...string) string {
+	for _, v := range vals {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
 }
 
 // JobBinder is optionally implemented by Commander to correlate later progress.
