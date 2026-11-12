@@ -113,6 +113,7 @@ services:
       FILAMENT_PRICE_PER_KG: ${FILAMENT_PRICE_PER_KG:-0}
       FILAMENT_KG_PER_HOUR: ${FILAMENT_KG_PER_HOUR:-0}
       NOTIFY_URL: ${NOTIFY_URL:-}
+      POWER_URL: ${POWER_URL:-}
     ports:
       - "18081:8080"
     volumes:

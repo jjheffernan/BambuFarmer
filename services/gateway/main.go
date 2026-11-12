@@ -260,6 +260,8 @@ func main() {
 	mux.Handle("/api/v1/presets/", coreProxy)
 	mux.Handle("/api/v1/jobs", coreProxy)
 	mux.Handle("/api/v1/jobs/", coreProxy)
+	mux.Handle("/api/v1/power", coreProxy)
+	mux.Handle("/api/v1/power/", coreProxy)
 	mux.Handle("/api/v1/artifacts", coreProxy)
 	mux.Handle("/api/v1/artifacts/", coreProxy)
 	mux.Handle("/api/v1/printers", coreProxy)

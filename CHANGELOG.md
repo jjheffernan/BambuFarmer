@@ -10,6 +10,7 @@ On release: move that section to a new `## [X.Y.Z] — YYYY-MM-DD`, bump [`VERSI
 ## [Unreleased]
 
 ### Added
+- Power switch (`POST /api/v1/power`) forwards `on` or `off` when `POWER_URL` is set; an empty URL does nothing
 - AMS tray lookup (`GET /api/v1/filament/links?tray=`) resolves a spool id from `AMS_SLOT_MAP`; an empty map resolves nothing
 - Spool list includes `low_stock` when remaining grams are under `LOW_STOCK_GRAMS` (default 100); Spoolman unset reports none
 - Commerce store webhook (`POST /api/v1/commerce/webhook`) queues a core job when `CORE_URL` is set; the service stays on the commerce compose profile

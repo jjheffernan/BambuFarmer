@@ -18,6 +18,7 @@ import (
 	"github.com/jjheffernan/BambuFarmer/services/core/internal/config"
 	"github.com/jjheffernan/BambuFarmer/services/core/internal/httpx"
 	"github.com/jjheffernan/BambuFarmer/services/core/internal/jobs"
+	"github.com/jjheffernan/BambuFarmer/services/core/internal/power"
 	"github.com/jjheffernan/BambuFarmer/services/core/internal/presets"
 	"github.com/jjheffernan/BambuFarmer/services/core/internal/printers"
 	"github.com/jjheffernan/BambuFarmer/services/core/internal/rates"
@@ -76,6 +77,7 @@ func main() {
 	rates.Register(mux, pool, cfg.SiteID)
 	artifacts.Register(mux, pool, cfg.SiteID, artStore)
 	jobs.Register(mux, pool, bus, cfg.SiteID)
+	power.Register(mux, os.Getenv("POWER_URL"))
 	printers.Register(mux, pool, bus, cfg.SiteID)
 	setup.Register(mux, pool, cfg.SiteID)
 	users.Register(mux, pool)
