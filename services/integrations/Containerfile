@@ -5,6 +5,7 @@ WORKDIR /src
 ENV GOWORK=off
 COPY packages/api ./packages/api
 COPY packages/config ./packages/config
+COPY packages/events ./packages/events
 COPY packages/httpserver ./packages/httpserver
 COPY services/integrations ./services/integrations
 WORKDIR /src/services/integrations

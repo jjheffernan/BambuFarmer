@@ -24,7 +24,7 @@ func TestJobsPageUsesSSENotIntervalPoll(t *testing.T) {
 	if !strings.Contains(layoutHTML, `id="jobs-q"`) || !strings.Contains(layoutHTML, `id="jobs-state"`) {
 		t.Fatal("jobs page missing search or state filter")
 	}
-	if !strings.Contains(layoutHTML, `id="job-model"`) || !strings.Contains(layoutHTML, "/queue") {
+	if !strings.Contains(layoutHTML, `id="job-spool"`) || !strings.Contains(layoutHTML, `id="job-model"`) || !strings.Contains(layoutHTML, "/queue") {
 		t.Fatal("jobs page missing queue reorder or model target")
 	}
 	for _, ev := range []string{

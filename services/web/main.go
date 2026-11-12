@@ -325,6 +325,10 @@ const layoutHTML = `<!DOCTYPE html>
               <input class="bf-input" id="job-after" name="after_job_id" placeholder="job id"/>
             </div>
             <div>
+              <label class="bf-field" for="job-spool">Spoolman spool <span class="text-bf-muted">(optional id)</span></label>
+              <input class="bf-input" id="job-spool" name="spool_id" placeholder="posted on finish when set"/>
+            </div>
+            <div>
               <label class="bf-field" for="job-copies">Copies</label>
               <input class="bf-input" id="job-copies" name="copies" type="number" min="1" value="1"/>
             </div>
@@ -515,6 +519,7 @@ const layoutHTML = `<!DOCTYPE html>
                 external_sn: document.getElementById('job-sn').value.trim() || undefined,
                 target_model: document.getElementById('job-model').value.trim() || undefined,
                 after_job_id: document.getElementById('job-after').value.trim() || undefined,
+                spool_id: document.getElementById('job-spool').value.trim() || undefined,
                 copies: Number.isFinite(copies) && copies > 0 ? copies : 1,
               };
               if (Number.isFinite(estSec) && estSec > 0) body.est_seconds = estSec;

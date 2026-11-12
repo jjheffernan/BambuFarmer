@@ -163,12 +163,16 @@ services:
       HTTP_ADDR: ":8080"
       SPOOLMAN_URL: ${SPOOLMAN_URL:-}
       SPOOLMAN_API_TOKEN: ${SPOOLMAN_API_TOKEN:-}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
       MANYFOLD_URL: ${MANYFOLD_URL:-}
       MANYFOLD_CLIENT_ID: ${MANYFOLD_CLIENT_ID:-}
       MANYFOLD_CLIENT_SECRET: ${MANYFOLD_CLIENT_SECRET:-}
       MANYFOLD_TOKEN: ${MANYFOLD_TOKEN:-}
     ports:
       - "18083:8080"
+    depends_on:
+      redis:
+        condition: service_healthy
 
   analytics:
     image: localhost/bambufarmer-analytics:dev

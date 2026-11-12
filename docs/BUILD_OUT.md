@@ -74,8 +74,8 @@ Reject: shared plugin SDK frameworks, frontend stack rewrites, fat all-in-one im
 
 | Field | Value |
 |-------|--------|
-| **Done** | Flight 1 + P0 through #15. P1 on `after-hours/build-out`: reprint, search/filter, queue reorder, model target, wait-on-previous |
-| **Next** | P2 Spoolman consumption on finish (no-op when URL unset). Live FM smoke when operator opts in. Stay on `after-hours/build-out` |
+| **Done** | P0 through #15 and P1 queue/reprint/search. P2: job finish posts Spoolman use_weight when spool id and URL are set; empty URL is a no-op |
+| **Next** | P2 AMS slot mapping and low-stock signals. P3 notify webhook. Live FM smoke when operator opts in. Stay on `after-hours/build-out` |
 | **Blocked** | — |
 | **Deferred** | Live FM upload→print→cost smoke — **no LAN / local-network permission**; use fixture mode + mocked FM paths until daytime explicitly enables live FM |
 | **Do not** | Commit third-party product source trees; migrate off Go; prompt for local-network / LAN FM reachability |

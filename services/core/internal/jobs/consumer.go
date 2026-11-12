@@ -19,7 +19,7 @@ func ConsumeJobEvents(ctx context.Context, bus *events.Bus, pool *pgxpool.Pool, 
 		consumer = "core-jobs-1"
 	}
 	err := bus.ConsumeLoop(ctx, events.StreamJob, events.GroupCore, consumer, "$", func(ctx context.Context, _ string, env events.Envelope) error {
-		return HandleJobEvent(ctx, pool, siteID, env)
+		return HandleJobEvent(ctx, pool, siteID, env, bus)
 	})
 	if err != nil && ctx.Err() == nil {
 		slog.Warn("job consumer stopped", "err", err)
@@ -27,7 +27,7 @@ func ConsumeJobEvents(ctx context.Context, bus *events.Bus, pool *pgxpool.Pool, 
 }
 
 // HandleJobEvent applies one inbound job.* envelope (idempotent transitions).
-func HandleJobEvent(ctx context.Context, pool *pgxpool.Pool, siteID string, env events.Envelope) error {
+func HandleJobEvent(ctx context.Context, pool *pgxpool.Pool, siteID string, env events.Envelope, bus *events.Bus) error {
 	// Ignore our own publishes (queued/assigned) — only edge lifecycle advances DB here.
 	switch env.Type {
 	case events.TypeJobQueued, events.TypeJobAssigned, events.TypeJobCancelled:
@@ -53,7 +53,7 @@ func HandleJobEvent(ctx context.Context, pool *pgxpool.Pool, siteID string, env 
 	case events.TypeJobProgress:
 		return applyProgress(ctx, pool, sid, jobID, env.Payload)
 	case events.TypeJobFinished:
-		return applyFinished(ctx, pool, sid, jobID, env.Payload)
+		return applyFinished(ctx, pool, bus, sid, jobID, env.Payload)
 	case events.TypeJobFailed:
 		msg, _ := env.Payload["error"].(string)
 		if msg == "" {
@@ -77,7 +77,7 @@ func applyProgress(ctx context.Context, pool *pgxpool.Pool, siteID, jobID string
 	return ignoreInvalid(err)
 }
 
-func applyFinished(ctx context.Context, pool *pgxpool.Pool, siteID, jobID string, payload map[string]any) error {
+func applyFinished(ctx context.Context, pool *pgxpool.Pool, bus *events.Bus, siteID, jobID string, payload map[string]any) error {
 	job, err := db.GetJob(ctx, pool, siteID, jobID)
 	if err != nil {
 		return err
@@ -99,7 +99,25 @@ func applyFinished(ctx context.Context, pool *pgxpool.Pool, siteID, jobID string
 		actual := db.EstimateJobCost(rc, seconds, grams, job.Copies)
 		_ = db.ApplyJobCost(ctx, pool, siteID, jobID, job.CostEstimate, actual, rc.Currency)
 	}
-	return nil
+	spoolID := strPayload(payload, "spool_id")
+	if spoolID == "" {
+		spoolID = job.SpoolID
+	}
+	return PublishFilamentUsed(ctx, bus, siteID, jobID, spoolID, grams)
+}
+
+// PublishFilamentUsed emits filament.consumed when a spool and grams are known.
+// A nil bus, empty spool, or non-positive grams is a no-op.
+func PublishFilamentUsed(ctx context.Context, bus *events.Bus, siteID, jobID, spoolID string, grams float64) error {
+	if bus == nil || grams <= 0 || spoolID == "" {
+		return nil
+	}
+	env := events.NewEnvelope(events.TypeFilamentConsumed, "core", siteID, map[string]any{
+		"job_id": jobID, "spool_id": spoolID, "grams": grams,
+	})
+	env.CorrelationID = jobID
+	_, err := bus.Publish(ctx, events.StreamFilament, env)
+	return err
 }
 
 func ignoreInvalid(err error) error {

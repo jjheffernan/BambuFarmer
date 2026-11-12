@@ -34,5 +34,6 @@ func ReprintRequest(src api.Job) (api.CreateJobRequest, error) {
 		EstSeconds:  src.EstSeconds,
 		EstGrams:    src.EstGrams,
 		TargetModel: src.TargetModel,
+		SpoolID:     src.SpoolID,
 	}, nil
 }

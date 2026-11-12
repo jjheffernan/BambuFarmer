@@ -180,6 +180,7 @@ type CreateJobRequest struct {
 	QueuePos    int     `json:"queue_pos,omitempty"`
 	TargetModel string  `json:"target_model,omitempty"`
 	AfterJobID  string  `json:"after_job_id,omitempty"`
+	SpoolID     string  `json:"spool_id,omitempty"`
 }
 
 // InstallState is the first-run wizard singleton.
@@ -306,6 +307,7 @@ type Job struct {
 	QueuePos       int        `json:"queue_pos"`
 	TargetModel    string     `json:"target_model,omitempty"`
 	AfterJobID     string     `json:"after_job_id,omitempty"`
+	SpoolID        string     `json:"spool_id,omitempty"`
 	EstSeconds     int        `json:"est_seconds,omitempty"`
 	EstGrams       float64    `json:"est_grams,omitempty"`
 	CostEstimate   float64    `json:"cost_estimate"`

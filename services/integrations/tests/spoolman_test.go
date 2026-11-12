@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jjheffernan/BambuFarmer/packages/events"
 	"github.com/jjheffernan/BambuFarmer/services/integrations/app/spoolman"
 )
 
@@ -49,4 +50,38 @@ func TestListSpoolsMapsResponse(t *testing.T) {
 	if spools[0].RemainingG != 987.5 {
 		t.Fatalf("remaining %v", spools[0].RemainingG)
 	}
+}
+
+func TestUseWeightNoopWhenUnset(t *testing.T) {
+	if err := spoolman.Consume(context.Background(), nil, spoolmanEnvelope(4, "9")); err != nil {
+		t.Fatal(err)
+	}
+	cli := spoolman.New("", "", time.Second)
+	if err := cli.UseWeight(context.Background(), "9", 4); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestUseWeightPostsGrams(t *testing.T) {
+	var gotMethod, gotPath string
+	var got map[string]float64
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotMethod, gotPath = r.Method, r.URL.Path
+		_ = json.NewDecoder(r.Body).Decode(&got)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+	cli := spoolman.New(srv.URL, "", time.Second)
+	if err := spoolman.Consume(context.Background(), cli, spoolmanEnvelope(12.5, "42")); err != nil {
+		t.Fatal(err)
+	}
+	if gotMethod != http.MethodPut || gotPath != "/api/v1/spool/42/use" || got["use_weight"] != 12.5 {
+		t.Fatalf("%s %s %#v", gotMethod, gotPath, got)
+	}
+}
+
+func spoolmanEnvelope(grams float64, spoolID string) events.Envelope {
+	return events.NewEnvelope(events.TypeFilamentConsumed, "core", "default", map[string]any{
+		"grams": grams, "spool_id": spoolID,
+	})
 }

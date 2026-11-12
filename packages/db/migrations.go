@@ -14,4 +14,5 @@ var orderedMigrations = []migration{
 	{Name: "002_users.sql", SQL: migration002Users},
 	{Name: "003_job_file.sql", SQL: migration003JobFile},
 	{Name: "004_job_queue.sql", SQL: migration004JobQueue},
+	{Name: "005_job_spool.sql", SQL: migration005JobSpool},
 }
