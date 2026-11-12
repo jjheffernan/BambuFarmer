@@ -10,6 +10,7 @@ On release: move that section to a new `## [X.Y.Z] — YYYY-MM-DD`, bump [`VERSI
 ## [Unreleased]
 
 ### Added
+- Fleet bulk control: multi-select + sticky action bar; `POST /api/v1/printers/actions` fans out pause/resume/stop/bed_clean via edge command stream
 - Local artifact staging: `POST/GET /api/v1/artifacts` (+ `/content`), shared compose `artifacts` volume (`ARTIFACTS_DIR`)
 - Edge uploads staged plate to FM before `StartPrint` when `file_id` is absent (`object_key` / `artifact_id`)
 - Jobs page: `.gcode.3mf` file upload + optional FM `file_id`; create form (name, artifact, printer SN, copies, estimates) + list with state/cost/error and live SSE refresh

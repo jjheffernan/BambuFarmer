@@ -74,7 +74,7 @@ Reject: shared plugin SDK frameworks, frontend stack rewrites, fat all-in-one im
 
 | Field | Value |
 |-------|--------|
-| **Done** | Flight 1: edge `Upload3MF`/`StartPrint` + command consumer; core scheduler/`command.start_print` + `job.*` consumer/cost finalize; web jobs create/list. Tick 1: stop aliasing `artifact_id`→FM `file_id`; local `POST /api/v1/artifacts` + shared `artifacts` volume; edge uploads from disk before `StartPrint`; jobs UI file upload. After-hours: jobs page SSE (`job.*`) replaces 10s poll |
-| **Next** | P0: fleet pause/resume/stop/bed_clean polish (bulk selection / `printers/actions` if needed); live FM smoke of upload→print→cost; analytics daily rollups UI depth |
+| **Done** | Flight 1: edge `Upload3MF`/`StartPrint` + command consumer; core scheduler/`command.start_print` + `job.*` consumer/cost finalize; web jobs create/list. Tick 1: stop aliasing `artifact_id`→FM `file_id`; local `POST /api/v1/artifacts` + shared `artifacts` volume; edge uploads from disk before `StartPrint`; jobs UI file upload. After-hours: jobs page SSE (`job.*`) replaces 10s poll; fleet multi-select + sticky bar + `POST /api/v1/printers/actions` |
+| **Next** | P0: analytics daily rollups UI depth; live FM smoke of upload→print→cost |
 | **Blocked** | Live FM Server version / LAN IP for edge smoke |
 | **Do not** | Commit third-party product source trees; migrate off Go |
