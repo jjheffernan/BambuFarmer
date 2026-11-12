@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"strings"
 
+	"github.com/jjheffernan/BambuFarmer/packages/api"
 	"github.com/jjheffernan/BambuFarmer/packages/httpserver"
 	"github.com/jjheffernan/BambuFarmer/services/integrations/app/manyfold"
 	"github.com/jjheffernan/BambuFarmer/services/integrations/app/spoolman"
@@ -76,6 +78,31 @@ func Register(mux *http.ServeMux, d Deps) {
 			return
 		}
 		writeJSON(w, map[string]any{"configured": true, "models": models})
+	})
+
+	mux.HandleFunc("POST /api/v1/library/import", func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Name string `json:"name"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			httpserver.WriteError(w, api.BadRequest("invalid JSON body"))
+			return
+		}
+		if d.Manyfold == nil {
+			writeJSON(w, map[string]any{"imported": false, "reason": "MANYFOLD_URL unset"})
+			return
+		}
+		name := strings.TrimSpace(body.Name)
+		if name == "" {
+			httpserver.WriteError(w, api.BadRequest("name required"))
+			return
+		}
+		id, err := d.Manyfold.CreateModel(r.Context(), name)
+		if err != nil {
+			httpserver.WriteError(w, err)
+			return
+		}
+		writeJSON(w, map[string]any{"imported": true, "id": id, "name": name})
 	})
 }
 

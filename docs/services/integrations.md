@@ -68,7 +68,7 @@ Today: `ListSpools` / `ListModels` implemented on concrete clients; full interfa
 | `GET /api/v1/filament/spools` | Spoolman `GET /api/v1/spool?limit=1000` or empty if unset |
 | `GET /api/v1/library/models` | Manyfold `GET /models` or empty if unset |
 | `GET /api/v1/filament/links?tray=` | AMS tray index → spool id from `AMS_SLOT_MAP` (empty map → none) |
-| `POST /api/v1/library/import` | → object store + core artifact (next) |
+| `POST /api/v1/library/import` | Create a Manyfold model by name (`POST /models`); empty URL does not call Manyfold |
 | `POST /api/v1/library/export` | artifact → Manyfold (next) |
 
 **Manyfold auth:** prefer `MANYFOLD_TOKEN` (personal access token). Falls back to OAuth2 `client_credentials` when `MANYFOLD_CLIENT_ID` / `SECRET` are set. Always send `Accept: application/vnd.manyfold.v0+json`.
