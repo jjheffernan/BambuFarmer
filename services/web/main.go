@@ -520,18 +520,110 @@ const layoutHTML = `<!DOCTYPE html>
           });
         </script>
       {{else if eq .Active "analytics"}}
-        <p class="bf-lede">Utilization and counters from the analytics consumer.</p>
+        <p class="bf-lede">Daily utilization rollups and event counters from the analytics consumer.</p>
+        <div class="flex items-center justify-between gap-3 mb-3">
+          <div id="analytics-status" class="bf-status m-0">loading…</div>
+          <button type="button" class="bf-btn" id="analytics-refresh">Refresh</button>
+        </div>
+        <div class="bf-panel mb-4">
+          <h2 class="font-display text-lg mb-3">Event counters</h2>
+          <div id="analytics-counters" class="flex flex-wrap gap-2 text-sm">loading…</div>
+        </div>
         <div class="bf-panel">
-          <pre class="bf-pre" id="analytics-out">loading…</pre>
+          <h2 class="font-display text-lg mb-3">Daily utilization</h2>
+          <div class="overflow-x-auto">
+            <table class="bf-table" id="analytics-util-table">
+              <thead>
+                <tr>
+                  <th>Day</th>
+                  <th>Site</th>
+                  <th>Printer</th>
+                  <th>Idle</th>
+                  <th>Run</th>
+                  <th>Fail</th>
+                  <th>Util %</th>
+                  <th>Samples</th>
+                </tr>
+              </thead>
+              <tbody id="analytics-util-body">
+                <tr><td colspan="8" class="bf-empty">loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
         </div>
         <script>
           const API = {{printf "%q" .APIBase}};
-          Promise.all([
-            bfJSON(API + '/api/v1/analytics/utilization'),
-            bfJSON(API + '/api/v1/analytics/counters')
-          ]).then(([u, c]) => {
-            document.getElementById('analytics-out').textContent = JSON.stringify({utilization: u, counters: c}, null, 2);
-          }).catch(e => { document.getElementById('analytics-out').textContent = String(e); });
+          const statusEl = document.getElementById('analytics-status');
+          const countersEl = document.getElementById('analytics-counters');
+          const utilBody = document.getElementById('analytics-util-body');
+
+          function fmtDuration(sec) {
+            const s = Number(sec) || 0;
+            if (s < 60) return s + 's';
+            if (s < 3600) return Math.floor(s / 60) + 'm ' + (s % 60) + 's';
+            const h = Math.floor(s / 3600);
+            const m = Math.floor((s % 3600) / 60);
+            return h + 'h ' + m + 'm';
+          }
+          function utilPct(row) {
+            const idle = Number(row.idle_s) || 0;
+            const run = Number(row.run_s) || 0;
+            const fail = Number(row.fail_s) || 0;
+            const total = idle + run + fail;
+            if (!total) return '—';
+            return ((100 * run) / total).toFixed(1) + '%';
+          }
+          function renderCounters(counters) {
+            const keys = Object.keys(counters || {}).sort();
+            if (!keys.length) {
+              countersEl.innerHTML = '<span class="bf-empty">No counter data yet</span>';
+              return;
+            }
+            countersEl.innerHTML = keys.map(k =>
+              '<span class="bf-chip">' + k.replace(/^events\./, '') +
+              ' <strong class="font-mono ml-1">' + counters[k] + '</strong></span>'
+            ).join('');
+          }
+          function renderUtilization(series) {
+            const rows = (series && series.series) || [];
+            if (!rows.length) {
+              utilBody.innerHTML = '<tr><td colspan="8" class="bf-empty">No daily rollups yet</td></tr>';
+              return;
+            }
+            utilBody.innerHTML = rows.map(r =>
+              '<tr>' +
+              '<td class="font-mono text-xs">' + (r.day || '—') + '</td>' +
+              '<td>' + (r.site_id || '—') + '</td>' +
+              '<td class="font-mono text-xs">' + (r.external_sn || '—') + '</td>' +
+              '<td class="font-mono text-xs">' + fmtDuration(r.idle_s) + '</td>' +
+              '<td class="font-mono text-xs">' + fmtDuration(r.run_s) + '</td>' +
+              '<td class="font-mono text-xs">' + fmtDuration(r.fail_s) + '</td>' +
+              '<td class="font-mono text-xs">' + utilPct(r) + '</td>' +
+              '<td class="font-mono text-xs">' + (r.samples ?? 0) + '</td>' +
+              '</tr>'
+            ).join('');
+          }
+          async function loadAnalytics() {
+            statusEl.textContent = 'loading…';
+            statusEl.classList.remove('live');
+            try {
+              const [u, c] = await Promise.all([
+                bfJSON(API + '/api/v1/analytics/utilization'),
+                bfJSON(API + '/api/v1/analytics/counters')
+              ]);
+              renderCounters(c);
+              renderUtilization(u);
+              statusEl.textContent = 'updated';
+              statusEl.classList.add('live');
+            } catch (e) {
+              statusEl.textContent = String(e.message || e);
+              statusEl.classList.remove('live');
+              countersEl.textContent = String(e.message || e);
+              utilBody.innerHTML = '<tr><td colspan="8" class="bf-empty">' + String(e.message || e) + '</td></tr>';
+            }
+          }
+          document.getElementById('analytics-refresh').onclick = loadAnalytics;
+          loadAnalytics();
         </script>
       {{else}}
         <p class="bf-lede">Local accounts, stack updates, rate cards, and auth mode.</p>
