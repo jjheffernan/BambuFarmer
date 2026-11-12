@@ -12,7 +12,7 @@ On release: move that section to a new `## [X.Y.Z] — YYYY-MM-DD`, bump [`VERSI
 ### Added
 - Local artifact staging: `POST/GET /api/v1/artifacts` (+ `/content`), shared compose `artifacts` volume (`ARTIFACTS_DIR`)
 - Edge uploads staged plate to FM before `StartPrint` when `file_id` is absent (`object_key` / `artifact_id`)
-- Jobs page: `.gcode.3mf` file upload + optional FM `file_id`; create form (name, artifact, printer SN, copies, estimates) + list with state/cost/error and 10s refresh
+- Jobs page: `.gcode.3mf` file upload + optional FM `file_id`; create form (name, artifact, printer SN, copies, estimates) + list with state/cost/error and live SSE refresh
 - Core job dispatch: scheduler assigns idle printers, publishes `command.start_print`, consumes `job.*` to advance state + finalize cost
 - Edge `fm_native` `Upload3MF` / `StartPrint` (FM `POST /file/upload3mf` + `POST /task`); command consumer emits `job.dispatched` / `job.progress` / `job.finished` / `job.failed`
 - Build-out roadmap + lean plugin docs; optional `commerce` compose profile (health stub)
@@ -30,6 +30,7 @@ On release: move that section to a new `## [X.Y.Z] — YYYY-MM-DD`, bump [`VERSI
 - GitHub issue/PR templates; CI changelog shape check
 
 ### Changed
+- Jobs page: live list refresh via gateway SSE (`job.*` events) instead of a 10s poll
 - Go toolchain raised to 1.26 (CI, Containerfiles, modules) for current dependency minimums
 - Dependencies: `pgx/v5` 5.12.0, `go-redis/v9` 9.23.0, `golang.org/x/crypto` 0.58.0
 - Schema/seed defined in Go (`packages/db`); `*.sql` gitignored (no committed SQL dumps)

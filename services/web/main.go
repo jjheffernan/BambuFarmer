@@ -416,8 +416,28 @@ const layoutHTML = `<!DOCTYPE html>
             }
           };
 
+          let jobsReloadTimer = null;
+          function scheduleJobsReload() {
+            if (jobsReloadTimer) clearTimeout(jobsReloadTimer);
+            jobsReloadTimer = setTimeout(() => { jobsReloadTimer = null; loadJobs(); }, 200);
+          }
+          function connectJobsSSE() {
+            const es = new EventSource(API + '/api/v1/events/stream', { withCredentials: true });
+            es.addEventListener('ready', () => {
+              jobsStatus.textContent = 'SSE live';
+              jobsStatus.classList.add('live');
+            });
+            ['job.queued','job.assigned','job.dispatched','job.progress','job.finished','job.failed','job.cancelled'].forEach(ev => {
+              es.addEventListener(ev, () => { scheduleJobsReload(); });
+            });
+            es.onerror = () => {
+              jobsStatus.textContent = 'SSE reconnecting…';
+              jobsStatus.classList.remove('live');
+            };
+          }
+
           loadJobs();
-          setInterval(loadJobs, 10000);
+          connectJobsSSE();
         </script>
       {{else if eq .Active "presets"}}
         <p class="bf-lede">Versioned filament and print presets stored in Postgres.</p>
