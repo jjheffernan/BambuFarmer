@@ -164,12 +164,49 @@ func (a *Agent) pollOnce(ctx context.Context) {
 
 // Control implements bus.Commander.
 func (a *Agent) Control(ctx context.Context, sn string, opt api.ControlOpt) error {
-	return a.plane.Control(ctx, sn, opt)
+	if err := a.plane.Control(ctx, sn, opt); err != nil {
+		return err
+	}
+	// Immediate SSE update (do not wait for the next poll tick).
+	a.publishSN(ctx, sn)
+	return nil
 }
 
 // StartPrint implements bus.Commander.
 func (a *Agent) StartPrint(ctx context.Context, req farm.PrintRequest) (farm.ExternalJobRef, error) {
-	return a.plane.StartPrint(ctx, req)
+	ref, err := a.plane.StartPrint(ctx, req)
+	if err != nil {
+		return ref, err
+	}
+	// Immediate SSE update so fleet/jobs UIs see RUNNING without waiting for poll.
+	a.publishSN(ctx, req.ExternalSN)
+	return ref, nil
+}
+
+// publishSN lists devices and emits a printer delta (+ job lifecycle) for one SN.
+func (a *Agent) publishSN(ctx context.Context, sn string) {
+	if sn == "" || a.plane == nil {
+		return
+	}
+	devices, err := a.plane.ListDevices(ctx)
+	if err != nil {
+		a.log.Debug("publishSN list", "sn", sn, "err", err)
+		return
+	}
+	snaps, err := a.track.ObserveAll(devices)
+	if err != nil {
+		return
+	}
+	for _, s := range snaps {
+		if s.ExternalSN != sn {
+			continue
+		}
+		if a.pub != nil && a.delta.Changed(s) {
+			a.pub.PublishPrinterDelta(ctx, s)
+		}
+		a.emitJobLifecycle(ctx, s)
+		return
+	}
 }
 
 // Upload3MF implements bus.Uploader for artifact → FM staging before StartPrint.

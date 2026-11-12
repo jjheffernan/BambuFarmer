@@ -74,8 +74,8 @@ Reject: shared plugin SDK frameworks, frontend stack rewrites, fat all-in-one im
 
 | Field | Value |
 |-------|--------|
-| **Done** | Flight 1: edge `Upload3MF`/`StartPrint` + command consumer; core scheduler/`command.start_print` + `job.*` consumer/cost finalize; web jobs create/list. Tick 1: stop aliasing `artifact_id`→FM `file_id`; local `POST /api/v1/artifacts` + shared `artifacts` volume; edge uploads from disk before `StartPrint`; jobs UI file upload. After-hours: jobs SSE; fleet bulk `printers/actions`; analytics daily utilization table + counters UI; fixtureplane StartPrint/Control advances device state (no LAN) |
-| **Next** | P0 §19 polish via fixture/unit paths only (dispatch contracts, jobs UI, fixture→SSE); daytime live FM smoke when operator opts in |
+| **Done** | Flight 1 + after-hours P0 slices through #14; agent StartPrint/Control publish printer deltas immediately (no poll wait) for SSE |
+| **Next** | More §19 fixture/unit polish; daytime live FM smoke when operator opts in |
 | **Blocked** | — |
 | **Deferred** | Live FM upload→print→cost smoke — **no LAN / local-network permission**; use fixture mode + mocked FM paths until daytime explicitly enables live FM |
 | **Do not** | Commit third-party product source trees; migrate off Go; prompt for local-network / LAN FM reachability |
