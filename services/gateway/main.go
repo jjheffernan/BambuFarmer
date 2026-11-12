@@ -40,6 +40,7 @@ func main() {
 	analyticsURL := mustURL(getenv("ANALYTICS_URL", "http://analytics:8080"))
 	integrationsURL := mustURL(getenv("INTEGRATIONS_URL", "http://integrations:8080"))
 	edgeURL := mustURL(getenv("EDGE_URL", "http://edge:8080"))
+	commerceURLRaw := os.Getenv("COMMERCE_URL") // optional plugin; empty = not proxied
 	redisURL := os.Getenv("REDIS_URL")
 	databaseURL := os.Getenv("DATABASE_URL")
 	oidcIssuer := os.Getenv("OIDC_ISSUER")
@@ -68,6 +69,10 @@ func main() {
 	analyticsProxy := httputil.NewSingleHostReverseProxy(analyticsURL)
 	integrationsProxy := httputil.NewSingleHostReverseProxy(integrationsURL)
 	edgeProxy := httputil.NewSingleHostReverseProxy(edgeURL)
+	var commerceProxy *httputil.ReverseProxy
+	if commerceURLRaw != "" {
+		commerceProxy = httputil.NewSingleHostReverseProxy(mustURL(commerceURLRaw))
+	}
 
 	hub := newSSEHub()
 	var bus *events.Bus
@@ -255,6 +260,8 @@ func main() {
 	mux.Handle("/api/v1/presets/", coreProxy)
 	mux.Handle("/api/v1/jobs", coreProxy)
 	mux.Handle("/api/v1/jobs/", coreProxy)
+	mux.Handle("/api/v1/artifacts", coreProxy)
+	mux.Handle("/api/v1/artifacts/", coreProxy)
 	mux.Handle("/api/v1/printers", coreProxy)
 	mux.Handle("/api/v1/printers/", coreProxy)
 	mux.Handle("/api/v1/admin/", coreProxy)
@@ -266,6 +273,10 @@ func main() {
 	mux.Handle("/api/v1/filament/", integrationsProxy)
 	mux.Handle("/api/v1/library/", integrationsProxy)
 	mux.Handle("/api/v1/edge/", edgeProxy)
+	if commerceProxy != nil {
+		mux.Handle("/api/v1/commerce", commerceProxy)
+		mux.Handle("/api/v1/commerce/", commerceProxy)
+	}
 
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, "/api/") {

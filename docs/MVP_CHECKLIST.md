@@ -122,3 +122,19 @@ MinIO optional (`--profile object`) until a live S3 endpoint is set.
 | 6 | web/gateway | Separate containers | 2026-11-06 |
 | 7 | Costing | $/hr, $/kg, kg/hr | 2026-11-06 |
 | 8 | Auth | `AUTH_MODE=lan` insecure LAN mode + OIDC | 2026-11-06 |
+| 9 | Growth model | Lean plugins (compose profiles + `ControlPlane`); FM-first; commerce stub parallel | 2026-11-12 |
+| 10 | Direct printers | Future adapter; do not block FM MVP | 2026-11-12 |
+
+---
+
+## E. Build-out backlog (after MVP)
+
+Track detail in [`BUILD_OUT.md`](./BUILD_OUT.md).
+
+- [x] P0 — FM `StartPrint` + job dispatch path (fixture/unit covered; live FM smoke still blocked)
+- [ ] P1 — Job archive + richer queue
+- [ ] P2 — Filament consumption / AMS depth
+- [ ] P3 — Notify + power plugins
+- [ ] P4 — Commerce plugin (beyond stub)
+- [ ] P5 — Direct-printer `ControlPlane`
+- [ ] P6 — Slicer + FM parity depth

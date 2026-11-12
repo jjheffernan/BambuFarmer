@@ -11,7 +11,7 @@ import (
 	"github.com/jjheffernan/BambuFarmer/services/core/internal/httpx"
 )
 
-// Register mounts job list/create/get/transition routes.
+// Register mounts job list/create/get/transition/dispatch routes.
 func Register(mux *http.ServeMux, pool *pgxpool.Pool, bus *events.Bus, siteID string) {
 	mux.HandleFunc("GET /api/v1/jobs", func(w http.ResponseWriter, r *http.Request) {
 		httpx.RequireDB(w, pool, func() {
@@ -44,17 +44,20 @@ func Register(mux *http.ServeMux, pool *pgxpool.Pool, bus *events.Bus, siteID st
 				job.CostEstimate = est
 				job.Currency = rc.Currency
 			}
-			if bus != nil {
-				env := events.NewEnvelope(events.TypeJobQueued, "core", siteID, map[string]any{
-					"job_id": job.ID, "name": job.Name, "external_sn": job.ExternalSN,
-				})
-				_, _ = bus.Publish(r.Context(), events.StreamJob, env)
-				if job.ExternalSN != "" {
-					cmd := events.NewEnvelope("command.start_print", "core", siteID, map[string]any{
-						"job_id": job.ID, "external_sn": job.ExternalSN,
-					})
-					_, _ = bus.Publish(r.Context(), events.CommandStream(siteID), cmd)
+			PublishJobQueued(r.Context(), bus, siteID, job)
+			// Targeted create: dispatch immediately only when that SN is currently idle.
+			if job.ExternalSN != "" {
+				if idle, err := db.ListIdlePrinters(r.Context(), pool, siteID); err == nil {
+					for _, p := range idle {
+						if p.ExternalSN == job.ExternalSN {
+							if dispatched, err := DispatchOne(r.Context(), pool, bus, siteID, job.ID, job.ExternalSN); err == nil {
+								job = dispatched
+							}
+							break
+						}
+					}
 				}
+				// Otherwise stays queued; scheduler retries when the printer is idle.
 			}
 			httpx.WriteJSON(w, job)
 		})
@@ -62,6 +65,25 @@ func Register(mux *http.ServeMux, pool *pgxpool.Pool, bus *events.Bus, siteID st
 	mux.HandleFunc("GET /api/v1/jobs/{id}", func(w http.ResponseWriter, r *http.Request) {
 		httpx.RequireDB(w, pool, func() {
 			job, err := db.GetJob(r.Context(), pool, siteID, r.PathValue("id"))
+			if err != nil {
+				httpx.WriteError(w, err)
+				return
+			}
+			httpx.WriteJSON(w, job)
+		})
+	})
+	mux.HandleFunc("POST /api/v1/jobs/{id}/dispatch", func(w http.ResponseWriter, r *http.Request) {
+		httpx.RequireDB(w, pool, func() {
+			var body struct {
+				ExternalSN string `json:"external_sn"`
+			}
+			if r.ContentLength != 0 {
+				if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+					httpx.WriteError(w, api.BadRequest("invalid JSON body"))
+					return
+				}
+			}
+			job, err := DispatchOne(r.Context(), pool, bus, siteID, r.PathValue("id"), body.ExternalSN)
 			if err != nil {
 				httpx.WriteError(w, err)
 				return

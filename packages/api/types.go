@@ -131,14 +131,27 @@ type RateCard struct {
 	FailureSurchargePct float64 `json:"failure_surcharge_pct,omitempty"`
 }
 
+// Artifact is a staged .gcode.3mf (local ARTIFACTS_DIR until object-store profile).
+type Artifact struct {
+	ID         string    `json:"id"`
+	SiteID     string    `json:"site_id"`
+	Filename   string    `json:"filename"`
+	ObjectKey  string    `json:"object_key"`
+	Bytes      int64     `json:"bytes"`
+	EstSeconds int       `json:"est_seconds,omitempty"`
+	EstGrams   float64   `json:"est_grams,omitempty"`
+	CreatedAt  time.Time `json:"created_at"`
+}
+
 // CreateJobRequest is POST /api/v1/jobs body.
 type CreateJobRequest struct {
-	ID         string `json:"id,omitempty"`
-	Name       string `json:"name,omitempty"`
-	ExternalSN string `json:"external_sn,omitempty"`
-	ArtifactID string `json:"artifact_id,omitempty"`
-	Copies     int    `json:"copies,omitempty"`
-	EstSeconds int    `json:"est_seconds,omitempty"`
+	ID         string  `json:"id,omitempty"`
+	Name       string  `json:"name,omitempty"`
+	ExternalSN string  `json:"external_sn,omitempty"`
+	ArtifactID string  `json:"artifact_id,omitempty"`
+	FileID     string  `json:"file_id,omitempty"` // FM f3mf_id when already known; not our artifact_id
+	Copies     int     `json:"copies,omitempty"`
+	EstSeconds int     `json:"est_seconds,omitempty"`
 	EstGrams   float64 `json:"est_grams,omitempty"`
 }
 
@@ -228,23 +241,49 @@ type AdminResetPasswordRequest struct {
 	NewPassword string `json:"new_password"`
 }
 
+// ShopConnection is a commerce plugin store link (DTO only until commerce migrations land).
+type ShopConnection struct {
+	ID       string `json:"id"`
+	Provider string `json:"provider"` // e.g. shopify
+	Name     string `json:"name"`
+	Domain   string `json:"domain,omitempty"`
+	Active   bool   `json:"active"`
+}
+
+// CommerceOrder is a shop order tracked by the commerce plugin (DTO stub).
+type CommerceOrder struct {
+	ID            string     `json:"id"`
+	ShopID        string     `json:"shop_id"`
+	ExternalID    string     `json:"external_id"`
+	State         string     `json:"state"` // received|to_print|printing|to_pack|shipped|pickup|blocked
+	Currency      string     `json:"currency,omitempty"`
+	ItemCount     int        `json:"item_count,omitempty"`
+	ShipBy        *time.Time `json:"ship_by,omitempty"`
+	Tracking      string     `json:"tracking,omitempty"`
+	JobIDs        []string   `json:"job_ids,omitempty"`
+	BlockedReason string     `json:"blocked_reason,omitempty"`
+	CreatedAt     time.Time  `json:"created_at,omitempty"`
+	UpdatedAt     time.Time  `json:"updated_at,omitempty"`
+}
+
 // Job is a print job record.
 type Job struct {
-	ID           string     `json:"id"`
-	SiteID       string     `json:"site_id"`
-	Name         string     `json:"name"`
-	State        string     `json:"state"`
-	ExternalSN   string     `json:"external_sn,omitempty"`
-	ArtifactID   string     `json:"artifact_id,omitempty"`
-	Copies       int        `json:"copies"`
-	EstSeconds   int        `json:"est_seconds,omitempty"`
-	EstGrams     float64    `json:"est_grams,omitempty"`
-	CostEstimate float64    `json:"cost_estimate"`
-	CostActual   float64    `json:"cost_actual"`
-	Currency     string     `json:"currency"`
-	Error        string     `json:"error,omitempty"`
-	CreatedAt    time.Time  `json:"created_at"`
-	UpdatedAt    time.Time  `json:"updated_at"`
-	StartedAt    *time.Time `json:"started_at,omitempty"`
-	FinishedAt   *time.Time `json:"finished_at,omitempty"`
+	ID             string     `json:"id"`
+	SiteID         string     `json:"site_id"`
+	Name           string     `json:"name"`
+	State          string     `json:"state"`
+	ExternalSN     string     `json:"external_sn,omitempty"`
+	ArtifactID     string     `json:"artifact_id,omitempty"`
+	ExternalFileID string     `json:"external_file_id,omitempty"` // FM f3mf_id when known
+	Copies         int        `json:"copies"`
+	EstSeconds     int        `json:"est_seconds,omitempty"`
+	EstGrams       float64    `json:"est_grams,omitempty"`
+	CostEstimate   float64    `json:"cost_estimate"`
+	CostActual     float64    `json:"cost_actual"`
+	Currency       string     `json:"currency"`
+	Error          string     `json:"error,omitempty"`
+	CreatedAt      time.Time  `json:"created_at"`
+	UpdatedAt      time.Time  `json:"updated_at"`
+	StartedAt      *time.Time `json:"started_at,omitempty"`
+	FinishedAt     *time.Time `json:"finished_at,omitempty"`
 }

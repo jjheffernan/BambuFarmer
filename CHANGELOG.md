@@ -10,6 +10,13 @@ On release: move that section to a new `## [X.Y.Z] — YYYY-MM-DD`, bump [`VERSI
 ## [Unreleased]
 
 ### Added
+- Local artifact staging: `POST/GET /api/v1/artifacts` (+ `/content`), shared compose `artifacts` volume (`ARTIFACTS_DIR`)
+- Edge uploads staged plate to FM before `StartPrint` when `file_id` is absent (`object_key` / `artifact_id`)
+- Jobs page: `.gcode.3mf` file upload + optional FM `file_id`; create form (name, artifact, printer SN, copies, estimates) + list with state/cost/error and live SSE refresh
+- Core job dispatch: scheduler assigns idle printers, publishes `command.start_print`, consumes `job.*` to advance state + finalize cost
+- Edge `fm_native` `Upload3MF` / `StartPrint` (FM `POST /file/upload3mf` + `POST /task`); command consumer emits `job.dispatched` / `job.progress` / `job.finished` / `job.failed`
+- Build-out roadmap + lean plugin docs; optional `commerce` compose profile (health stub)
+- Reserved `farm.KindDirect` for a future LAN printer adapter behind `ControlPlane`
 - LAN local accounts: Postgres `users`, Argon2id passwords, HMAC `bf_session` cookies
 - Setup wizard creates first admin (password on Finish); `/login` + admin user CRUD
 - Password change (self) and admin password reset APIs + Admin UI
@@ -23,6 +30,7 @@ On release: move that section to a new `## [X.Y.Z] — YYYY-MM-DD`, bump [`VERSI
 - GitHub issue/PR templates; CI changelog shape check
 
 ### Changed
+- Jobs page: live list refresh via gateway SSE (`job.*` events) instead of a 10s poll
 - Go toolchain raised to 1.26 (CI, Containerfiles, modules) for current dependency minimums
 - Dependencies: `pgx/v5` 5.12.0, `go-redis/v9` 9.23.0, `golang.org/x/crypto` 0.58.0
 - Schema/seed defined in Go (`packages/db`); `*.sql` gitignored (no committed SQL dumps)
@@ -32,6 +40,8 @@ On release: move that section to a new `## [X.Y.Z] — YYYY-MM-DD`, bump [`VERSI
 - After install, gateway requires login for UI/API (except setup/login/health)
 
 ### Fixed
+- Gateway image build: COPY `packages/db` and `packages/version` into the Containerfile context (auth/`version` imports)
+- `command.start_print` no longer aliases our `artifact_id` as FM `file_id`/`f3mf_id` (fails closed until upload or explicit `file_id`)
 - CI compose config check seeds `.env` from `.env.example`
 - Analytics `/api/v1/analytics/counters` served from current image (was 404 → browser JSON parse error)
 

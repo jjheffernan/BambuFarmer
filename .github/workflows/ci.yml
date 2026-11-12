@@ -34,6 +34,7 @@ jobs:
           - services/edge
           - services/integrations
           - services/analytics
+          - services/commerce
           - services/web
     defaults:
       run:
@@ -97,6 +98,7 @@ jobs:
           - edge
           - integrations
           - analytics
+          - commerce
           - web
     steps:
       - uses: actions/checkout@v7
@@ -129,6 +131,7 @@ jobs:
           - edge
           - integrations
           - analytics
+          - commerce
           - web
     steps:
       - uses: actions/checkout@v7

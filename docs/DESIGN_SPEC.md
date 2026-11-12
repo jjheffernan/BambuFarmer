@@ -985,7 +985,7 @@ Out of MVP: OrcaSlicer, forcing OIDC, Fleet Hub, multi-site, firmware upgrade UI
 ### Phase 1 — Farm Manager edge MVP
 - Go farm-edge FM adapter: **fm_native** (mirror Client) or CDP escape hatch; devices; REST-delta → Redis Streams ✅ (fixture mode + live path; MQTT later)
 - HTMX fleet UI live updates via SSE ✅ (fixture→Redis→SSE path)
-- Manual job: upload `.gcode.3mf` → print on selected idle printers ⏳ (job API + sample 3mf; FM start_print stub)
+- Manual job: upload `.gcode.3mf` → print on selected idle printers ⏳ (artifact API + dispatch + edge upload/start; live FM smoke pending)
 - Analytics ingest of printer/job events (basic utilization) ✅
 
 ### Phase 2 — Job system
@@ -1011,6 +1011,12 @@ Out of MVP: OrcaSlicer, forcing OIDC, Fleet Hub, multi-site, firmware upgrade UI
 - `bambufarmer-slicer` + OrcaSlicer container
 - Profile management; async slice jobs → `.gcode.3mf` into object store / job composer
 - Feed slice metadata into costing + analytics
+
+### Plugin tracks (parallel; see [`BUILD_OUT.md`](./BUILD_OUT.md), [`plugins.md`](./plugins.md))
+- **Commerce** (`services/commerce`, compose `--profile commerce`): stub ✅; store webhook → jobs → pack/ship later
+- **Direct printer** (`farm.KindDirect`): reserved behind `ControlPlane`; implement after FM job loop is solid
+- **Notify / power**: thin adapters, not core hard deps
+- Growth rule: interfaces + optional services — no plugin mega-framework; stay Go
 
 ---
 

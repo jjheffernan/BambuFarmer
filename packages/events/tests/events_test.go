@@ -13,6 +13,15 @@ func TestCommandStream(t *testing.T) {
 	}
 }
 
+func TestJobCommandTypeNames(t *testing.T) {
+	if events.TypeCommandStartPrint != "command.start_print" {
+		t.Fatal(events.TypeCommandStartPrint)
+	}
+	if events.TypeJobAssigned != "job.assigned" {
+		t.Fatal(events.TypeJobAssigned)
+	}
+}
+
 func TestNewEnvelope(t *testing.T) {
 	env := events.NewEnvelope(events.TypePrinterStateChanged, "edge", "default", map[string]any{"external_sn": "x"})
 	if env.Type != events.TypePrinterStateChanged || env.Source != "edge" || env.SiteID != "default" {

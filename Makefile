@@ -2,7 +2,7 @@
 ENGINE ?= podman
 # --env-file .env: interpolate ${VAR} from repo-root secrets file
 COMPOSE := $(ENGINE) compose --env-file .env -f deploy/compose.yml
-SERVICES := gateway core edge integrations analytics web
+SERVICES := gateway core edge integrations analytics web commerce
 
 VERSION ?= $(shell tr -d '[:space:]' < VERSION 2>/dev/null || echo 0.1.0-dev)
 

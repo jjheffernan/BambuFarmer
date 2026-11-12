@@ -77,3 +77,16 @@ __pycache__/
 .cache/
 tmp/
 *.tmp
+
+# --- Local research / third-party trees (never commit) ---
+.reference/
+third_party/
+third-party/
+vendor_ref/
+*_upstream/
+*.clone/
+
+# --- After-hours session artifacts ---
+.cursor/after-hours-loop.state.json
+.cursor/after-hours-morning-brief.md
+.cursor/after-hours-runs/

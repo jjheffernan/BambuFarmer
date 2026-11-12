@@ -3,6 +3,7 @@ package agent
 
 import (
 	"context"
+	"io"
 	"log/slog"
 	"sync"
 	"time"
@@ -10,11 +11,21 @@ import (
 	"github.com/jjheffernan/BambuFarmer/packages/api"
 	"github.com/jjheffernan/BambuFarmer/packages/events"
 	"github.com/jjheffernan/BambuFarmer/packages/farm"
+	"github.com/jjheffernan/BambuFarmer/packages/printerstate"
 	"github.com/jjheffernan/BambuFarmer/services/edge/app/bus"
 	"github.com/jjheffernan/BambuFarmer/services/edge/app/config"
 	"github.com/jjheffernan/BambuFarmer/services/edge/app/delta"
 	"github.com/jjheffernan/BambuFarmer/services/edge/app/tracker"
 )
+
+// activeJob correlates an in-flight BambuFarmer job with a printer SN.
+type activeJob struct {
+	JobID      string
+	TaskID     string
+	SubtaskID  string
+	LastState  string
+	LastPct    int
+}
 
 // Agent owns the farm control plane and Redis workers for one site.
 type Agent struct {
@@ -30,6 +41,7 @@ type Agent struct {
 	lastPoll time.Time
 	lastErr  string
 	started  bool
+	jobs     map[string]activeJob // external_sn → job
 }
 
 // Options configures New.
@@ -52,9 +64,15 @@ func New(opts Options) *Agent {
 		track: tracker.New(opts.Config.SiteID),
 		delta: delta.New(),
 		log:   log,
+		jobs:  make(map[string]activeJob),
 	}
 	if opts.Bus != nil {
-		a.pub = &bus.Publisher{Bus: opts.Bus, SiteID: opts.Config.SiteID, Log: log}
+		a.pub = &bus.Publisher{
+			Bus:          opts.Bus,
+			SiteID:       opts.Config.SiteID,
+			ArtifactsDir: opts.Config.ArtifactsDir,
+			Log:          log,
+		}
 	}
 	return a
 }
@@ -133,6 +151,7 @@ func (a *Agent) pollOnce(ctx context.Context) {
 				a.pub.PublishPrinterDelta(ctx, s)
 			}
 		}
+		a.emitJobLifecycle(ctx, s)
 	}
 	a.mu.Lock()
 	a.lastPoll = time.Now().UTC()
@@ -151,6 +170,85 @@ func (a *Agent) Control(ctx context.Context, sn string, opt api.ControlOpt) erro
 // StartPrint implements bus.Commander.
 func (a *Agent) StartPrint(ctx context.Context, req farm.PrintRequest) (farm.ExternalJobRef, error) {
 	return a.plane.StartPrint(ctx, req)
+}
+
+// Upload3MF implements bus.Uploader for artifact → FM staging before StartPrint.
+func (a *Agent) Upload3MF(ctx context.Context, name string, r io.Reader) (farm.FileRef, error) {
+	return a.plane.Upload3MF(ctx, name, r)
+}
+
+// BindJob implements bus.JobBinder after a successful start_print command.
+func (a *Agent) BindJob(sn, jobID string, ref farm.ExternalJobRef) {
+	if sn == "" {
+		return
+	}
+	a.mu.Lock()
+	a.jobs[sn] = activeJob{
+		JobID:     jobID,
+		TaskID:    ref.TaskID,
+		SubtaskID: ref.SubtaskID,
+	}
+	a.mu.Unlock()
+	a.track.SetPending(sn, true)
+}
+
+// emitJobLifecycle publishes job.progress / finished / failed when a bound SN changes.
+func (a *Agent) emitJobLifecycle(ctx context.Context, snap api.PrinterSnapshot) {
+	a.mu.Lock()
+	job, ok := a.jobs[snap.ExternalSN]
+	if !ok {
+		a.mu.Unlock()
+		return
+	}
+	stateChanged := snap.GcodeState != job.LastState
+	pctChanged := snap.MCPercent != job.LastPct
+	if !stateChanged && !pctChanged {
+		a.mu.Unlock()
+		return
+	}
+	job.LastState = snap.GcodeState
+	job.LastPct = snap.MCPercent
+	a.jobs[snap.ExternalSN] = job
+	jobCopy := job
+	a.mu.Unlock()
+
+	payload := map[string]any{
+		"job_id":           jobCopy.JobID,
+		"external_sn":      snap.ExternalSN,
+		"external_task":    jobCopy.TaskID,
+		"task_id":          jobCopy.TaskID,
+		"subtask_id":       jobCopy.SubtaskID,
+		"gcode_state":      snap.GcodeState,
+		"mc_percent":       snap.MCPercent,
+		"mc_remaining_time": snap.RemainingS,
+		"layer_num":        snap.LayerNum,
+		"total_layer_num":  snap.TotalLayerNum,
+	}
+
+	switch printerstate.GcodeState(snap.GcodeState) {
+	case printerstate.Finish:
+		if a.pub != nil {
+			a.pub.PublishJob(ctx, events.TypeJobFinished, jobCopy.JobID, payload)
+		}
+		a.clearJob(snap.ExternalSN)
+	case printerstate.Failed:
+		payload["error"] = "printer reported FAILED"
+		if a.pub != nil {
+			a.pub.PublishJob(ctx, events.TypeJobFailed, jobCopy.JobID, payload)
+		}
+		a.clearJob(snap.ExternalSN)
+	default:
+		if a.pub != nil {
+			a.pub.PublishJob(ctx, events.TypeJobProgress, jobCopy.JobID, payload)
+		}
+	}
+}
+
+func (a *Agent) clearJob(sn string) {
+	a.mu.Lock()
+	delete(a.jobs, sn)
+	a.mu.Unlock()
+	a.track.SetPending(sn, false)
 }
 
 // Status builds GET /api/v1/edge/status.

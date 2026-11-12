@@ -10,6 +10,7 @@ use (
 	./packages/printerstate
 	./packages/version
 	./services/analytics
+	./services/commerce
 	./services/core
 	./services/edge
 	./services/gateway
