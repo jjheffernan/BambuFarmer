@@ -53,11 +53,16 @@ func main() {
 		var err error
 		bus, err = events.Dial(ctx, cfg.RedisURL)
 		if err != nil {
-			slog.Warn("redis unavailable; printer projection consumer disabled", "err", err)
+			slog.Warn("redis unavailable; consumers/scheduler command publish disabled", "err", err)
 		} else {
 			defer bus.Close()
-			go printers.ConsumePrinterEvents(ctx, bus, pool, cfg.SiteID, "core-"+cfg.Hostname)
+			go printers.ConsumePrinterEvents(ctx, bus, pool, cfg.SiteID, "core-printers-"+cfg.Hostname)
+			go jobs.ConsumeJobEvents(ctx, bus, pool, cfg.SiteID, "core-jobs-"+cfg.Hostname)
 		}
+	}
+	if pool != nil {
+		sched := &jobs.Scheduler{Pool: pool, Bus: bus, SiteID: cfg.SiteID}
+		go sched.Run(ctx)
 	}
 
 	mux := httpserver.NewMux("core")
