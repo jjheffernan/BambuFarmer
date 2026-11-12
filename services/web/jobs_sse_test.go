@@ -18,6 +18,9 @@ func TestJobsPageUsesSSENotIntervalPoll(t *testing.T) {
 	if !strings.Contains(layoutHTML, "EventSource") {
 		t.Fatal("expected EventSource for jobs live updates")
 	}
+	if !strings.Contains(layoutHTML, "data-reprint") || !strings.Contains(layoutHTML, "/reprint") {
+		t.Fatal("jobs page missing reprint control")
+	}
 	for _, ev := range []string{
 		"job.queued",
 		"job.assigned",

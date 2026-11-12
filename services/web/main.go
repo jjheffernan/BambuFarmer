@@ -349,6 +349,7 @@ const layoutHTML = `<!DOCTYPE html>
                 <th>Est.</th>
                 <th>Cost</th>
                 <th>Error</th>
+                <th></th>
               </tr>
             </thead>
             <tbody><tr><td colspan="7" class="bf-empty">loading…</td></tr></tbody>
@@ -393,7 +394,7 @@ const layoutHTML = `<!DOCTYPE html>
               jobsStatus.textContent = 'Updated ' + new Date().toLocaleTimeString();
               jobsStatus.classList.add('live');
               if (!jobs || !jobs.length) {
-                jobsTb.innerHTML = '<tr><td colspan="7" class="bf-empty">No jobs yet — create one above.</td></tr>';
+                jobsTb.innerHTML = '<tr><td colspan="8" class="bf-empty">No jobs yet — create one above.</td></tr>';
                 return;
               }
               jobsTb.innerHTML = jobs.map(j => '<tr>' +
@@ -406,15 +407,32 @@ const layoutHTML = `<!DOCTYPE html>
                 '<td class="text-bf-muted">' + esc(fmtCost(j)) + '</td>' +
                 '<td class="' + (j.error ? 'text-bf-danger text-xs' : 'text-bf-muted') + '">' +
                   esc(j.error || '—') + '</td>' +
+                '<td><button type="button" class="bf-btn" data-reprint="' + esc(j.id) + '">Reprint</button></td>' +
               '</tr>').join('');
             } catch (e) {
               jobsStatus.textContent = 'Error';
               jobsStatus.classList.remove('live');
-              jobsTb.innerHTML = '<tr><td colspan="7" class="text-bf-danger">' + esc(e.message || e) + '</td></tr>';
+              jobsTb.innerHTML = '<tr><td colspan="8" class="text-bf-danger">' + esc(e.message || e) + '</td></tr>';
             }
           }
 
           document.getElementById('jobs-refresh').onclick = () => { loadJobs(); };
+          jobsTb.onclick = async (ev) => {
+            const btn = ev.target.closest('[data-reprint]');
+            if (!btn || btn.disabled) return;
+            btn.disabled = true;
+            try {
+              const job = await bfJSON(API + '/api/v1/jobs/' + encodeURIComponent(btn.dataset.reprint) + '/reprint', {
+                method: 'POST', credentials: 'include',
+              });
+              jobsStatus.textContent = 'Queued ' + (job.name || job.id);
+              await loadJobs();
+            } catch (e) {
+              jobsStatus.textContent = String(e.message || e);
+              jobsStatus.classList.remove('live');
+              btn.disabled = false;
+            }
+          };
           document.getElementById('job-form').onsubmit = async (ev) => {
             ev.preventDefault();
             const msg = document.getElementById('job-form-msg');

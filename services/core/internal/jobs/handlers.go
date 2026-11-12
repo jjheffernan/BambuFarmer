@@ -11,7 +11,7 @@ import (
 	"github.com/jjheffernan/BambuFarmer/services/core/internal/httpx"
 )
 
-// Register mounts job list/create/get/transition/dispatch routes.
+// Register mounts job list/create/get/reprint/transition/dispatch routes.
 func Register(mux *http.ServeMux, pool *pgxpool.Pool, bus *events.Bus, siteID string) {
 	mux.HandleFunc("GET /api/v1/jobs", func(w http.ResponseWriter, r *http.Request) {
 		httpx.RequireDB(w, pool, func() {
@@ -33,33 +33,22 @@ func Register(mux *http.ServeMux, pool *pgxpool.Pool, bus *events.Bus, siteID st
 				httpx.WriteError(w, api.BadRequest("invalid JSON body"))
 				return
 			}
-			job, err := db.CreateJob(r.Context(), pool, siteID, req)
+			respondCreated(w, r, pool, bus, siteID, req)
+		})
+	})
+	mux.HandleFunc("POST /api/v1/jobs/{id}/reprint", func(w http.ResponseWriter, r *http.Request) {
+		httpx.RequireDB(w, pool, func() {
+			src, err := db.GetJob(r.Context(), pool, siteID, r.PathValue("id"))
 			if err != nil {
 				httpx.WriteError(w, err)
 				return
 			}
-			if rc, err := db.GetRateCard(r.Context(), pool, siteID); err == nil {
-				est := db.EstimateJobCost(rc, job.EstSeconds, job.EstGrams, job.Copies)
-				_ = db.ApplyJobCost(r.Context(), pool, siteID, job.ID, est, 0, rc.Currency)
-				job.CostEstimate = est
-				job.Currency = rc.Currency
+			req, err := ReprintRequest(src)
+			if err != nil {
+				httpx.WriteError(w, err)
+				return
 			}
-			PublishJobQueued(r.Context(), bus, siteID, job)
-			// Targeted create: dispatch immediately only when that SN is currently idle.
-			if job.ExternalSN != "" {
-				if idle, err := db.ListIdlePrinters(r.Context(), pool, siteID); err == nil {
-					for _, p := range idle {
-						if p.ExternalSN == job.ExternalSN {
-							if dispatched, err := DispatchOne(r.Context(), pool, bus, siteID, job.ID, job.ExternalSN); err == nil {
-								job = dispatched
-							}
-							break
-						}
-					}
-				}
-				// Otherwise stays queued; scheduler retries when the printer is idle.
-			}
-			httpx.WriteJSON(w, job)
+			respondCreated(w, r, pool, bus, siteID, req)
 		})
 	})
 	mux.HandleFunc("GET /api/v1/jobs/{id}", func(w http.ResponseWriter, r *http.Request) {
@@ -113,4 +102,33 @@ func Register(mux *http.ServeMux, pool *pgxpool.Pool, bus *events.Bus, siteID st
 			httpx.WriteJSON(w, job)
 		})
 	})
+}
+
+// respondCreated inserts a queued job, re-estimates cost, and dispatches when the target SN is idle.
+func respondCreated(w http.ResponseWriter, r *http.Request, pool *pgxpool.Pool, bus *events.Bus, siteID string, req api.CreateJobRequest) {
+	job, err := db.CreateJob(r.Context(), pool, siteID, req)
+	if err != nil {
+		httpx.WriteError(w, err)
+		return
+	}
+	if rc, err := db.GetRateCard(r.Context(), pool, siteID); err == nil {
+		est := db.EstimateJobCost(rc, job.EstSeconds, job.EstGrams, job.Copies)
+		_ = db.ApplyJobCost(r.Context(), pool, siteID, job.ID, est, 0, rc.Currency)
+		job.CostEstimate = est
+		job.Currency = rc.Currency
+	}
+	PublishJobQueued(r.Context(), bus, siteID, job)
+	if job.ExternalSN != "" {
+		if idle, err := db.ListIdlePrinters(r.Context(), pool, siteID); err == nil {
+			for _, p := range idle {
+				if p.ExternalSN == job.ExternalSN {
+					if dispatched, err := DispatchOne(r.Context(), pool, bus, siteID, job.ID, job.ExternalSN); err == nil {
+						job = dispatched
+					}
+					break
+				}
+			}
+		}
+	}
+	httpx.WriteJSON(w, job)
 }
