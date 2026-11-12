@@ -10,6 +10,7 @@ On release: move that section to a new `## [X.Y.Z] — YYYY-MM-DD`, bump [`VERSI
 ## [Unreleased]
 
 ### Added
+- Job finish can POST a JSON webhook when `NOTIFY_URL` is set; an empty URL does nothing
 - Finished jobs post filament grams to Spoolman when a spool id is set and `SPOOLMAN_URL` is configured; an empty URL does nothing
 - Job queue: earlier/later reorder, optional printer model target, and wait-until-previous-job-succeeds
 - Jobs list search and state filter (`GET /api/v1/jobs?q=&state=`) over retained name, id, printer SN, and artifact

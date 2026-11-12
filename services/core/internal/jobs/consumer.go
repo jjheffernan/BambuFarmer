@@ -3,11 +3,13 @@ package jobs
 import (
 	"context"
 	"log/slog"
+	"os"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jjheffernan/BambuFarmer/packages/api"
 	"github.com/jjheffernan/BambuFarmer/packages/db"
 	"github.com/jjheffernan/BambuFarmer/packages/events"
+	"github.com/jjheffernan/BambuFarmer/services/core/internal/notify"
 )
 
 // ConsumeJobEvents advances the job state machine from bf.events.job (edge acks).
@@ -103,7 +105,15 @@ func applyFinished(ctx context.Context, pool *pgxpool.Pool, bus *events.Bus, sit
 	if spoolID == "" {
 		spoolID = job.SpoolID
 	}
-	return PublishFilamentUsed(ctx, bus, siteID, jobID, spoolID, grams)
+	if err := PublishFilamentUsed(ctx, bus, siteID, jobID, spoolID, grams); err != nil {
+		return err
+	}
+	if err := notify.PostFinished(ctx, os.Getenv("NOTIFY_URL"), nil, notify.Finished{
+		JobID: jobID, State: db.JobSucceeded, Grams: grams, SpoolID: spoolID,
+	}); err != nil {
+		slog.Warn("notify webhook", "err", err, "job_id", jobID)
+	}
+	return nil
 }
 
 // PublishFilamentUsed emits filament.consumed when a spool and grams are known.
