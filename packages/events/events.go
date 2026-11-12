@@ -34,6 +34,7 @@ const (
 	TypePrinterStateChanged = "printer.state_changed"
 	TypePrinterAMSChanged   = "printer.ams_changed"
 	TypeJobQueued           = "job.queued"
+	TypeJobAssigned         = "job.assigned" // core scheduler claimed a printer
 	TypeJobDispatched       = "job.dispatched"
 	TypeJobProgress         = "job.progress"
 	TypeJobFinished         = "job.finished"
@@ -41,4 +42,8 @@ const (
 	TypeJobCancelled        = "job.cancelled"
 	TypeFilamentConsumed    = "filament.consumed"
 	TypeAlertRaised         = "alert.raised"
+
+	// Commands on bf.commands.edge.{site} (core → edge).
+	TypeCommandStartPrint = "command.start_print"
+	TypeCommandControl    = "command.control"
 )
