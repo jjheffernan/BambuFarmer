@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -38,6 +39,23 @@ func Register(mux *http.ServeMux, coreURL string) {
 			return
 		}
 		writeJSON(w, status, res)
+	})
+
+	mux.HandleFunc("POST /api/v1/commerce/orders/status", func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			OrderID string `json:"order_id"`
+			Status  string `json:"status"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON body"})
+			return
+		}
+		res, code, err := MarkStatus(body.OrderID, body.Status)
+		if err != nil {
+			writeJSON(w, code, map[string]string{"error": err.Error()})
+			return
+		}
+		writeJSON(w, code, res)
 	})
 }
 
@@ -84,6 +102,25 @@ func QueueJob(ctx context.Context, coreURL string, client *http.Client, order Or
 	}
 	_ = json.Unmarshal(raw, &created)
 	return Result{Queued: true, JobID: created.ID}, http.StatusOK, nil
+}
+
+// Shipment is an echoed pack or ship status. Nothing is stored.
+type Shipment struct {
+	OrderID string `json:"order_id"`
+	Status  string `json:"status"`
+}
+
+// MarkStatus accepts packed or shipped for an order id.
+func MarkStatus(orderID, status string) (Shipment, int, error) {
+	orderID = strings.TrimSpace(orderID)
+	status = strings.ToLower(strings.TrimSpace(status))
+	if orderID == "" {
+		return Shipment{}, http.StatusBadRequest, fmt.Errorf("order_id required")
+	}
+	if status != "packed" && status != "shipped" {
+		return Shipment{}, http.StatusBadRequest, fmt.Errorf("status must be packed or shipped")
+	}
+	return Shipment{OrderID: orderID, Status: status}, http.StatusOK, nil
 }
 
 type statusErr string

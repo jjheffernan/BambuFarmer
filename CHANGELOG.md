@@ -10,6 +10,7 @@ On release: move that section to a new `## [X.Y.Z] — YYYY-MM-DD`, bump [`VERSI
 ## [Unreleased]
 
 ### Added
+- Commerce pack/ship status (`POST /api/v1/commerce/orders/status`) echoes `packed` or `shipped` for an order id; nothing is stored
 - Power switch (`POST /api/v1/power`) forwards `on` or `off` when `POWER_URL` is set; an empty URL does nothing
 - AMS tray lookup (`GET /api/v1/filament/links?tray=`) resolves a spool id from `AMS_SLOT_MAP`; an empty map resolves nothing
 - Spool list includes `low_stock` when remaining grams are under `LOW_STOCK_GRAMS` (default 100); Spoolman unset reports none

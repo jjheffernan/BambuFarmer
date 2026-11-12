@@ -42,3 +42,16 @@ func TestQueueJobPostsCore(t *testing.T) {
 		t.Fatalf("%+v %v", out, err)
 	}
 }
+
+func TestMarkStatus(t *testing.T) {
+	got, code, err := MarkStatus(" ord-1 ", "Packed")
+	if err != nil || code != http.StatusOK || got.OrderID != "ord-1" || got.Status != "packed" {
+		t.Fatalf("%d %+v %v", code, got, err)
+	}
+	if _, code, err = MarkStatus("", "shipped"); err == nil || code != http.StatusBadRequest {
+		t.Fatalf("empty order %d %v", code, err)
+	}
+	if _, code, err = MarkStatus("ord-1", "lost"); err == nil || code != http.StatusBadRequest {
+		t.Fatalf("bad status %d %v", code, err)
+	}
+}

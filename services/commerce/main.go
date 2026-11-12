@@ -21,7 +21,7 @@ func main() {
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"status":  "stub",
 			"service": service,
-			"note":    "POST /api/v1/commerce/webhook queues a core job when CORE_URL is set",
+			"note":    "POST /api/v1/commerce/webhook queues a core job when CORE_URL is set; POST /api/v1/commerce/orders/status echoes packed or shipped",
 		})
 	})
 
