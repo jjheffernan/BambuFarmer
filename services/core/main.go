@@ -14,6 +14,7 @@ import (
 	"github.com/jjheffernan/BambuFarmer/packages/events"
 	"github.com/jjheffernan/BambuFarmer/packages/httpserver"
 	"github.com/jjheffernan/BambuFarmer/packages/version"
+	"github.com/jjheffernan/BambuFarmer/services/core/internal/artifacts"
 	"github.com/jjheffernan/BambuFarmer/services/core/internal/config"
 	"github.com/jjheffernan/BambuFarmer/services/core/internal/httpx"
 	"github.com/jjheffernan/BambuFarmer/services/core/internal/jobs"
@@ -65,9 +66,15 @@ func main() {
 		go sched.Run(ctx)
 	}
 
+	artStore := artifacts.Store{Dir: cfg.ArtifactsDir}
+	if err := artStore.EnsureDir(); err != nil {
+		slog.Warn("artifacts dir", "dir", cfg.ArtifactsDir, "err", err)
+	}
+
 	mux := httpserver.NewMux("core")
 	presets.Register(mux, pool, cfg.SiteID)
 	rates.Register(mux, pool, cfg.SiteID)
+	artifacts.Register(mux, pool, cfg.SiteID, artStore)
 	jobs.Register(mux, pool, bus, cfg.SiteID)
 	printers.Register(mux, pool, cfg.SiteID)
 	setup.Register(mux, pool, cfg.SiteID)
