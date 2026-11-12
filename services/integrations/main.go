@@ -19,6 +19,7 @@ func main() {
 		SpoolURL:      cfg.SpoolmanURL,
 		ManyURL:       cfg.ManyfoldURL,
 		LowStockGrams: spoolman.LowGrams(os.Getenv("LOW_STOCK_GRAMS")),
+		Slots:         spoolman.ParseSlots(os.Getenv("AMS_SLOT_MAP")),
 	}
 	if cfg.SpoolmanURL != "" {
 		deps.Spoolman = spoolman.New(cfg.SpoolmanURL, cfg.SpoolmanToken, cfg.HTTPTimeout)

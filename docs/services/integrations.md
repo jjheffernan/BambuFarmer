@@ -67,7 +67,7 @@ Today: `ListSpools` / `ListModels` implemented on concrete clients; full interfa
 | `GET /api/v1/integrations/status` | configured? + upstream repo refs |
 | `GET /api/v1/filament/spools` | Spoolman `GET /api/v1/spool?limit=1000` or empty if unset |
 | `GET /api/v1/library/models` | Manyfold `GET /models` or empty if unset |
-| `PUT /api/v1/filament/links` | AMS tray ↔ spool id (next) |
+| `GET /api/v1/filament/links?tray=` | AMS tray index → spool id from `AMS_SLOT_MAP` (empty map → none) |
 | `POST /api/v1/library/import` | → object store + core artifact (next) |
 | `POST /api/v1/library/export` | artifact → Manyfold (next) |
 
@@ -79,7 +79,7 @@ Today: `ListSpools` / `ListModels` implemented on concrete clients; full interfa
 
 ## 5. Config
 
-`SPOOLMAN_URL`, `SPOOLMAN_API_TOKEN`, `MANYFOLD_URL`, `MANYFOLD_CLIENT_ID`, `MANYFOLD_CLIENT_SECRET`, `MANYFOLD_TOKEN`, `REDIS_URL`, `CORE_URL` / object store as needed.
+`SPOOLMAN_URL`, `SPOOLMAN_API_TOKEN`, `LOW_STOCK_GRAMS`, `AMS_SLOT_MAP`, `MANYFOLD_URL`, `MANYFOLD_CLIENT_ID`, `MANYFOLD_CLIENT_SECRET`, `MANYFOLD_TOKEN`, `REDIS_URL`, `CORE_URL` / object store as needed.
 
 ---
 

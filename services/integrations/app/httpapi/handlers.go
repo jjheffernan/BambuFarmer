@@ -3,6 +3,7 @@ package httpapi
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 
 	"github.com/jjheffernan/BambuFarmer/packages/httpserver"
 	"github.com/jjheffernan/BambuFarmer/services/integrations/app/manyfold"
@@ -17,6 +18,7 @@ type Deps struct {
 	SpoolURL      string
 	ManyURL       string
 	LowStockGrams float64
+	Slots         map[int]string
 }
 
 // Register mounts integration HTTP routes.
@@ -49,6 +51,18 @@ func Register(mux *http.ServeMux, d Deps) {
 			"spools":      spools,
 			"low_stock":   spoolman.LowStock(spools, d.LowStockGrams),
 		})
+	})
+
+	mux.HandleFunc("GET /api/v1/filament/links", func(w http.ResponseWriter, r *http.Request) {
+		raw := r.URL.Query().Get("tray")
+		tray, err := strconv.Atoi(raw)
+		id := ""
+		if err == nil && tray >= 0 {
+			id, _ = spoolman.SpoolFor(d.Slots, tray)
+		} else {
+			tray = -1
+		}
+		writeJSON(w, map[string]any{"tray": tray, "spool_id": id})
 	})
 
 	mux.HandleFunc("GET /api/v1/library/models", func(w http.ResponseWriter, r *http.Request) {

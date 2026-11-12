@@ -30,6 +30,22 @@ func TestLowStock(t *testing.T) {
 	}
 }
 
+func TestAMSSlots(t *testing.T) {
+	if len(spoolman.ParseSlots("")) != 0 || len(spoolman.ParseSlots("nope,-1=x,2=")) != 0 {
+		t.Fatal(spoolman.ParseSlots(""))
+	}
+	slots := spoolman.ParseSlots("0=spool-a, 1=spool-b")
+	if id, ok := spoolman.SpoolFor(slots, 0); !ok || id != "spool-a" {
+		t.Fatalf("%q %v", id, ok)
+	}
+	if _, ok := spoolman.SpoolFor(slots, 3); ok {
+		t.Fatal("missing tray")
+	}
+	if _, ok := spoolman.SpoolFor(nil, 0); ok {
+		t.Fatal("empty map")
+	}
+}
+
 func TestListSpoolsMapsResponse(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api/v1/spool" {
