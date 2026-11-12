@@ -26,12 +26,13 @@ func ReprintRequest(src api.Job) (api.CreateJobRequest, error) {
 		copies = 1
 	}
 	return api.CreateJobRequest{
-		Name:       name,
-		ExternalSN: src.ExternalSN,
-		ArtifactID: src.ArtifactID,
-		FileID:     src.ExternalFileID,
-		Copies:     copies,
-		EstSeconds: src.EstSeconds,
-		EstGrams:   src.EstGrams,
+		Name:        name,
+		ExternalSN:  src.ExternalSN,
+		ArtifactID:  src.ArtifactID,
+		FileID:      src.ExternalFileID,
+		Copies:      copies,
+		EstSeconds:  src.EstSeconds,
+		EstGrams:    src.EstGrams,
+		TargetModel: src.TargetModel,
 	}, nil
 }

@@ -60,32 +60,27 @@ func (s *Scheduler) Tick(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	idleBySN := make(map[string]bool, len(idle))
-	var freeSNs []string
-	for _, p := range idle {
-		idleBySN[p.ExternalSN] = true
-		freeSNs = append(freeSNs, p.ExternalSN)
-	}
-	freeIdx := 0
+	used := map[string]bool{}
 
 	for _, job := range queued {
-		sn := job.ExternalSN
-		if sn != "" {
-			if !idleBySN[sn] {
-				continue // targeted printer busy / offline / missing
+		prevState := ""
+		if job.AfterJobID != "" {
+			if prev, err := db.GetJob(ctx, s.Pool, s.SiteID, job.AfterJobID); err == nil {
+				prevState = prev.State
 			}
-		} else {
-			if freeIdx >= len(freeSNs) {
-				break
-			}
-			sn = freeSNs[freeIdx]
-			freeIdx++
+		}
+		if WaitingOnPrevious(job.AfterJobID, prevState) {
+			continue
+		}
+		sn := PickPrinter(job, idle, used)
+		if sn == "" {
+			continue
 		}
 		assigned, err := db.AssignJob(ctx, s.Pool, s.SiteID, job.ID, sn, "scheduler", "auto-assign")
 		if err != nil {
 			continue
 		}
-		delete(idleBySN, sn)
+		used[sn] = true
 		if err := PublishStartPrintWithPool(ctx, s.Bus, s.Pool, s.SiteID, assigned); err != nil {
 			slog.Warn("publish start_print", "err", err, "job_id", assigned.ID)
 		}

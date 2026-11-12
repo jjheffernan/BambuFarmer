@@ -58,9 +58,10 @@ func CreateJob(ctx context.Context, pool *pgxpool.Pool, siteID string, req api.C
 		name = "job-" + id[:8]
 	}
 	_, err := pool.Exec(ctx, `
-		INSERT INTO jobs (id, site_id, name, state, external_sn, artifact_id, external_file_id, copies, est_seconds, est_grams, currency)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+		INSERT INTO jobs (id, site_id, name, state, external_sn, artifact_id, external_file_id, copies, est_seconds, est_grams, currency, queue_pos, target_model, after_job_id)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
 		id, siteID, name, JobQueued, req.ExternalSN, nullStr(req.ArtifactID), req.FileID, copies, req.EstSeconds, req.EstGrams, "USD",
+		req.QueuePos, strings.TrimSpace(req.TargetModel), strings.TrimSpace(req.AfterJobID),
 	)
 	if err != nil {
 		return api.Job{}, err
@@ -83,7 +84,8 @@ func GetJob(ctx context.Context, pool *pgxpool.Pool, siteID, id string) (api.Job
 	var artifactID *string
 	err := pool.QueryRow(ctx, jobSelectSQL+` WHERE id=$1 AND site_id=$2`, id, siteID).Scan(
 		&j.ID, &j.SiteID, &j.Name, &j.State, &j.ExternalSN, &j.ArtifactID, &j.ExternalFileID,
-		&j.Copies, &j.EstSeconds, &j.EstGrams, &j.CostEstimate, &j.CostActual, &j.Currency, &j.Error,
+		&j.Copies, &j.QueuePos, &j.TargetModel, &j.AfterJobID,
+		&j.EstSeconds, &j.EstGrams, &j.CostEstimate, &j.CostActual, &j.Currency, &j.Error,
 		&j.CreatedAt, &j.UpdatedAt, &started, &finished,
 	)
 	if err != nil {
@@ -98,7 +100,8 @@ func GetJob(ctx context.Context, pool *pgxpool.Pool, siteID, id string) (api.Job
 const jobSelectSQL = `
 		SELECT id, site_id, name, state, COALESCE(external_sn,''), COALESCE(artifact_id::text,''),
 		       COALESCE(external_file_id,''),
-		       copies, est_seconds, est_grams, cost_estimate, cost_actual, currency, error,
+		       copies, queue_pos, COALESCE(target_model,''), COALESCE(after_job_id,''),
+		       est_seconds, est_grams, cost_estimate, cost_actual, currency, error,
 		       created_at, updated_at, started_at, finished_at
 		FROM jobs`
 
@@ -150,12 +153,66 @@ func ListQueuedJobs(ctx context.Context, pool *pgxpool.Pool, siteID string, limi
 		limit = 20
 	}
 	rows, err := pool.Query(ctx, jobSelectSQL+` WHERE site_id=$1 AND state=$2
-		ORDER BY created_at ASC LIMIT $3`, siteID, JobQueued, limit)
+		ORDER BY queue_pos ASC, created_at ASC LIMIT $3`, siteID, JobQueued, limit)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	return scanJobs(rows)
+}
+
+// NudgeQueueIndex is the neighbor to swap with. Earlier moves toward the front.
+func NudgeQueueIndex(i, n int, earlier bool) (int, bool) {
+	if n < 2 || i < 0 || i >= n {
+		return i, false
+	}
+	if earlier && i > 0 {
+		return i - 1, true
+	}
+	if !earlier && i+1 < n {
+		return i + 1, true
+	}
+	return i, false
+}
+
+// ReorderQueuedJob swaps a queued job with its neighbor and renumbers queue_pos.
+func ReorderQueuedJob(ctx context.Context, pool *pgxpool.Pool, siteID, id, direction string) (api.Job, error) {
+	if direction != "earlier" && direction != "later" {
+		return api.Job{}, Validation("direction must be earlier or later")
+	}
+	queued, err := ListQueuedJobs(ctx, pool, siteID, 200)
+	if err != nil {
+		return api.Job{}, err
+	}
+	i := -1
+	for n := range queued {
+		if queued[n].ID == id {
+			i = n
+			break
+		}
+	}
+	if i < 0 {
+		return api.Job{}, Validation("only queued jobs can be reordered")
+	}
+	j, ok := NudgeQueueIndex(i, len(queued), direction == "earlier")
+	if !ok {
+		return GetJob(ctx, pool, siteID, id)
+	}
+	queued[i], queued[j] = queued[j], queued[i]
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return api.Job{}, err
+	}
+	defer tx.Rollback(ctx)
+	for n := range queued {
+		if _, err := tx.Exec(ctx, `UPDATE jobs SET queue_pos=$1, updated_at=now() WHERE id=$2 AND site_id=$3`, n, queued[n].ID, siteID); err != nil {
+			return api.Job{}, err
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return api.Job{}, err
+	}
+	return GetJob(ctx, pool, siteID, id)
 }
 
 func scanJobs(rows interface {
@@ -169,7 +226,8 @@ func scanJobs(rows interface {
 		var started, finished *time.Time
 		if err := rows.Scan(
 			&j.ID, &j.SiteID, &j.Name, &j.State, &j.ExternalSN, &j.ArtifactID, &j.ExternalFileID,
-			&j.Copies, &j.EstSeconds, &j.EstGrams, &j.CostEstimate, &j.CostActual, &j.Currency, &j.Error,
+			&j.Copies, &j.QueuePos, &j.TargetModel, &j.AfterJobID,
+			&j.EstSeconds, &j.EstGrams, &j.CostEstimate, &j.CostActual, &j.Currency, &j.Error,
 			&j.CreatedAt, &j.UpdatedAt, &started, &finished,
 		); err != nil {
 			return nil, err
@@ -224,7 +282,8 @@ func AssignJob(ctx context.Context, pool *pgxpool.Pool, siteID, jobID, preferred
 	var started, finished *time.Time
 	err = tx.QueryRow(ctx, jobSelectSQL+` WHERE id=$1 AND site_id=$2 FOR UPDATE`, jobID, siteID).Scan(
 		&j.ID, &j.SiteID, &j.Name, &j.State, &j.ExternalSN, &j.ArtifactID, &j.ExternalFileID,
-		&j.Copies, &j.EstSeconds, &j.EstGrams, &j.CostEstimate, &j.CostActual, &j.Currency, &j.Error,
+		&j.Copies, &j.QueuePos, &j.TargetModel, &j.AfterJobID,
+		&j.EstSeconds, &j.EstGrams, &j.CostEstimate, &j.CostActual, &j.Currency, &j.Error,
 		&j.CreatedAt, &j.UpdatedAt, &started, &finished,
 	)
 	if err != nil {

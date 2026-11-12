@@ -317,6 +317,14 @@ const layoutHTML = `<!DOCTYPE html>
               <input class="bf-input" id="job-sn" name="external_sn" placeholder="optional — triggers start when set"/>
             </div>
             <div>
+              <label class="bf-field" for="job-model">Target model <span class="text-bf-muted">(optional)</span></label>
+              <input class="bf-input" id="job-model" name="target_model" placeholder="P1S, X1C, …"/>
+            </div>
+            <div>
+              <label class="bf-field" for="job-after">After job <span class="text-bf-muted">(wait until it succeeds)</span></label>
+              <input class="bf-input" id="job-after" name="after_job_id" placeholder="job id"/>
+            </div>
+            <div>
               <label class="bf-field" for="job-copies">Copies</label>
               <input class="bf-input" id="job-copies" name="copies" type="number" min="1" value="1"/>
             </div>
@@ -428,7 +436,12 @@ const layoutHTML = `<!DOCTYPE html>
                 '<td class="text-bf-muted">' + esc(fmtCost(j)) + '</td>' +
                 '<td class="' + (j.error ? 'text-bf-danger text-xs' : 'text-bf-muted') + '">' +
                   esc(j.error || '—') + '</td>' +
-                '<td><button type="button" class="bf-btn" data-reprint="' + esc(j.id) + '">Reprint</button></td>' +
+                '<td><button type="button" class="bf-btn" data-reprint="' + esc(j.id) + '">Reprint</button>' +
+                  (j.state === 'queued'
+                    ? ' <button type="button" class="bf-btn" data-queue="earlier" data-job="' + esc(j.id) + '">Earlier</button>' +
+                      ' <button type="button" class="bf-btn" data-queue="later" data-job="' + esc(j.id) + '">Later</button>'
+                    : '') +
+                '</td>' +
               '</tr>').join('');
             } catch (e) {
               jobsStatus.textContent = 'Error';
@@ -441,6 +454,23 @@ const layoutHTML = `<!DOCTYPE html>
           document.getElementById('jobs-q').oninput = () => { loadJobs(); };
           document.getElementById('jobs-state').onchange = () => { loadJobs(); };
           jobsTb.onclick = async (ev) => {
+            const move = ev.target.closest('[data-queue]');
+            if (move && !move.disabled) {
+              move.disabled = true;
+              try {
+                await bfJSON(API + '/api/v1/jobs/' + encodeURIComponent(move.dataset.job) + '/queue', {
+                  method: 'POST', credentials: 'include',
+                  headers: {'Content-Type': 'application/json'},
+                  body: JSON.stringify({direction: move.dataset.queue}),
+                });
+                await loadJobs();
+              } catch (e) {
+                jobsStatus.textContent = String(e.message || e);
+                jobsStatus.classList.remove('live');
+                move.disabled = false;
+              }
+              return;
+            }
             const btn = ev.target.closest('[data-reprint]');
             if (!btn || btn.disabled) return;
             btn.disabled = true;
@@ -483,6 +513,8 @@ const layoutHTML = `<!DOCTYPE html>
                 artifact_id: artifactId || undefined,
                 file_id: fileId || undefined,
                 external_sn: document.getElementById('job-sn').value.trim() || undefined,
+                target_model: document.getElementById('job-model').value.trim() || undefined,
+                after_job_id: document.getElementById('job-after').value.trim() || undefined,
                 copies: Number.isFinite(copies) && copies > 0 ? copies : 1,
               };
               if (Number.isFinite(estSec) && estSec > 0) body.est_seconds = estSec;

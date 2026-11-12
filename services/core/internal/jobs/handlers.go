@@ -39,6 +39,23 @@ func Register(mux *http.ServeMux, pool *pgxpool.Pool, bus *events.Bus, siteID st
 			respondCreated(w, r, pool, bus, siteID, req)
 		})
 	})
+	mux.HandleFunc("POST /api/v1/jobs/{id}/queue", func(w http.ResponseWriter, r *http.Request) {
+		httpx.RequireDB(w, pool, func() {
+			var body struct {
+				Direction string `json:"direction"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				httpx.WriteError(w, api.BadRequest("invalid JSON body"))
+				return
+			}
+			job, err := db.ReorderQueuedJob(r.Context(), pool, siteID, r.PathValue("id"), body.Direction)
+			if err != nil {
+				httpx.WriteError(w, err)
+				return
+			}
+			httpx.WriteJSON(w, job)
+		})
+	})
 	mux.HandleFunc("POST /api/v1/jobs/{id}/reprint", func(w http.ResponseWriter, r *http.Request) {
 		httpx.RequireDB(w, pool, func() {
 			src, err := db.GetJob(r.Context(), pool, siteID, r.PathValue("id"))
