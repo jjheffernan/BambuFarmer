@@ -10,6 +10,9 @@ On release: move that section to a new `## [X.Y.Z] — YYYY-MM-DD`, bump [`VERSI
 ## [Unreleased]
 
 ### Added
+- Jobs page: create form (name, artifact, printer SN, copies, estimates) + list with state/cost/error and 10s refresh
+- Build-out roadmap + lean plugin docs; optional `commerce` compose profile (health stub)
+- Reserved `farm.KindDirect` for a future LAN printer adapter behind `ControlPlane`
 - LAN local accounts: Postgres `users`, Argon2id passwords, HMAC `bf_session` cookies
 - Setup wizard creates first admin (password on Finish); `/login` + admin user CRUD
 - Password change (self) and admin password reset APIs + Admin UI

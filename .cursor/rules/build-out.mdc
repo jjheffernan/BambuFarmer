@@ -1,0 +1,19 @@
+---
+description: Multi-session build-out discipline for BambuFarmer
+alwaysApply: true
+---
+
+# Build-out sessions
+
+Before large feature work, read [`docs/BUILD_OUT.md`](docs/BUILD_OUT.md) and [`docs/plugins.md`](docs/plugins.md).
+
+## Slice rules
+
+- One vertical slice per PR/commit group (API + migration if needed + UI + changelog).
+- Prefer extending an existing service or adding a **compose-profiled** service over new frameworks.
+- Control adapters implement [`packages/farm.ControlPlane`](packages/farm/plane.go); do not leak backend HTTP types into core/web.
+- Commerce, notify, slicer, and future direct-printer paths are **plugins** (optional profiles / adapters), not hard deps of MVP compose.
+
+## Handoff
+
+End of a long session: update the "Session handoff" section in `docs/BUILD_OUT.md` (done / next / blocked).

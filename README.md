@@ -39,7 +39,8 @@ open http://127.0.0.1:18080   # first visit → /setup install wizard
 
 Do **not** put real passwords, tokens, or private LAN addresses in the README, docs examples, or committed config. Use `.env` locally; commit only `.env.example` placeholders (`change-me-…`). Schema lives in Go under `packages/db` — `*.sql` files are gitignored.
 
-Install wizard + releases: [`docs/INSTALL.md`](docs/INSTALL.md) · [`CHANGELOG.md`](CHANGELOG.md) (Keep a Changelog — update **Unreleased** with each notable PR).
+Install wizard + releases: [`docs/INSTALL.md`](docs/INSTALL.md) · [`CHANGELOG.md`](CHANGELOG.md) (Keep a Changelog — update **Unreleased** with each notable PR).  
+Build-out / plugins: [`docs/BUILD_OUT.md`](docs/BUILD_OUT.md) · [`docs/plugins.md`](docs/plugins.md).
 
 **Auth / deploy modes:** default is **LAN mode** (`AUTH_MODE=lan`) — local users, no IdP, **private network only**. Use `AUTH_MODE=oidc` when the stack has a real URL or reverse proxy. Full comparison: [`docs/DEPLOYMENT_MODES.md`](docs/DEPLOYMENT_MODES.md).
 
