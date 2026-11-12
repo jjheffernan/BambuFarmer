@@ -10,6 +10,7 @@ On release: move that section to a new `## [X.Y.Z] — YYYY-MM-DD`, bump [`VERSI
 ## [Unreleased]
 
 ### Added
+- Jobs list search and state filter (`GET /api/v1/jobs?q=&state=`) over retained name, id, printer SN, and artifact
 - Reprint a retained plate as a new queued job (`POST /api/v1/jobs/{id}/reprint`) from the jobs page, without re-uploading
 - Edge publishes printer deltas immediately after StartPrint/Control (no poll wait; fixture/SSE friendly)
 - Fleet bulk control: multi-select + sticky action bar; `POST /api/v1/printers/actions` fans out pause/resume/stop/bed_clean via edge command stream

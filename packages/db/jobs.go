@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"fmt"
 	"strings"
 	"time"
 
@@ -101,17 +102,46 @@ const jobSelectSQL = `
 		       created_at, updated_at, started_at, finished_at
 		FROM jobs`
 
-// ListJobs returns recent jobs for a site.
-func ListJobs(ctx context.Context, pool *pgxpool.Pool, siteID string, limit int) ([]api.Job, error) {
+// JobListFilter narrows ListJobs. Empty fields mean no extra constraint.
+type JobListFilter struct {
+	Query string // name, id, printer SN, or artifact id
+	State string
+}
+
+// ListJobs returns recent jobs for a site, optionally filtered.
+func ListJobs(ctx context.Context, pool *pgxpool.Pool, siteID string, limit int, f JobListFilter) ([]api.Job, error) {
 	if limit <= 0 {
 		limit = 50
 	}
-	rows, err := pool.Query(ctx, jobSelectSQL+` WHERE site_id=$1 ORDER BY created_at DESC LIMIT $2`, siteID, limit)
+	where, args := jobListWhere(siteID, f)
+	args = append(args, limit)
+	q := jobSelectSQL + where + fmt.Sprintf(` ORDER BY created_at DESC LIMIT $%d`, len(args))
+	rows, err := pool.Query(ctx, q, args...)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	return scanJobs(rows)
+}
+
+func jobListWhere(siteID string, f JobListFilter) (string, []any) {
+	where := ` WHERE site_id=$1`
+	args := []any{siteID}
+	if st := strings.TrimSpace(f.State); st != "" && !strings.EqualFold(st, "all") {
+		args = append(args, st)
+		where += fmt.Sprintf(` AND state=$%d`, len(args))
+	}
+	if q := strings.TrimSpace(f.Query); q != "" {
+		args = append(args, "%"+escapeLike(q)+"%")
+		n := len(args)
+		like := fmt.Sprintf(`ILIKE $%d ESCAPE '\'`, n)
+		where += fmt.Sprintf(` AND (name %s OR id %s OR external_sn %s OR COALESCE(artifact_id::text,'') %s)`, like, like, like, like)
+	}
+	return where, args
+}
+
+func escapeLike(s string) string {
+	return strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(s)
 }
 
 // ListQueuedJobs returns oldest queued jobs (scheduler input).

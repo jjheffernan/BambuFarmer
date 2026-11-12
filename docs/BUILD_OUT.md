@@ -74,8 +74,8 @@ Reject: shared plugin SDK frameworks, frontend stack rewrites, fat all-in-one im
 
 | Field | Value |
 |-------|--------|
-| **Done** | Flight 1 + after-hours P0 slices through #15 (immediate printer deltas on StartPrint/Control). P1 reprint: `POST /api/v1/jobs/{id}/reprint` requeues the same plate |
-| **Next** | P1 search/filter retained jobs as further commits on `after-hours/build-out` (PR #16). Richer queue needs daytime rules. Live FM smoke when operator opts in |
+| **Done** | Flight 1 + after-hours P0 slices through #15. P1 reprint and jobs search/state filter on `after-hours/build-out` |
+| **Next** | Richer queue (reorder, model targeting, wait-on-previous) needs daytime rules. Live FM smoke when operator opts in. Further commits stay on `after-hours/build-out` |
 | **Blocked** | — |
 | **Deferred** | Live FM upload→print→cost smoke — **no LAN / local-network permission**; use fixture mode + mocked FM paths until daytime explicitly enables live FM |
 | **Do not** | Commit third-party product source trees; migrate off Go; prompt for local-network / LAN FM reachability |

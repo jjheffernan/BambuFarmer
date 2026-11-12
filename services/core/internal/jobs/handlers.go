@@ -15,7 +15,10 @@ import (
 func Register(mux *http.ServeMux, pool *pgxpool.Pool, bus *events.Bus, siteID string) {
 	mux.HandleFunc("GET /api/v1/jobs", func(w http.ResponseWriter, r *http.Request) {
 		httpx.RequireDB(w, pool, func() {
-			items, err := db.ListJobs(r.Context(), pool, siteID, 50)
+			items, err := db.ListJobs(r.Context(), pool, siteID, 50, db.JobListFilter{
+				Query: r.URL.Query().Get("q"),
+				State: r.URL.Query().Get("state"),
+			})
 			if err != nil {
 				httpx.WriteError(w, err)
 				return

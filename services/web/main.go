@@ -336,6 +336,18 @@ const layoutHTML = `<!DOCTYPE html>
         </div>
         <div class="flex flex-wrap items-center gap-3 mb-3">
           <div id="jobs-status" class="bf-status m-0">loading…</div>
+          <input class="bf-input max-w-xs" id="jobs-q" type="search" placeholder="Search name, SN, artifact, id"/>
+          <select class="bf-input max-w-xs" id="jobs-state">
+            <option value="">All states</option>
+            <option>queued</option>
+            <option>assigned</option>
+            <option>dispatched</option>
+            <option>running</option>
+            <option>paused</option>
+            <option>succeeded</option>
+            <option>failed</option>
+            <option>cancelled</option>
+          </select>
           <button type="button" class="bf-btn" id="jobs-refresh">Refresh</button>
         </div>
         <div class="bf-panel overflow-x-auto">
@@ -352,7 +364,7 @@ const layoutHTML = `<!DOCTYPE html>
                 <th></th>
               </tr>
             </thead>
-            <tbody><tr><td colspan="7" class="bf-empty">loading…</td></tr></tbody>
+            <tbody><tr><td colspan="8" class="bf-empty">loading…</td></tr></tbody>
           </table>
         </div>
         <script>
@@ -388,9 +400,18 @@ const layoutHTML = `<!DOCTYPE html>
             return 'state-IDLE';
           }
 
+          function jobsURL() {
+            const p = new URLSearchParams();
+            const q = document.getElementById('jobs-q').value.trim();
+            const state = document.getElementById('jobs-state').value;
+            if (q) p.set('q', q);
+            if (state) p.set('state', state);
+            const s = p.toString();
+            return API + '/api/v1/jobs' + (s ? '?' + s : '');
+          }
           async function loadJobs() {
             try {
-              const jobs = await bfJSON(API + '/api/v1/jobs');
+              const jobs = await bfJSON(jobsURL());
               jobsStatus.textContent = 'Updated ' + new Date().toLocaleTimeString();
               jobsStatus.classList.add('live');
               if (!jobs || !jobs.length) {
@@ -417,6 +438,8 @@ const layoutHTML = `<!DOCTYPE html>
           }
 
           document.getElementById('jobs-refresh').onclick = () => { loadJobs(); };
+          document.getElementById('jobs-q').oninput = () => { loadJobs(); };
+          document.getElementById('jobs-state').onchange = () => { loadJobs(); };
           jobsTb.onclick = async (ev) => {
             const btn = ev.target.closest('[data-reprint]');
             if (!btn || btn.disabled) return;
