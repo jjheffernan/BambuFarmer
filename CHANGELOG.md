@@ -31,6 +31,7 @@ On release: move that section to a new `## [X.Y.Z] — YYYY-MM-DD`, bump [`VERSI
 - GitHub issue/PR templates; CI changelog shape check
 
 ### Changed
+- Fixture control plane: `StartPrint`/`Control` advance per-SN gcode_state overlays (RUNNING/PAUSE/IDLE) without a live FM — LAN-free lab path
 - Analytics page: daily utilization table + event counter chips instead of raw JSON dump
 - Jobs page: live list refresh via gateway SSE (`job.*` events) instead of a 10s poll
 - Go toolchain raised to 1.26 (CI, Containerfiles, modules) for current dependency minimums
