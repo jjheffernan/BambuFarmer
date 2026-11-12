@@ -131,7 +131,7 @@ MinIO optional (`--profile object`) until a live S3 endpoint is set.
 
 Track detail in [`BUILD_OUT.md`](./BUILD_OUT.md).
 
-- [ ] P0 — Live FM `StartPrint` + job dispatch
+- [x] P0 — FM `StartPrint` + job dispatch path (fixture/unit covered; live FM smoke still blocked)
 - [ ] P1 — Job archive + richer queue
 - [ ] P2 — Filament consumption / AMS depth
 - [ ] P3 — Notify + power plugins

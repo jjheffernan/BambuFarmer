@@ -74,7 +74,7 @@ Reject: shared plugin SDK frameworks, frontend stack rewrites, fat all-in-one im
 
 | Field | Value |
 |-------|--------|
-| **Done** | Docs + clean-room rules; `services/commerce` health stub + compose profile; API order/shop DTOs; `KindDirect` reserved on `ControlPlane` |
-| **Next** | P0: live FM `StartPrint` + job dispatch path |
+| **Done** | Flight 1: edge `Upload3MF`/`StartPrint` + command consumer; core scheduler/`command.start_print` + `job.*` consumer/cost finalize; web jobs create/list. Tick 1: stop aliasing `artifact_id`→FM `file_id`; local `POST /api/v1/artifacts` + shared `artifacts` volume; edge uploads from disk before `StartPrint`; jobs UI file upload |
+| **Next** | P0: fleet pause/resume/stop/bed_clean polish (bulk selection / `printers/actions` if needed); jobs SSE instead of 10s poll; live FM smoke of upload→print→cost; analytics daily rollups UI depth |
 | **Blocked** | Live FM Server version / LAN IP for edge smoke |
 | **Do not** | Commit third-party product source trees; migrate off Go |

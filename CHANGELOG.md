@@ -10,9 +10,11 @@ On release: move that section to a new `## [X.Y.Z] — YYYY-MM-DD`, bump [`VERSI
 ## [Unreleased]
 
 ### Added
+- Local artifact staging: `POST/GET /api/v1/artifacts` (+ `/content`), shared compose `artifacts` volume (`ARTIFACTS_DIR`)
+- Edge uploads staged plate to FM before `StartPrint` when `file_id` is absent (`object_key` / `artifact_id`)
+- Jobs page: `.gcode.3mf` file upload + optional FM `file_id`; create form (name, artifact, printer SN, copies, estimates) + list with state/cost/error and 10s refresh
 - Core job dispatch: scheduler assigns idle printers, publishes `command.start_print`, consumes `job.*` to advance state + finalize cost
 - Edge `fm_native` `Upload3MF` / `StartPrint` (FM `POST /file/upload3mf` + `POST /task`); command consumer emits `job.dispatched` / `job.progress` / `job.finished` / `job.failed`
-- Jobs page: create form (name, artifact, printer SN, copies, estimates) + list with state/cost/error and 10s refresh
 - Build-out roadmap + lean plugin docs; optional `commerce` compose profile (health stub)
 - Reserved `farm.KindDirect` for a future LAN printer adapter behind `ControlPlane`
 - LAN local accounts: Postgres `users`, Argon2id passwords, HMAC `bf_session` cookies
@@ -37,6 +39,7 @@ On release: move that section to a new `## [X.Y.Z] — YYYY-MM-DD`, bump [`VERSI
 - After install, gateway requires login for UI/API (except setup/login/health)
 
 ### Fixed
+- `command.start_print` no longer aliases our `artifact_id` as FM `file_id`/`f3mf_id` (fails closed until upload or explicit `file_id`)
 - CI compose config check seeds `.env` from `.env.example`
 - Analytics `/api/v1/analytics/counters` served from current image (was 404 → browser JSON parse error)
 
