@@ -40,6 +40,7 @@ On release: move that section to a new `## [X.Y.Z] — YYYY-MM-DD`, bump [`VERSI
 - After install, gateway requires login for UI/API (except setup/login/health)
 
 ### Fixed
+- Gateway image build: COPY `packages/db` and `packages/version` into the Containerfile context (auth/`version` imports)
 - `command.start_print` no longer aliases our `artifact_id` as FM `file_id`/`f3mf_id` (fails closed until upload or explicit `file_id`)
 - CI compose config check seeds `.env` from `.env.example`
 - Analytics `/api/v1/analytics/counters` served from current image (was 404 → browser JSON parse error)
