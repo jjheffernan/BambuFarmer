@@ -245,33 +245,157 @@ const layoutHTML = `<!DOCTYPE html>
           connectSSE();
         </script>
       {{else if eq .Active "jobs"}}
-        <p class="bf-lede">Queue owned by core. Create jobs via API, then watch state here.</p>
+        <p class="bf-lede">Enqueue prints against core. Target a printer SN when known; leave blank to queue unassigned.</p>
+        <div class="bf-panel mb-4">
+          <h2 class="font-display text-lg mb-3">Create job</h2>
+          <form id="job-form" class="grid gap-x-4 gap-y-1 md:grid-cols-2">
+            <div>
+              <label class="bf-field" for="job-name">Name</label>
+              <input class="bf-input" id="job-name" name="name" placeholder="batch-plate-a" required/>
+            </div>
+            <div>
+              <label class="bf-field" for="job-artifact">Artifact ID</label>
+              <input class="bf-input" id="job-artifact" name="artifact_id" placeholder="uuid or object key"/>
+            </div>
+            <div>
+              <label class="bf-field" for="job-sn">Printer SN <span class="text-bf-muted">(external_sn)</span></label>
+              <input class="bf-input" id="job-sn" name="external_sn" placeholder="optional — triggers start when set"/>
+            </div>
+            <div>
+              <label class="bf-field" for="job-copies">Copies</label>
+              <input class="bf-input" id="job-copies" name="copies" type="number" min="1" value="1"/>
+            </div>
+            <div>
+              <label class="bf-field" for="job-est-sec">Est. seconds</label>
+              <input class="bf-input" id="job-est-sec" name="est_seconds" type="number" min="0" placeholder="0"/>
+            </div>
+            <div>
+              <label class="bf-field" for="job-est-g">Est. grams</label>
+              <input class="bf-input" id="job-est-g" name="est_grams" type="number" min="0" step="0.1" placeholder="0"/>
+            </div>
+            <div class="md:col-span-2 bf-actions">
+              <button type="submit" class="bf-btn bf-btn-primary">Create job</button>
+              <p class="text-sm self-center" id="job-form-msg"></p>
+            </div>
+          </form>
+        </div>
+        <div class="flex flex-wrap items-center gap-3 mb-3">
+          <div id="jobs-status" class="bf-status m-0">loading…</div>
+          <button type="button" class="bf-btn" id="jobs-refresh">Refresh</button>
+        </div>
         <div class="bf-panel overflow-x-auto">
           <table class="bf-table" id="jobs-table">
-            <thead><tr><th>Name</th><th>State</th><th>Printer</th><th>Est.</th><th>Cost</th></tr></thead>
-            <tbody><tr><td colspan="5" class="bf-empty">loading…</td></tr></tbody>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>State</th>
+                <th>Printer</th>
+                <th>Artifact</th>
+                <th>Est.</th>
+                <th>Cost</th>
+                <th>Error</th>
+              </tr>
+            </thead>
+            <tbody><tr><td colspan="7" class="bf-empty">loading…</td></tr></tbody>
           </table>
         </div>
         <script>
           const API = {{printf "%q" .APIBase}};
-          bfJSON(API + '/api/v1/jobs').then(jobs => {
-            const tb = document.querySelector('#jobs-table tbody');
-            if (!jobs || !jobs.length) {
-              tb.innerHTML = '<tr><td colspan="5" class="bf-empty">No jobs yet — POST /api/v1/jobs to enqueue.</td></tr>';
-              return;
-            }
-            tb.innerHTML = jobs.map(j => '<tr>' +
-              '<td>' + (j.name || j.id) + '</td>' +
-              '<td>' + (j.state || '') + '</td>' +
-              '<td class="text-bf-muted">' + (j.external_sn || '—') + '</td>' +
-              '<td class="text-bf-muted">' + (j.est_seconds ? Math.round(j.est_seconds/60) + 'm' : '—') +
-              (j.est_grams ? ' / ' + j.est_grams + 'g' : '') + '</td>' +
-              '<td class="text-bf-muted">' + (j.cost_estimate ? j.cost_estimate.toFixed(2) + ' ' + (j.currency||'') : '—') + '</td>' +
+          const jobsStatus = document.getElementById('jobs-status');
+          const jobsTb = document.querySelector('#jobs-table tbody');
+
+          function esc(s) {
+            return String(s == null ? '' : s)
+              .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+          }
+          function fmtCost(j) {
+            const cur = j.currency || '';
+            const est = Number(j.cost_estimate) || 0;
+            const act = Number(j.cost_actual) || 0;
+            if (!est && !act) return '—';
+            if (act) return act.toFixed(2) + (cur ? ' ' + cur : '') + ' actual';
+            return est.toFixed(2) + (cur ? ' ' + cur : '') + ' est';
+          }
+          function fmtEst(j) {
+            const parts = [];
+            if (j.est_seconds) parts.push(Math.round(j.est_seconds / 60) + 'm');
+            if (j.est_grams) parts.push(j.est_grams + 'g');
+            if (j.copies && j.copies > 1) parts.push('×' + j.copies);
+            return parts.length ? parts.join(' / ') : '—';
+          }
+          function stateClass(st) {
+            const s = String(st || '').toLowerCase();
+            if (s === 'running' || s === 'dispatched') return 'state-RUNNING';
+            if (s === 'failed' || s === 'cancelled') return 'state-FAILED';
+            if (s === 'succeeded') return 'state-FINISH';
+            if (s === 'paused') return 'state-PAUSE';
+            return 'state-IDLE';
+          }
+
+          async function loadJobs() {
+            try {
+              const jobs = await bfJSON(API + '/api/v1/jobs');
+              jobsStatus.textContent = 'Updated ' + new Date().toLocaleTimeString();
+              jobsStatus.classList.add('live');
+              if (!jobs || !jobs.length) {
+                jobsTb.innerHTML = '<tr><td colspan="7" class="bf-empty">No jobs yet — create one above.</td></tr>';
+                return;
+              }
+              jobsTb.innerHTML = jobs.map(j => '<tr>' +
+                '<td><div class="font-medium">' + esc(j.name || j.id) + '</div>' +
+                  '<div class="text-bf-muted text-xs font-mono">' + esc(j.id) + '</div></td>' +
+                '<td><span class="' + stateClass(j.state) + '">' + esc(j.state || '') + '</span></td>' +
+                '<td class="text-bf-muted font-mono text-xs">' + esc(j.external_sn || '—') + '</td>' +
+                '<td class="text-bf-muted font-mono text-xs">' + esc(j.artifact_id || '—') + '</td>' +
+                '<td class="text-bf-muted">' + esc(fmtEst(j)) + '</td>' +
+                '<td class="text-bf-muted">' + esc(fmtCost(j)) + '</td>' +
+                '<td class="' + (j.error ? 'text-bf-danger text-xs' : 'text-bf-muted') + '">' +
+                  esc(j.error || '—') + '</td>' +
               '</tr>').join('');
-          }).catch(e => {
-            document.querySelector('#jobs-table tbody').innerHTML =
-              '<tr><td colspan="5" class="text-bf-danger">' + e + '</td></tr>';
-          });
+            } catch (e) {
+              jobsStatus.textContent = 'Error';
+              jobsStatus.classList.remove('live');
+              jobsTb.innerHTML = '<tr><td colspan="7" class="text-bf-danger">' + esc(e.message || e) + '</td></tr>';
+            }
+          }
+
+          document.getElementById('jobs-refresh').onclick = () => { loadJobs(); };
+          document.getElementById('job-form').onsubmit = async (ev) => {
+            ev.preventDefault();
+            const msg = document.getElementById('job-form-msg');
+            msg.className = 'text-sm self-center';
+            msg.textContent = '';
+            const copies = parseInt(document.getElementById('job-copies').value, 10);
+            const estSec = parseInt(document.getElementById('job-est-sec').value, 10);
+            const estG = parseFloat(document.getElementById('job-est-g').value);
+            const body = {
+              name: document.getElementById('job-name').value.trim(),
+              artifact_id: document.getElementById('job-artifact').value.trim() || undefined,
+              external_sn: document.getElementById('job-sn').value.trim() || undefined,
+              copies: Number.isFinite(copies) && copies > 0 ? copies : 1,
+            };
+            if (Number.isFinite(estSec) && estSec > 0) body.est_seconds = estSec;
+            if (Number.isFinite(estG) && estG > 0) body.est_grams = estG;
+            try {
+              const job = await bfJSON(API + '/api/v1/jobs', {
+                method: 'POST',
+                credentials: 'include',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(body),
+              });
+              msg.className = 'text-bf-accent text-sm self-center';
+              msg.textContent = 'Queued ' + (job.name || job.id);
+              document.getElementById('job-form').reset();
+              document.getElementById('job-copies').value = '1';
+              await loadJobs();
+            } catch (e) {
+              msg.className = 'text-bf-danger text-sm self-center';
+              msg.textContent = String(e.message || e);
+            }
+          };
+
+          loadJobs();
+          setInterval(loadJobs, 10000);
         </script>
       {{else if eq .Active "presets"}}
         <p class="bf-lede">Versioned filament and print presets stored in Postgres.</p>
