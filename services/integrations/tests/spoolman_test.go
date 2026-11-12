@@ -8,9 +8,27 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jjheffernan/BambuFarmer/packages/api"
 	"github.com/jjheffernan/BambuFarmer/packages/events"
 	"github.com/jjheffernan/BambuFarmer/services/integrations/app/spoolman"
 )
+
+func TestLowStock(t *testing.T) {
+	if spoolman.LowGrams("") != 100 || spoolman.LowGrams("nope") != 100 || spoolman.LowGrams("50") != 50 {
+		t.Fatal(spoolman.LowGrams(""))
+	}
+	got := spoolman.LowStock([]api.SpoolSummary{
+		{ID: "a", RemainingG: 40},
+		{ID: "b", RemainingG: 100},
+		{ID: "c", RemainingG: 10, Archived: true},
+	}, 100)
+	if len(got) != 1 || got[0].ID != "a" {
+		t.Fatalf("%+v", got)
+	}
+	if len(spoolman.LowStock(nil, 100)) != 0 {
+		t.Fatal("nil spools")
+	}
+}
 
 func TestListSpoolsMapsResponse(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

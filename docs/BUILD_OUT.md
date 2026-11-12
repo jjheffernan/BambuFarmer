@@ -74,8 +74,8 @@ Reject: shared plugin SDK frameworks, frontend stack rewrites, fat all-in-one im
 
 | Field | Value |
 |-------|--------|
-| **Done** | P0–P3 on `after-hours/build-out`, plus P4 store webhook → core `POST /api/v1/jobs` when `CORE_URL` is set |
-| **Next** | P2 low-stock signal from spool remaining weight. Live FM smoke when operator opts in. Stay on `after-hours/build-out` |
+| **Done** | P0–P4 on `after-hours/build-out`. P2 low stock: spool list flags remaining grams under `LOW_STOCK_GRAMS` (default 100) |
+| **Next** | P2 AMS tray → spool id map. Live FM smoke when operator opts in. Stay on `after-hours/build-out` |
 | **Blocked** | — |
 | **Deferred** | Live FM upload→print→cost smoke — **no LAN / local-network permission**; use fixture mode + mocked FM paths until daytime explicitly enables live FM |
 | **Do not** | Commit third-party product source trees; migrate off Go; prompt for local-network / LAN FM reachability |

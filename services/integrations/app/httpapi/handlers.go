@@ -12,10 +12,11 @@ import (
 
 // Deps are optional upstream clients (nil = disabled).
 type Deps struct {
-	Spoolman *spoolman.Client
-	Manyfold *manyfold.Client
-	SpoolURL string
-	ManyURL  string
+	Spoolman      *spoolman.Client
+	Manyfold      *manyfold.Client
+	SpoolURL      string
+	ManyURL       string
+	LowStockGrams float64
 }
 
 // Register mounts integration HTTP routes.
@@ -34,7 +35,7 @@ func Register(mux *http.ServeMux, d Deps) {
 
 	mux.HandleFunc("GET /api/v1/filament/spools", func(w http.ResponseWriter, r *http.Request) {
 		if d.Spoolman == nil {
-			writeJSON(w, map[string]any{"configured": false, "spools": []any{}})
+			writeJSON(w, map[string]any{"configured": false, "spools": []any{}, "low_stock": []any{}})
 			return
 		}
 		spools, err := d.Spoolman.ListSpools(r.Context(), 1000)
@@ -42,7 +43,12 @@ func Register(mux *http.ServeMux, d Deps) {
 			httpserver.WriteError(w, err)
 			return
 		}
-		writeJSON(w, map[string]any{"configured": true, "spools": spools})
+		writeJSON(w, map[string]any{
+			"configured":  true,
+			"threshold_g": d.LowStockGrams,
+			"spools":      spools,
+			"low_stock":   spoolman.LowStock(spools, d.LowStockGrams),
+		})
 	})
 
 	mux.HandleFunc("GET /api/v1/library/models", func(w http.ResponseWriter, r *http.Request) {

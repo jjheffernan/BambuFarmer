@@ -16,8 +16,9 @@ import (
 func main() {
 	cfg := config.Load()
 	deps := httpapi.Deps{
-		SpoolURL: cfg.SpoolmanURL,
-		ManyURL:  cfg.ManyfoldURL,
+		SpoolURL:      cfg.SpoolmanURL,
+		ManyURL:       cfg.ManyfoldURL,
+		LowStockGrams: spoolman.LowGrams(os.Getenv("LOW_STOCK_GRAMS")),
 	}
 	if cfg.SpoolmanURL != "" {
 		deps.Spoolman = spoolman.New(cfg.SpoolmanURL, cfg.SpoolmanToken, cfg.HTTPTimeout)
