@@ -104,6 +104,33 @@ func Register(mux *http.ServeMux, d Deps) {
 		}
 		writeJSON(w, map[string]any{"imported": true, "id": id, "name": name})
 	})
+
+	mux.HandleFunc("POST /api/v1/library/export", func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			ArtifactID string `json:"artifact_id"`
+			Name       string `json:"name"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			httpserver.WriteError(w, api.BadRequest("invalid JSON body"))
+			return
+		}
+		if d.Manyfold == nil {
+			writeJSON(w, map[string]any{"exported": false, "reason": "MANYFOLD_URL unset"})
+			return
+		}
+		artifactID := strings.TrimSpace(body.ArtifactID)
+		name := strings.TrimSpace(body.Name)
+		if artifactID == "" || name == "" {
+			httpserver.WriteError(w, api.BadRequest("artifact_id and name required"))
+			return
+		}
+		id, err := d.Manyfold.CreateModel(r.Context(), name)
+		if err != nil {
+			httpserver.WriteError(w, err)
+			return
+		}
+		writeJSON(w, map[string]any{"exported": true, "id": id, "artifact_id": artifactID, "name": name})
+	})
 }
 
 func writeJSON(w http.ResponseWriter, v any) {

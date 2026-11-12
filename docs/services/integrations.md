@@ -17,8 +17,8 @@ Upstream references:
 |------|----------------|
 | Spoolman HTTP client | Job scheduling |
 | Manyfold HTTP client (PAT / OAuth) | FM control |
-| Filament consume on `job.finished` (next) | Rate card CRUD |
-| Library import/export orchestration (next) | UI |
+| Filament consume on `job.finished` | Rate card CRUD |
+| Library import/export by model name | UI |
 
 **MVP rule:** live URL optional. Empty `SPOOLMAN_URL` / `MANYFOLD_URL` → adapter disabled; service still healthy.
 
@@ -69,7 +69,7 @@ Today: `ListSpools` / `ListModels` implemented on concrete clients; full interfa
 | `GET /api/v1/library/models` | Manyfold `GET /models` or empty if unset |
 | `GET /api/v1/filament/links?tray=` | AMS tray index → spool id from `AMS_SLOT_MAP` (empty map → none) |
 | `POST /api/v1/library/import` | Create a Manyfold model by name (`POST /models`); empty URL does not call Manyfold |
-| `POST /api/v1/library/export` | artifact → Manyfold (next) |
+| `POST /api/v1/library/export` | Create a Manyfold model from an artifact id and name; empty URL does not call Manyfold |
 
 **Manyfold auth:** prefer `MANYFOLD_TOKEN` (personal access token). Falls back to OAuth2 `client_credentials` when `MANYFOLD_CLIENT_ID` / `SECRET` are set. Always send `Accept: application/vnd.manyfold.v0+json`.
 
@@ -88,5 +88,5 @@ Today: `ListSpools` / `ListModels` implemented on concrete clients; full interfa
 1. Status stub — **done**  
 2. Spoolman list when URL set — **done**  
 3. Manyfold list when URL set — **done**  
-4. Consume filament on job finish  
-5. Import/export happy paths
+4. Consume filament on job finish — **done**  
+5. Import/export by name — **done** (file bytes still stay in the farm artifact store)

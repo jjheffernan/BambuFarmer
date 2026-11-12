@@ -82,3 +82,48 @@ func TestCreateModelPostsName(t *testing.T) {
 		t.Fatal("empty url")
 	}
 }
+
+func TestExportSkipsWhenUnset(t *testing.T) {
+	mux := http.NewServeMux()
+	httpapi.Register(mux, httpapi.Deps{})
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/library/export", strings.NewReader(`{"artifact_id":"art-1","name":"Benchy"}`))
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+	var got map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	if rec.Code != http.StatusOK || got["exported"] != false {
+		t.Fatalf("%d %+v", rec.Code, got)
+	}
+}
+
+func TestExportPostsName(t *testing.T) {
+	var got map[string]string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/models" {
+			t.Fatalf("%s %s", r.Method, r.URL.Path)
+		}
+		_ = json.NewDecoder(r.Body).Decode(&got)
+		_ = json.NewEncoder(w).Encode(map[string]string{"@id": "/models/mf9"})
+	}))
+	defer srv.Close()
+	mux := http.NewServeMux()
+	httpapi.Register(mux, httpapi.Deps{Manyfold: manyfold.New(srv.URL, "pat-test", "", "", time.Second)})
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/library/export", strings.NewReader(`{"artifact_id":" art-1 ","name":"Benchy"}`))
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+	var out map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatal(err)
+	}
+	if rec.Code != http.StatusOK || out["exported"] != true || out["id"] != "/models/mf9" || out["artifact_id"] != "art-1" || got["name"] != "Benchy" {
+		t.Fatalf("%d %+v body %+v", rec.Code, out, got)
+	}
+	req = httptest.NewRequest(http.MethodPost, "/api/v1/library/export", strings.NewReader(`{"name":"Benchy"}`))
+	rec = httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+	if rec.Code == http.StatusOK {
+		t.Fatalf("missing artifact %s", rec.Body.String())
+	}
+}
