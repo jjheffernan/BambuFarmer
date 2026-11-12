@@ -95,6 +95,30 @@ const (
 	ControlBedClean ControlOpt = "bed_clean"
 )
 
+// ValidControlOpt reports whether opt is a supported FM control action.
+func ValidControlOpt(opt ControlOpt) bool {
+	switch opt {
+	case ControlPause, ControlResume, ControlStop, ControlBedClean:
+		return true
+	default:
+		return false
+	}
+}
+
+// PrinterActionsRequest is POST /api/v1/printers/actions (bulk control).
+type PrinterActionsRequest struct {
+	Action    ControlOpt `json:"action"`
+	Serials   []string   `json:"serials"`
+	ExternalSNs []string `json:"external_sns,omitempty"` // alias for serials
+}
+
+// PrinterActionsResult is the bulk control response.
+type PrinterActionsResult struct {
+	Action   ControlOpt `json:"action"`
+	Accepted []string   `json:"accepted"`
+	Skipped  []string   `json:"skipped,omitempty"`
+}
+
 // CaptainInfo is a subset of GET /captain.
 type CaptainInfo struct {
 	Name      string `json:"name"`

@@ -76,7 +76,7 @@ func main() {
 	rates.Register(mux, pool, cfg.SiteID)
 	artifacts.Register(mux, pool, cfg.SiteID, artStore)
 	jobs.Register(mux, pool, bus, cfg.SiteID)
-	printers.Register(mux, pool, cfg.SiteID)
+	printers.Register(mux, pool, bus, cfg.SiteID)
 	setup.Register(mux, pool, cfg.SiteID)
 	users.Register(mux, pool)
 	mux.HandleFunc("GET /api/v1/version", func(w http.ResponseWriter, _ *http.Request) {

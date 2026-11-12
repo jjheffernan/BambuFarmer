@@ -152,13 +152,24 @@ const layoutHTML = `<!DOCTYPE html>
           <span class="bf-chip" data-bucket="not_in_task">Not in Task</span>
           <span class="bf-chip" data-bucket="printing">Printing</span>
         </div>
+        <div id="bulk-bar" class="hidden sticky top-0 z-10 mb-3 flex flex-wrap items-center gap-2 border border-bf-border rounded-bf bg-bf-2/95 px-3 py-2 backdrop-blur">
+          <span id="bulk-count" class="text-sm text-bf-muted">0 selected</span>
+          <button type="button" class="bf-btn" data-bulk="pause">Pause</button>
+          <button type="button" class="bf-btn" data-bulk="resume">Resume</button>
+          <button type="button" class="bf-btn" data-bulk="stop">Stop</button>
+          <button type="button" class="bf-btn" data-bulk="bed_clean">Bed clean</button>
+          <button type="button" class="bf-btn" id="bulk-clear">Clear</button>
+        </div>
         <div id="printer-grid" class="grid gap-3 grid-cols-[repeat(auto-fill,minmax(220px,1fr))]"></div>
         <script>
           const API = {{printf "%q" .APIBase}};
           const printers = new Map();
+          const selected = new Set();
           let filter = 'all';
           const statusEl = document.getElementById('sse-status');
           const grid = document.getElementById('printer-grid');
+          const bulkBar = document.getElementById('bulk-bar');
+          const bulkCount = document.getElementById('bulk-count');
 
           document.querySelectorAll('#bucket-chips .bf-chip').forEach(chip => {
             chip.addEventListener('click', () => {
@@ -175,18 +186,47 @@ const layoutHTML = `<!DOCTYPE html>
             render();
           }
 
+          function syncBulkBar() {
+            const n = selected.size;
+            bulkCount.textContent = n + ' selected';
+            bulkBar.classList.toggle('hidden', n === 0);
+          }
+
+          async function postBulk(action) {
+            const serials = [...selected];
+            if (!serials.length) return;
+            await fetch(API + '/api/v1/printers/actions', {
+              method: 'POST',
+              credentials: 'include',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({action, serials})
+            });
+          }
+
+          document.querySelectorAll('#bulk-bar [data-bulk]').forEach(btn => {
+            btn.addEventListener('click', () => postBulk(btn.dataset.bulk));
+          });
+          document.getElementById('bulk-clear').addEventListener('click', () => {
+            selected.clear();
+            render();
+          });
+
           function render() {
             const items = [...printers.values()].filter(p => filter === 'all' || p.bucket === filter);
             if (!items.length) {
               grid.innerHTML = '<div class="bf-panel bf-empty">Waiting for edge deltas (fixture or Farm Manager)…</div>';
+              syncBulkBar();
               return;
             }
             grid.innerHTML = items.map(p => {
               const sn = p.external_sn;
+              const on = selected.has(sn) ? ' checked' : '';
               return '<article class="bf-card" id="printer-' + sn + '">' +
-                '<div class="bf-card-name">' + (p.name || sn) + '</div>' +
-                '<div class="bf-card-meta">' + (p.model || '') + ' · <span class="state-' + (p.gcode_state||'') + '">' + (p.gcode_state||'?') + '</span>' +
-                (p.mc_percent ? ' · ' + p.mc_percent + '%' : '') + '</div>' +
+                '<label class="flex items-start gap-2 mb-2 cursor-pointer">' +
+                '<input type="checkbox" class="mt-1 bulk-pick" data-sn="' + sn + '"' + on + '/>' +
+                '<span><span class="bf-card-name">' + (p.name || sn) + '</span>' +
+                '<span class="bf-card-meta block">' + (p.model || '') + ' · <span class="state-' + (p.gcode_state||'') + '">' + (p.gcode_state||'?') + '</span>' +
+                (p.mc_percent ? ' · ' + p.mc_percent + '%' : '') + '</span></span></label>' +
                 '<div class="flex flex-wrap gap-1.5 mt-3">' +
                 '<button type="button" class="bf-btn" data-sn="' + sn + '" data-opt="pause">Pause</button>' +
                 '<button type="button" class="bf-btn" data-sn="' + sn + '" data-opt="resume">Resume</button>' +
@@ -194,6 +234,12 @@ const layoutHTML = `<!DOCTYPE html>
                 '<button type="button" class="bf-btn" data-sn="' + sn + '" data-opt="bed_clean">Bed clean</button>' +
                 '</div></article>';
             }).join('');
+            grid.querySelectorAll('input.bulk-pick').forEach(cb => {
+              cb.addEventListener('change', () => {
+                if (cb.checked) selected.add(cb.dataset.sn); else selected.delete(cb.dataset.sn);
+                syncBulkBar();
+              });
+            });
             grid.querySelectorAll('button.bf-btn').forEach(btn => {
               btn.addEventListener('click', async () => {
                 await fetch(API + '/api/v1/edge/control/' + btn.dataset.sn, {
@@ -204,6 +250,7 @@ const layoutHTML = `<!DOCTYPE html>
                 });
               });
             });
+            syncBulkBar();
           }
 
           async function bootstrap() {

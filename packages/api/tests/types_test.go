@@ -10,6 +10,9 @@ func TestControlOptConstants(t *testing.T) {
 	if api.ControlPause != "pause" || api.ControlResume != "resume" || api.ControlStop != "stop" || api.ControlBedClean != "bed_clean" {
 		t.Fatalf("unexpected control opts: %q %q %q %q", api.ControlPause, api.ControlResume, api.ControlStop, api.ControlBedClean)
 	}
+	if !api.ValidControlOpt(api.ControlPause) || api.ValidControlOpt("led") {
+		t.Fatal("ValidControlOpt mismatch")
+	}
 }
 
 func TestRateCardZeroValue(t *testing.T) {
