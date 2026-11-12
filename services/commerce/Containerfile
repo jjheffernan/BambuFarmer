@@ -1,0 +1,16 @@
+# bambufarmer-commerce — optional shop-orders plugin (compose --profile commerce)
+# podman build -t localhost/bambufarmer-commerce:dev -f services/commerce/Containerfile .
+FROM golang:1.26-bookworm AS build
+WORKDIR /src
+ENV GOWORK=off
+COPY packages/api ./packages/api
+COPY packages/httpserver ./packages/httpserver
+COPY services/commerce ./services/commerce
+WORKDIR /src/services/commerce
+RUN go mod tidy && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/service .
+
+FROM gcr.io/distroless/static-debian12:nonroot
+COPY --from=build /out/service /service
+USER nonroot:nonroot
+EXPOSE 8080
+ENTRYPOINT ["/service"]
