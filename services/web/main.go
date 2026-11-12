@@ -245,7 +245,7 @@ const layoutHTML = `<!DOCTYPE html>
           connectSSE();
         </script>
       {{else if eq .Active "jobs"}}
-        <p class="bf-lede">Enqueue prints against core. Target a printer SN when known; leave blank to queue unassigned.</p>
+        <p class="bf-lede">Upload a <code>.gcode.3mf</code>, enqueue against core. Target a printer SN when known; leave blank to queue unassigned.</p>
         <div class="bf-panel mb-4">
           <h2 class="font-display text-lg mb-3">Create job</h2>
           <form id="job-form" class="grid gap-x-4 gap-y-1 md:grid-cols-2">
@@ -254,8 +254,16 @@ const layoutHTML = `<!DOCTYPE html>
               <input class="bf-input" id="job-name" name="name" placeholder="batch-plate-a" required/>
             </div>
             <div>
-              <label class="bf-field" for="job-artifact">Artifact ID</label>
-              <input class="bf-input" id="job-artifact" name="artifact_id" placeholder="uuid or object key"/>
+              <label class="bf-field" for="job-file">Plate file</label>
+              <input class="bf-input" id="job-file" name="file" type="file" accept=".3mf,.gcode.3mf,application/octet-stream"/>
+            </div>
+            <div>
+              <label class="bf-field" for="job-artifact">Artifact ID <span class="text-bf-muted">(or upload above)</span></label>
+              <input class="bf-input" id="job-artifact" name="artifact_id" placeholder="from prior upload"/>
+            </div>
+            <div>
+              <label class="bf-field" for="job-file-id">FM file id <span class="text-bf-muted">(optional f3mf_id)</span></label>
+              <input class="bf-input" id="job-file-id" name="file_id" placeholder="skip upload when set"/>
             </div>
             <div>
               <label class="bf-field" for="job-sn">Printer SN <span class="text-bf-muted">(external_sn)</span></label>
@@ -368,15 +376,29 @@ const layoutHTML = `<!DOCTYPE html>
             const copies = parseInt(document.getElementById('job-copies').value, 10);
             const estSec = parseInt(document.getElementById('job-est-sec').value, 10);
             const estG = parseFloat(document.getElementById('job-est-g').value);
-            const body = {
-              name: document.getElementById('job-name').value.trim(),
-              artifact_id: document.getElementById('job-artifact').value.trim() || undefined,
-              external_sn: document.getElementById('job-sn').value.trim() || undefined,
-              copies: Number.isFinite(copies) && copies > 0 ? copies : 1,
-            };
-            if (Number.isFinite(estSec) && estSec > 0) body.est_seconds = estSec;
-            if (Number.isFinite(estG) && estG > 0) body.est_grams = estG;
+            let artifactId = document.getElementById('job-artifact').value.trim();
+            const fileId = document.getElementById('job-file-id').value.trim();
+            const fileInput = document.getElementById('job-file');
             try {
+              if (fileInput.files && fileInput.files[0]) {
+                const fd = new FormData();
+                fd.append('file', fileInput.files[0]);
+                if (Number.isFinite(estSec) && estSec > 0) fd.append('est_seconds', String(estSec));
+                if (Number.isFinite(estG) && estG > 0) fd.append('est_grams', String(estG));
+                const art = await bfJSON(API + '/api/v1/artifacts', {
+                  method: 'POST', credentials: 'include', body: fd,
+                });
+                artifactId = art.id;
+              }
+              const body = {
+                name: document.getElementById('job-name').value.trim(),
+                artifact_id: artifactId || undefined,
+                file_id: fileId || undefined,
+                external_sn: document.getElementById('job-sn').value.trim() || undefined,
+                copies: Number.isFinite(copies) && copies > 0 ? copies : 1,
+              };
+              if (Number.isFinite(estSec) && estSec > 0) body.est_seconds = estSec;
+              if (Number.isFinite(estG) && estG > 0) body.est_grams = estG;
               const job = await bfJSON(API + '/api/v1/jobs', {
                 method: 'POST',
                 credentials: 'include',

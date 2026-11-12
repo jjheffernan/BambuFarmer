@@ -107,12 +107,15 @@ services:
       SITE_ID: ${SITE_ID:-default}
       DATABASE_URL: ${DATABASE_URL:-postgres://bambufarmer:bambufarmer@postgres:5432/bambufarmer?sslmode=disable}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      ARTIFACTS_DIR: ${ARTIFACTS_DIR:-/data/artifacts}
       CURRENCY: ${CURRENCY:-USD}
       MACHINE_RATE_PER_HOUR: ${MACHINE_RATE_PER_HOUR:-0}
       FILAMENT_PRICE_PER_KG: ${FILAMENT_PRICE_PER_KG:-0}
       FILAMENT_KG_PER_HOUR: ${FILAMENT_KG_PER_HOUR:-0}
     ports:
       - "18081:8080"
+    volumes:
+      - artifacts:/data/artifacts
     depends_on:
       postgres:
         condition: service_healthy
@@ -141,8 +144,11 @@ services:
       CDP_URL: ${CDP_URL:-}
       EDGE_TOKEN: ${EDGE_TOKEN:-}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      ARTIFACTS_DIR: ${ARTIFACTS_DIR:-/data/artifacts}
     ports:
       - "18082:8080"
+    volumes:
+      - artifacts:/data/artifacts:ro
     depends_on:
       redis:
         condition: service_healthy
@@ -211,3 +217,4 @@ services:
 volumes:
   pgdata:
   miniodata:
+  artifacts:
