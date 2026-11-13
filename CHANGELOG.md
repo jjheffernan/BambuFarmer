@@ -10,6 +10,7 @@ On release: move that section to a new `## [X.Y.Z] — YYYY-MM-DD`, bump [`VERSI
 ## [Unreleased]
 
 ### Added
+- Presets page import/export (download JSON bundle, paste or upload file into `POST /api/v1/presets/import`) with list refresh
 - Admin rate card editor (currency, $/hr, $/kg, kg/hr, labor flat, failure surcharge) replaces the session/rates JSON dump
 - Edge publishes `printer.ams_changed` when AMS trays change (fleet SSE listens); first empty AMS sighting is skipped
 - Fleet printer detail drawer (temps, AMS table, task, HMS, tags, liveview still) opened from the card title; updates live over SSE

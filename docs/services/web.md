@@ -74,7 +74,7 @@ Migrate from inline `html/template` to [templ](https://templ.guide/) once pages 
 ## 6. MVP milestones
 
 1. Nav shell (done)  
-2. Presets page: list + import via HTMX → gateway  
+2. Presets page: list + import/export via gateway (done)
 3. Fleet table fed by SSE fragments  
 4. Job composer form  
 5. Analytics charts (done)

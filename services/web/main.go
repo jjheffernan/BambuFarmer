@@ -701,6 +701,21 @@ const layoutHTML = `<!DOCTYPE html>
         </script>
       {{else if eq .Active "presets"}}
         <p class="bf-lede">Versioned filament and print presets stored in Postgres.</p>
+        <div class="bf-panel mb-4">
+          <h2 class="font-display text-lg mb-3">Import / export</h2>
+          <p class="text-sm text-bf-muted mb-3">JSON bundle shape: <code>filament_presets</code> + <code>print_presets</code>. Import upserts by id and bumps version.</p>
+          <div class="flex flex-wrap gap-2 items-center mb-3">
+            <a class="bf-btn" id="presets-export" href="#">Export JSON</a>
+            <label class="bf-btn cursor-pointer">
+              Import file
+              <input type="file" id="presets-file" accept="application/json,.json" class="hidden"/>
+            </label>
+          </div>
+          <label class="bf-field" for="presets-import">Or paste bundle JSON</label>
+          <textarea class="bf-input font-mono text-xs min-h-28" id="presets-import" placeholder='{"filament_presets":[],"print_presets":[]}'></textarea>
+          <button type="button" class="bf-btn bf-btn-primary mt-2" id="presets-import-btn">Import</button>
+          <p class="text-sm mt-2" id="presets-msg"></p>
+        </div>
         <div class="grid gap-4 md:grid-cols-2">
           <div class="bf-panel">
             <h2 class="font-display text-lg mb-3">Filament</h2>
@@ -713,23 +728,71 @@ const layoutHTML = `<!DOCTYPE html>
         </div>
         <script>
           const API = {{printf "%q" .APIBase}};
+          document.getElementById('presets-export').href = API + '/api/v1/presets/export';
           function list(el, items, map) {
             if (!items || !items.length) { el.innerHTML = '<p class="bf-empty">None yet</p>'; return; }
             el.innerHTML = '<ul class="space-y-2">' + items.map(map).join('') + '</ul>';
           }
-          Promise.all([
-            bfJSON(API + '/api/v1/presets/filament'),
-            bfJSON(API + '/api/v1/presets/print')
-          ]).then(([f, p]) => {
+          function renderPresets(f, p) {
             list(document.getElementById('filament-list'), f, x =>
-              '<li class="bf-card"><div class="bf-card-name">' + x.name + '</div>' +
+              '<li class="bf-card"><div class="bf-card-name">' + (x.name||x.id) + '</div>' +
               '<div class="bf-card-meta">' + (x.material||'') + ' · ' + (x.vendor||'') +
+              ' · v' + (x.version||1) +
               (x.price_per_kg ? ' · $' + x.price_per_kg + '/kg' : '') + '</div></li>');
             list(document.getElementById('print-list'), p, x =>
-              '<li class="bf-card"><div class="bf-card-name">' + x.name + '</div>' +
-              '<div class="bf-card-meta">' + (x.layer_height_mm||'') + 'mm · ø' + (x.nozzle_diameter_mm||'') + '</div></li>');
-          }).catch(e => {
-            document.getElementById('filament-list').textContent = String(e);
+              '<li class="bf-card"><div class="bf-card-name">' + (x.name||x.id) + '</div>' +
+              '<div class="bf-card-meta">' + (x.layer_height_mm||'') + 'mm · ø' + (x.nozzle_diameter_mm||'') +
+              ' · v' + (x.version||1) + '</div></li>');
+          }
+          async function loadPresets() {
+            const [f, p] = await Promise.all([
+              bfJSON(API + '/api/v1/presets/filament'),
+              bfJSON(API + '/api/v1/presets/print')
+            ]);
+            renderPresets(f, p);
+          }
+          async function importBundle(text) {
+            const msg = document.getElementById('presets-msg');
+            msg.className = 'text-sm mt-2';
+            msg.textContent = '';
+            let bundle;
+            try { bundle = JSON.parse(text); } catch (e) {
+              msg.className = 'text-bf-danger text-sm mt-2';
+              msg.textContent = 'Invalid JSON';
+              return;
+            }
+            try {
+              const r = await fetch(API + '/api/v1/presets/import', {
+                method: 'POST', credentials: 'include',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(bundle),
+              });
+              if (!r.ok) {
+                let err = r.statusText;
+                try { const j = await r.json(); err = j.error || err; } catch (_) {}
+                throw new Error(err);
+              }
+              msg.className = 'text-bf-accent text-sm mt-2';
+              msg.textContent = 'Imported';
+              document.getElementById('presets-import').value = '';
+              await loadPresets();
+            } catch (e) {
+              msg.className = 'text-bf-danger text-sm mt-2';
+              msg.textContent = String(e.message || e);
+            }
+          }
+          document.getElementById('presets-import-btn').onclick = () =>
+            importBundle(document.getElementById('presets-import').value);
+          document.getElementById('presets-file').onchange = async (ev) => {
+            const file = ev.target.files && ev.target.files[0];
+            if (!file) return;
+            const text = await file.text();
+            document.getElementById('presets-import').value = text;
+            await importBundle(text);
+            ev.target.value = '';
+          };
+          loadPresets().catch(e => {
+            document.getElementById('filament-list').textContent = String(e.message || e);
           });
         </script>
       {{else if eq .Active "analytics"}}
