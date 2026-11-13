@@ -27,4 +27,10 @@ func TestPresetsPageHasImportExport(t *testing.T) {
 	if !strings.Contains(layoutHTML, "data-del-id") || !strings.Contains(layoutHTML, "deletePreset") {
 		t.Fatal("expected preset delete control")
 	}
+	if !strings.Contains(layoutHTML, `id="preset-editor"`) || !strings.Contains(layoutHTML, "editPreset") {
+		t.Fatal("expected preset create/edit form")
+	}
+	if !strings.Contains(layoutHTML, "method: mode === 'edit' ? 'PATCH' : 'POST'") {
+		t.Fatal("expected POST create and PATCH edit")
+	}
 }

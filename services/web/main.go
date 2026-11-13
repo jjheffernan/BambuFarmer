@@ -1032,6 +1032,48 @@ const layoutHTML = `<!DOCTYPE html>
       {{else if eq .Active "presets"}}
         <p class="bf-lede">Versioned filament and print presets stored in Postgres.</p>
         <div class="bf-panel mb-4">
+          <h2 class="font-display text-lg mb-3" id="preset-editor-title">New filament preset</h2>
+          <form id="preset-editor" class="grid gap-x-4 gap-y-1 md:grid-cols-2">
+            <input type="hidden" id="preset-kind" value="filament"/>
+            <input type="hidden" id="preset-mode" value="create"/>
+            <div>
+              <label class="bf-field" for="preset-id">ID</label>
+              <input class="bf-input" id="preset-id" name="id" required placeholder="pla-basic"/>
+            </div>
+            <div>
+              <label class="bf-field" for="preset-name">Name</label>
+              <input class="bf-input" id="preset-name" name="name" required placeholder="PLA Basic"/>
+            </div>
+            <div data-filament-only>
+              <label class="bf-field" for="preset-material">Material</label>
+              <input class="bf-input" id="preset-material" placeholder="PLA"/>
+            </div>
+            <div data-filament-only>
+              <label class="bf-field" for="preset-vendor">Vendor</label>
+              <input class="bf-input" id="preset-vendor" placeholder="Generic"/>
+            </div>
+            <div data-filament-only>
+              <label class="bf-field" for="preset-price">Price $/kg</label>
+              <input class="bf-input" id="preset-price" type="number" min="0" step="0.01" placeholder="0"/>
+            </div>
+            <div data-print-only class="hidden">
+              <label class="bf-field" for="preset-layer">Layer height mm</label>
+              <input class="bf-input" id="preset-layer" type="number" min="0" step="0.01" placeholder="0.2"/>
+            </div>
+            <div data-print-only class="hidden">
+              <label class="bf-field" for="preset-nozzle">Nozzle ø mm</label>
+              <input class="bf-input" id="preset-nozzle" type="number" min="0" step="0.01" placeholder="0.4"/>
+            </div>
+            <div class="md:col-span-2 flex flex-wrap gap-2 items-center mt-2">
+              <button type="submit" class="bf-btn bf-btn-primary" id="preset-save">Create</button>
+              <button type="button" class="bf-btn" id="preset-new-filament">New filament</button>
+              <button type="button" class="bf-btn" id="preset-new-print">New print</button>
+              <button type="button" class="bf-btn hidden" id="preset-cancel">Cancel edit</button>
+              <p class="text-sm self-center" id="preset-editor-msg"></p>
+            </div>
+          </form>
+        </div>
+        <div class="bf-panel mb-4">
           <h2 class="font-display text-lg mb-3">Import / export</h2>
           <p class="text-sm text-bf-muted mb-3">JSON bundle shape: <code>filament_presets</code> + <code>print_presets</code>. Import upserts by id and bumps version.</p>
           <div class="flex flex-wrap gap-2 items-center mb-3">
@@ -1074,6 +1116,40 @@ const layoutHTML = `<!DOCTYPE html>
             if (!items || !items.length) { el.innerHTML = '<p class="bf-empty">None yet</p>'; return; }
             el.innerHTML = '<ul class="space-y-2">' + items.map(map).join('') + '</ul>';
           }
+          function setEditorKind(kind, mode) {
+            document.getElementById('preset-kind').value = kind;
+            document.getElementById('preset-mode').value = mode || 'create';
+            const editing = (mode || 'create') === 'edit';
+            document.getElementById('preset-id').readOnly = editing;
+            document.getElementById('preset-save').textContent = editing ? 'Save' : 'Create';
+            document.getElementById('preset-cancel').classList.toggle('hidden', !editing);
+            document.getElementById('preset-editor-title').textContent =
+              (editing ? 'Edit ' : 'New ') + (kind === 'print' ? 'print' : 'filament') + ' preset';
+            document.querySelectorAll('[data-filament-only]').forEach(el => el.classList.toggle('hidden', kind !== 'filament'));
+            document.querySelectorAll('[data-print-only]').forEach(el => el.classList.toggle('hidden', kind !== 'print'));
+          }
+          function resetEditor(kind) {
+            document.getElementById('preset-editor').reset();
+            document.getElementById('preset-editor-msg').textContent = '';
+            setEditorKind(kind || 'filament', 'create');
+          }
+          async function editPreset(kind, id) {
+            try {
+              const x = await bfJSON(API + '/api/v1/presets/' + kind + '/' + encodeURIComponent(id));
+              setEditorKind(kind, 'edit');
+              document.getElementById('preset-id').value = x.id || id;
+              document.getElementById('preset-name').value = x.name || '';
+              document.getElementById('preset-material').value = x.material || '';
+              document.getElementById('preset-vendor').value = x.vendor || '';
+              document.getElementById('preset-price').value = x.price_per_kg || '';
+              document.getElementById('preset-layer').value = x.layer_height_mm || '';
+              document.getElementById('preset-nozzle').value = x.nozzle_diameter_mm || '';
+              document.getElementById('preset-editor-msg').textContent = '';
+              document.getElementById('preset-editor').scrollIntoView({behavior: 'smooth', block: 'nearest'});
+            } catch (e) {
+              alert(String(e.message || e));
+            }
+          }
           function renderPresets(f, p) {
             list(document.getElementById('filament-list'), f, x =>
               '<li class="bf-card"><div class="bf-card-name">' + (x.name||x.id) + '</div>' +
@@ -1081,6 +1157,7 @@ const layoutHTML = `<!DOCTYPE html>
               ' · v' + (x.version||1) +
               (x.price_per_kg ? ' · $' + x.price_per_kg + '/kg' : '') + '</div>' +
               '<div class="flex flex-wrap gap-2 mt-2">' +
+              '<button type="button" class="bf-btn" data-edit-kind="filament" data-edit-id="' + x.id + '">Edit</button>' +
               '<button type="button" class="bf-btn" data-hist-kind="filament" data-hist-id="' + x.id + '" data-hist-name="' + (x.name||x.id) + '">History</button>' +
               '<button type="button" class="bf-btn" data-del-kind="filament" data-del-id="' + x.id + '" data-del-name="' + (x.name||x.id) + '">Delete</button></div></li>');
             list(document.getElementById('print-list'), p, x =>
@@ -1088,8 +1165,12 @@ const layoutHTML = `<!DOCTYPE html>
               '<div class="bf-card-meta">' + (x.layer_height_mm||'') + 'mm · ø' + (x.nozzle_diameter_mm||'') +
               ' · v' + (x.version||1) + '</div>' +
               '<div class="flex flex-wrap gap-2 mt-2">' +
+              '<button type="button" class="bf-btn" data-edit-kind="print" data-edit-id="' + x.id + '">Edit</button>' +
               '<button type="button" class="bf-btn" data-hist-kind="print" data-hist-id="' + x.id + '" data-hist-name="' + (x.name||x.id) + '">History</button>' +
               '<button type="button" class="bf-btn" data-del-kind="print" data-del-id="' + x.id + '" data-del-name="' + (x.name||x.id) + '">Delete</button></div></li>');
+            document.querySelectorAll('[data-edit-id]').forEach(btn => {
+              btn.onclick = () => editPreset(btn.dataset.editKind, btn.dataset.editId);
+            });
             document.querySelectorAll('[data-hist-id]').forEach(btn => {
               btn.onclick = () => openHistory(btn.dataset.histKind, btn.dataset.histId, btn.dataset.histName);
             });
@@ -1155,6 +1236,59 @@ const layoutHTML = `<!DOCTYPE html>
             }
           }
           document.getElementById('presets-history-close').onclick = () => historyPanel.classList.add('hidden');
+          document.getElementById('preset-new-filament').onclick = () => resetEditor('filament');
+          document.getElementById('preset-new-print').onclick = () => resetEditor('print');
+          document.getElementById('preset-cancel').onclick = () => resetEditor(document.getElementById('preset-kind').value);
+          document.getElementById('preset-editor').onsubmit = async (ev) => {
+            ev.preventDefault();
+            const msg = document.getElementById('preset-editor-msg');
+            msg.className = 'text-sm self-center';
+            msg.textContent = '';
+            const kind = document.getElementById('preset-kind').value;
+            const mode = document.getElementById('preset-mode').value;
+            const id = document.getElementById('preset-id').value.trim();
+            const name = document.getElementById('preset-name').value.trim();
+            if (!id || !name) {
+              msg.className = 'text-bf-danger text-sm self-center';
+              msg.textContent = 'id and name required';
+              return;
+            }
+            let body;
+            if (kind === 'print') {
+              body = {
+                id, name,
+                layer_height_mm: Number(document.getElementById('preset-layer').value) || 0,
+                nozzle_diameter_mm: Number(document.getElementById('preset-nozzle').value) || 0,
+                active: true,
+              };
+            } else {
+              body = {
+                id, name,
+                material: document.getElementById('preset-material').value.trim(),
+                vendor: document.getElementById('preset-vendor').value.trim(),
+                price_per_kg: Number(document.getElementById('preset-price').value) || 0,
+                active: true,
+              };
+            }
+            const url = mode === 'edit'
+              ? API + '/api/v1/presets/' + kind + '/' + encodeURIComponent(id)
+              : API + '/api/v1/presets/' + kind;
+            try {
+              await bfJSON(url, {
+                method: mode === 'edit' ? 'PATCH' : 'POST',
+                credentials: 'include',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(body),
+              });
+              msg.className = 'text-bf-accent text-sm self-center';
+              msg.textContent = mode === 'edit' ? 'Saved' : 'Created';
+              resetEditor(kind);
+              await loadPresets();
+            } catch (e) {
+              msg.className = 'text-bf-danger text-sm self-center';
+              msg.textContent = String(e.message || e);
+            }
+          };
           async function loadPresets() {
             const [f, p] = await Promise.all([
               bfJSON(API + '/api/v1/presets/filament'),
@@ -1202,6 +1336,7 @@ const layoutHTML = `<!DOCTYPE html>
             await importBundle(text);
             ev.target.value = '';
           };
+          setEditorKind('filament', 'create');
           loadPresets().catch(e => {
             document.getElementById('filament-list').textContent = String(e.message || e);
           });
