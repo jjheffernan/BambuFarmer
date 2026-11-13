@@ -20,6 +20,14 @@ func Register(mux *http.ServeMux, pool *pgxpool.Pool, bus *events.Bus, siteID st
 				httpx.WriteError(w, err)
 				return
 			}
+			q := r.URL.Query()
+			items = db.FilterPrinterSnapshots(items, db.PrinterListFilter{
+				Tag:    q.Get("tag"),
+				State:  q.Get("state"),
+				Model:  q.Get("model"),
+				Query:  q.Get("q"),
+				Online: q.Get("online"),
+			})
 			if items == nil {
 				items = []api.PrinterSnapshot{}
 			}

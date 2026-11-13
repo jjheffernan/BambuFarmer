@@ -10,6 +10,7 @@ On release: move that section to a new `## [X.Y.Z] — YYYY-MM-DD`, bump [`VERSI
 ## [Unreleased]
 
 ### Added
+- Fleet printer filters: `GET /api/v1/printers` accepts `tag`, `state`, `model`, `q`, `online`; Fleet page tag chips + search
 - Job transition history (`GET /api/v1/jobs/{id}/events`); Jobs page History panel
 - Cancel a job (`POST /api/v1/jobs/{id}/cancel`); Jobs page Cancel button; stops the printer when the job was already on a machine
 - Optional MinIO/S3 artifact backend (`OBJECT_STORE_*`): core mirrors uploads, edge fetches on local miss; compose `--profile object` adds MinIO + bucket init

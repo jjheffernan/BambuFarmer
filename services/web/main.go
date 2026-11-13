@@ -145,13 +145,19 @@ const layoutHTML = `<!DOCTYPE html>
         <p class="bf-lede">Live fleet via gateway SSE — no browser polling of Farm Manager.</p>
         <div id="sse-status" class="bf-status">connecting…</div>
         <div id="alert-banner" class="hidden mb-3 border border-bf-danger/40 bg-bf-danger/10 rounded-bf px-3 py-2 text-sm" role="status"></div>
-        <div class="flex flex-wrap gap-2 mb-4" id="bucket-chips">
+        <div class="flex flex-wrap gap-2 mb-3" id="bucket-chips">
           <span class="bf-chip on" data-bucket="all">All</span>
           <span class="bf-chip" data-bucket="ready_to_start">Ready to Start</span>
           <span class="bf-chip" data-bucket="attention_needed">Attention Needed</span>
           <span class="bf-chip" data-bucket="completed_task">Completed</span>
           <span class="bf-chip" data-bucket="not_in_task">Not in Task</span>
           <span class="bf-chip" data-bucket="printing">Printing</span>
+        </div>
+        <div class="flex flex-wrap items-center gap-2 mb-4">
+          <input class="bf-input max-w-xs" id="fleet-q" type="search" placeholder="Search name, SN, model"/>
+          <div class="flex flex-wrap gap-2" id="tag-chips">
+            <span class="bf-chip on" data-tag="">All tags</span>
+          </div>
         </div>
         <div id="bulk-bar" class="hidden sticky top-0 z-10 mb-3 flex flex-wrap items-center gap-2 border border-bf-border rounded-bf bg-bf-2/95 px-3 py-2 backdrop-blur">
           <span id="bulk-count" class="text-sm text-bf-muted">0 selected</span>
@@ -178,6 +184,8 @@ const layoutHTML = `<!DOCTYPE html>
           const printers = new Map();
           const selected = new Set();
           let filter = 'all';
+          let tagFilter = '';
+          let fleetQ = '';
           let openSn = '';
           let liveviewTimer = null;
           const statusEl = document.getElementById('sse-status');
@@ -201,11 +209,37 @@ const layoutHTML = `<!DOCTYPE html>
               render();
             });
           });
+          document.getElementById('fleet-q').oninput = (ev) => {
+            fleetQ = String(ev.target.value || '').trim().toLowerCase();
+            render();
+          };
+          const tagChips = document.getElementById('tag-chips');
+          tagChips.addEventListener('click', (ev) => {
+            const chip = ev.target.closest('[data-tag]');
+            if (!chip) return;
+            tagChips.querySelectorAll('.bf-chip').forEach(c => c.classList.remove('on'));
+            chip.classList.add('on');
+            tagFilter = chip.dataset.tag || '';
+            render();
+          });
+
+          function rebuildTagChips() {
+            const tags = new Set();
+            printers.forEach(p => (p.tags || []).forEach(t => { if (t) tags.add(String(t)); }));
+            const sorted = [...tags].sort((a, b) => a.localeCompare(b));
+            const cur = tagFilter;
+            let html = '<span class="bf-chip' + (cur === '' ? ' on' : '') + '" data-tag="">All tags</span>';
+            sorted.forEach(t => {
+              html += '<span class="bf-chip' + (cur === t ? ' on' : '') + '" data-tag="' + esc(t) + '">' + esc(t) + '</span>';
+            });
+            tagChips.innerHTML = html;
+          }
 
           function upsert(p) {
             if (!p || !p.external_sn) return;
             const prev = printers.get(p.external_sn) || {};
             printers.set(p.external_sn, Object.assign({}, prev, p));
+            rebuildTagChips();
             render();
             if (openSn === p.external_sn) fillDrawer(printers.get(p.external_sn));
           }
@@ -373,9 +407,22 @@ const layoutHTML = `<!DOCTYPE html>
           });
 
           function render() {
-            const items = [...printers.values()].filter(p => filter === 'all' || p.bucket === filter);
+            const items = [...printers.values()].filter(p => {
+              if (filter !== 'all' && p.bucket !== filter) return false;
+              if (tagFilter) {
+                const tags = (p.tags || []).map(t => String(t));
+                if (tags.indexOf(tagFilter) < 0) return false;
+              }
+              if (fleetQ) {
+                const hay = ((p.name || '') + ' ' + (p.external_sn || '') + ' ' + (p.model || '')).toLowerCase();
+                if (hay.indexOf(fleetQ) < 0) return false;
+              }
+              return true;
+            });
             if (!items.length) {
-              grid.innerHTML = '<div class="bf-panel bf-empty">Waiting for edge deltas (fixture or Farm Manager)…</div>';
+              grid.innerHTML = '<div class="bf-panel bf-empty">' +
+                (printers.size ? 'No printers match this filter.' : 'Waiting for edge deltas (fixture or Farm Manager)…') +
+                '</div>';
               syncBulkBar();
               return;
             }

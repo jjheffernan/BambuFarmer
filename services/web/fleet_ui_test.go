@@ -33,4 +33,10 @@ func TestFleetPageShowsAMSAndTaskHelpers(t *testing.T) {
 	if !strings.Contains(layoutHTML, "alert.raised") || !strings.Contains(layoutHTML, "alert-banner") {
 		t.Fatal("expected alert.raised banner")
 	}
+	if !strings.Contains(layoutHTML, "tag-chips") || !strings.Contains(layoutHTML, "rebuildTagChips") {
+		t.Fatal("expected fleet tag filter chips")
+	}
+	if !strings.Contains(layoutHTML, "fleet-q") || !strings.Contains(layoutHTML, "fleetQ") {
+		t.Fatal("expected fleet search filter")
+	}
 }
