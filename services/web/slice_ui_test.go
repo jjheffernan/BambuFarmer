@@ -29,4 +29,7 @@ func TestSlicePage(t *testing.T) {
 		!strings.Contains(layoutHTML, "filament_json") {
 		t.Fatal("expected slice advanced Orca JSON path fields")
 	}
+	if !strings.Contains(layoutHTML, "connectSliceSSE") || !strings.Contains(layoutHTML, "slice.queued") {
+		t.Fatal("expected slice SSE listeners")
+	}
 }

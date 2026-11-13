@@ -65,6 +65,9 @@ func TestJobsPageUsesSSENotIntervalPoll(t *testing.T) {
 	if !strings.Contains(layoutHTML, ">#</th>") || !strings.Contains(layoutHTML, "j.queue_pos") {
 		t.Fatal("jobs table missing queue position column")
 	}
+	if !strings.Contains(layoutHTML, `data-copy="' + esc(j.id)`) {
+		t.Fatal("jobs table missing copy id control")
+	}
 	for _, ev := range []string{
 		"job.queued",
 		"job.assigned",

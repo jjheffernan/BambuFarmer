@@ -51,4 +51,13 @@ func TestFleetPageShowsAMSAndTaskHelpers(t *testing.T) {
 	if !strings.Contains(layoutHTML, `id="fleet-state"`) || !strings.Contains(layoutHTML, "fleetState") {
 		t.Fatal("expected fleet gcode_state filter")
 	}
+	if !strings.Contains(layoutHTML, "hmsChips") || !strings.Contains(layoutHTML, "data-hms-chips") {
+		t.Fatal("expected fleet HMS chips on cards")
+	}
+	if !strings.Contains(layoutHTML, "/api/v1/edge/control/") || !strings.Contains(layoutHTML, "bfJSON(API + '/api/v1/edge/control/") {
+		t.Fatal("expected per-card control via bfJSON")
+	}
+	if !strings.Contains(layoutHTML, "alert-banner-dismiss") {
+		t.Fatal("expected alert banner dismiss")
+	}
 }

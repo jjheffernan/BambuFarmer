@@ -26,4 +26,7 @@ func TestFilamentAndLibraryPages(t *testing.T) {
 	if !strings.Contains(layoutHTML, "/api/v1/integrations/status") {
 		t.Fatal("expected Filament/Library to probe integrations status")
 	}
+	if !strings.Contains(layoutHTML, "lowIDs") || !strings.Contains(layoutHTML, "text-bf-danger") {
+		t.Fatal("expected filament low-stock row highlight")
+	}
 }

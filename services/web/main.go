@@ -118,7 +118,7 @@ const layoutHTML = `<!DOCTYPE html>
 <body>
   <div class="bf-shell">
     <aside class="bf-aside">
-      <div class="bf-brand">BambuFarmer<span>LAN farm ops</span></div>
+      <div class="bf-brand">BambuFarmer<span id="bf-site-label">LAN farm ops</span></div>
       <nav class="bf-nav">
         <a href="/" {{if eq .Active "fleet"}}class="active"{{end}}>Fleet</a>
         <a href="/jobs" {{if eq .Active "jobs"}}class="active"{{end}}>Jobs</a>
@@ -166,9 +166,19 @@ const layoutHTML = `<!DOCTYPE html>
                 location.href = '/login';
               };
             }
+            const roles = me.roles || me.user.roles || [];
+            if (roles.indexOf('admin') < 0 && roles.indexOf('operator') < 0) {
+              document.querySelectorAll('a[href="/admin"]').forEach(a => a.classList.add('hidden'));
+            }
           } else if (me.auth_mode === 'lan') {
             // Gateway will 401/redirect protected routes; soft-hint only.
           }
+        } catch (_) {}
+        try {
+          const sites = await bfJSON(API + '/api/v1/sites');
+          const site = Array.isArray(sites) && sites.length ? sites[0] : null;
+          const label = document.getElementById('bf-site-label');
+          if (label && site && site.name) label.textContent = site.name;
         } catch (_) {}
       })();
     </script>
@@ -180,7 +190,12 @@ const layoutHTML = `<!DOCTYPE html>
           <div id="sse-status" class="bf-status m-0">connecting…</div>
           <div id="edge-status" class="bf-status m-0">edge…</div>
         </div>
-        <div id="alert-banner" class="hidden mb-3 border border-bf-danger/40 bg-bf-danger/10 rounded-bf px-3 py-2 text-sm" role="status"></div>
+        <div id="alert-banner" class="hidden mb-3 border border-bf-danger/40 bg-bf-danger/10 rounded-bf px-3 py-2 text-sm" role="status">
+          <div class="flex items-start justify-between gap-2">
+            <div id="alert-banner-body" class="flex-1 min-w-0"></div>
+            <button type="button" class="bf-btn shrink-0" id="alert-banner-dismiss">Dismiss</button>
+          </div>
+        </div>
         <div class="flex flex-wrap gap-2 mb-3" id="bucket-chips">
           <span class="bf-chip on" data-bucket="all">All</span>
           <span class="bf-chip" data-bucket="ready_to_start">Ready to Start</span>
@@ -342,6 +357,17 @@ const layoutHTML = `<!DOCTYPE html>
             }));
             if (!chips.length) return '';
             return '<div class="flex flex-wrap gap-1 mt-2" data-ams-chips>' + chips.join('') + '</div>';
+          }
+          function hmsChips(p) {
+            const codes = p.hms || [];
+            if (!codes.length) return '';
+            const show = codes.slice(0, 2).map(c =>
+              '<span class="bf-chip text-xs text-bf-danger" title="' + esc(c) + '">' + esc(c) + '</span>'
+            );
+            if (codes.length > 2) {
+              show.push('<span class="bf-chip text-xs">+' + (codes.length - 2) + '</span>');
+            }
+            return '<div class="flex flex-wrap gap-1 mt-2" data-hms-chips>' + show.join('') + '</div>';
           }
 
           function liveviewURL(sn) {
@@ -531,6 +557,7 @@ const layoutHTML = `<!DOCTYPE html>
                 taskLine(p) +
                 '</button></div>' +
                 amsChips(p) +
+                hmsChips(p) +
                 '<div class="flex flex-wrap gap-1.5 mt-3">' +
                 '<button type="button" class="bf-btn" data-sn="' + sn + '" data-opt="pause">Pause</button>' +
                 '<button type="button" class="bf-btn" data-sn="' + sn + '" data-opt="resume">Resume</button>' +
@@ -547,14 +574,24 @@ const layoutHTML = `<!DOCTYPE html>
             grid.querySelectorAll('button.printer-open').forEach(btn => {
               btn.addEventListener('click', () => openDrawer(btn.dataset.sn));
             });
-            grid.querySelectorAll('button.bf-btn').forEach(btn => {
+            grid.querySelectorAll('button.bf-btn[data-opt]').forEach(btn => {
               btn.addEventListener('click', async () => {
-                await fetch(API + '/api/v1/edge/control/' + btn.dataset.sn, {
-                  method: 'POST',
-                  credentials: 'include',
-                  headers: {'Content-Type': 'application/json'},
-                  body: JSON.stringify({opt: btn.dataset.opt})
-                });
+                const note = (t) => {
+                  if (selected.size) bulkMsg.textContent = t;
+                  else { statusEl.textContent = t; statusEl.classList.remove('live'); }
+                };
+                note(btn.dataset.opt + ' · ' + btn.dataset.sn + '…');
+                try {
+                  await bfJSON(API + '/api/v1/edge/control/' + encodeURIComponent(btn.dataset.sn), {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({opt: btn.dataset.opt})
+                  });
+                  note(btn.dataset.opt + ' · ' + btn.dataset.sn + ' ok');
+                } catch (e) {
+                  note(String(e.message || e));
+                }
               });
             });
             syncBulkBar();
@@ -620,7 +657,8 @@ const layoutHTML = `<!DOCTYPE html>
                 const why = (p.reasons && p.reasons.length) ? p.reasons.join(', ') : (p.gcode_state || 'attention');
                 recentAlerts.unshift(esc(p.name || sn) + ' · ' + esc(why));
                 if (recentAlerts.length > 5) recentAlerts.pop();
-                alertBanner.innerHTML = recentAlerts.map(x => '<div>' + x + '</div>').join('');
+                document.getElementById('alert-banner-body').innerHTML =
+                  recentAlerts.map(x => '<div>' + x + '</div>').join('');
                 alertBanner.classList.remove('hidden');
                 if (p.external_sn) upsert(p);
               } catch (_) {}
@@ -631,6 +669,11 @@ const layoutHTML = `<!DOCTYPE html>
             };
           }
 
+          document.getElementById('alert-banner-dismiss').onclick = () => {
+            recentAlerts.length = 0;
+            document.getElementById('alert-banner-body').innerHTML = '';
+            alertBanner.classList.add('hidden');
+          };
           bootstrap();
           connectSSE();
         </script>
@@ -1030,7 +1073,8 @@ const layoutHTML = `<!DOCTYPE html>
                 '<td class="text-bf-muted">' + esc(fmtCost(j)) + '</td>' +
                 '<td class="' + (j.error ? 'text-bf-danger text-xs' : 'text-bf-muted') + '">' +
                   esc(j.error || '—') + '</td>' +
-                '<td><button type="button" class="bf-btn" data-detail="' + esc(j.id) + '">Detail</button> ' +
+                '<td><button type="button" class="bf-btn" data-copy="' + esc(j.id) + '">Copy id</button> ' +
+                  '<button type="button" class="bf-btn" data-detail="' + esc(j.id) + '">Detail</button> ' +
                   '<button type="button" class="bf-btn" data-history="' + esc(j.id) + '">History</button> ' +
                   '<button type="button" class="bf-btn" data-reprint="' + esc(j.id) + '">Reprint</button>' +
                   (['queued','assigned'].indexOf(j.state) >= 0
@@ -1214,6 +1258,17 @@ const layoutHTML = `<!DOCTYPE html>
           document.getElementById('jobs-q').oninput = () => { loadJobs(); };
           document.getElementById('jobs-state').onchange = () => { loadJobs(); };
           jobsTb.onclick = async (ev) => {
+            const copy = ev.target.closest('[data-copy]');
+            if (copy) {
+              try {
+                await navigator.clipboard.writeText(copy.dataset.copy);
+                jobsStatus.textContent = 'Copied ' + copy.dataset.copy;
+                jobsStatus.classList.add('live');
+              } catch (_) {
+                jobsStatus.textContent = copy.dataset.copy;
+              }
+              return;
+            }
             const detail = ev.target.closest('[data-detail]');
             if (detail) {
               await loadJobDetail(detail.dataset.detail);
@@ -1800,17 +1855,23 @@ const layoutHTML = `<!DOCTYPE html>
                 ).join('') + '</div>';
               }
               const spools = data.spools || [];
+              const lowIDs = new Set((data.low_stock || []).map(s => String(s.id || s.spoolman_id || '')));
               if (!spools.length) {
                 filBody.innerHTML = '<tr><td colspan="6" class="bf-empty">No spools</td></tr>';
               } else {
-                filBody.innerHTML = spools.map(s => '<tr>' +
+                filBody.innerHTML = spools.map(s => {
+                  const id = String(s.id || s.spoolman_id || '');
+                  const low = lowIDs.has(id) || !!s.low_stock;
+                  return '<tr>' +
                   '<td>' + esc(s.name || '—') + '</td>' +
                   '<td>' + esc(s.material || '—') + '</td>' +
                   '<td>' + esc(s.vendor || '—') + '</td>' +
-                  '<td class="font-mono text-xs">' + esc(fmtG(s.remaining_g)) + '</td>' +
+                  '<td class="font-mono text-xs' + (low ? ' text-bf-danger' : '') + '">' + esc(fmtG(s.remaining_g)) +
+                    (low ? ' · low' : '') + '</td>' +
                   '<td class="text-bf-muted text-xs">' + esc(s.location || '—') + '</td>' +
-                  '<td class="font-mono text-xs">' + esc(s.id || s.spoolman_id || '—') + '</td>' +
-                  '</tr>').join('');
+                  '<td class="font-mono text-xs">' + esc(id || '—') + '</td>' +
+                  '</tr>';
+                }).join('');
               }
               filStatus.textContent = (integNote || 'Spoolman') + ' · ' + spools.length + ' spools';
               filStatus.classList.add('live');
@@ -2145,9 +2206,40 @@ const layoutHTML = `<!DOCTYPE html>
               msg.textContent = String(e.message || e);
             }
           };
+          function connectSliceSSE() {
+            const es = new EventSource(API + '/api/v1/events/stream', { withCredentials: true });
+            es.addEventListener('ready', () => {
+              if (!sliceStatus.textContent || sliceStatus.textContent === 'loading…') {
+                sliceStatus.textContent = 'SSE live';
+              }
+              sliceStatus.classList.add('live');
+            });
+            ['slice.queued','slice.succeeded','slice.failed'].forEach(ev => {
+              es.addEventListener(ev, (msg) => {
+                try {
+                  const env = JSON.parse(msg.data);
+                  const p = env.payload || {};
+                  const name = p.name || p.job_id || ev;
+                  const line = ev.replace(/^slice\./, '') + ' · ' + name +
+                    (p.output_path ? (' → ' + p.output_path) : '') +
+                    (p.reason ? (' · ' + p.reason) : '');
+                  sliceStatus.textContent = line;
+                  sliceStatus.classList.toggle('live', ev !== 'slice.failed');
+                  const formMsg = document.getElementById('slice-form-msg');
+                  if (formMsg) formMsg.textContent = line;
+                  if (p && Object.keys(p).length) {
+                    sliceResult.textContent = JSON.stringify(p, null, 2);
+                    sliceResult.classList.remove('hidden');
+                  }
+                } catch (_) {}
+              });
+            });
+            es.onerror = () => { sliceStatus.classList.remove('live'); };
+          }
           loadSliceStatus();
           loadSliceArtifacts();
           loadSlicePresets();
+          connectSliceSSE();
         </script>
       {{else if eq .Active "commerce"}}
         <p class="bf-lede">Optional shop-orders plugin (<code>compose --profile commerce</code>). Webhook queues a core job when <code>CORE_URL</code> is set; pack/ship status is echoed (not stored yet).</p>
@@ -3296,7 +3388,11 @@ const loginHTML = `<!DOCTYPE html>
   <div class="bf-wizard-shell">
     <div class="bf-brand text-[1.35rem]">BambuFarmer<span>Sign in</span></div>
     <h1 class="bf-title mt-5">Login</h1>
-    <p class="bf-lede">LAN mode local account. Forgot password? Ask an admin to reset it on the Admin page (no email reset on LAN).</p>
+    <p class="bf-lede" id="login-lede">LAN mode local account. Forgot password? Ask an admin to reset it on the Admin page (no email reset on LAN).</p>
+    <div class="bf-panel mb-4 hidden" id="oidc-panel">
+      <a class="bf-btn bf-btn-primary" id="oidc-login" href="#">Sign in with SSO</a>
+      <p class="text-sm text-bf-muted mt-3 m-0">AUTH_MODE=oidc — local password login is disabled.</p>
+    </div>
     <form class="bf-panel" id="login-form">
       <label class="bf-field" for="username">Username</label>
       <input class="bf-input" id="username" name="username" autocomplete="username" required/>
@@ -3310,6 +3406,19 @@ const loginHTML = `<!DOCTYPE html>
   </div>
   <script>
     const API = {{printf "%q" .APIBase}};
+    (async () => {
+      try {
+        const r = await fetch(API + '/api/v1/auth/me', { credentials: 'include' });
+        if (!r.ok) return;
+        const me = await r.json();
+        if (me.auth_mode === 'oidc') {
+          document.getElementById('login-lede').textContent = 'Sign in with your organization identity provider.';
+          document.getElementById('oidc-panel').classList.remove('hidden');
+          document.getElementById('oidc-login').href = API + '/api/v1/auth/oidc/login';
+          document.getElementById('login-form').classList.add('hidden');
+        }
+      } catch (_) {}
+    })();
     document.getElementById('login-form').onsubmit = async (ev) => {
       ev.preventDefault();
       const err = document.getElementById('err');

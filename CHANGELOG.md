@@ -10,6 +10,8 @@ On release: move that section to a new `## [X.Y.Z] — YYYY-MM-DD`, bump [`VERSI
 ## [Unreleased]
 
 ### Added
+- Fleet card control errors via bfJSON, HMS chips, and dismissible alert banner; shell shows site name
+- Jobs Copy id; Slice `slice.*` SSE toasts; OIDC SSO button on `/login` when `AUTH_MODE=oidc`; Filament low-stock row highlight
 - Jobs Cancel prompts for a reason (defaults to operator cancel)
 - Jobs table shows queue `#` and target/after; create form model picker; Admin transition job picker with current state
 - Analytics utilization table/charts honor `group_by` (printer/site/day); Fleet `gcode_state` filter
