@@ -31,9 +31,13 @@ services/core/
     presets/              # filament/print CRUD + import/export
     rates/                # RateCard admin
     printers/             # list projection + Redis consumer
-    jobs/                 # create/list/transition (+ command emit)
+    jobs/                 # create/list/transition/cancel/reprint + scheduler
+    users/                # LAN user store helpers
+    sites/                # site CRUD
+    notify/               # NOTIFY_URL webhook + Admin test
+    power/                # POWER_URL on/off forwarder
+    alerts/               # alert.raised → notify
     setup/                # install wizard API
-    # later: scheduler/, users/
 ```
 
 Persistence stays in [`packages/db`](../../packages/db); core packages are thin HTTP/event adapters.
@@ -45,17 +49,27 @@ Persistence stays in [`packages/db`](../../packages/db); core packages are thin 
 ### Done / partial
 
 - `GET/POST /api/v1/presets/filament`  
+- `GET/PATCH/DELETE /api/v1/presets/filament/{id}`  
 - `GET/POST /api/v1/presets/print`  
+- `GET/PATCH/DELETE /api/v1/presets/print/{id}`  
 - `GET /api/v1/presets/export`  
 - `POST /api/v1/presets/import`  
 
 ### Next
 
+- (none blocking)  
+
+### Recent
+
+- `GET /api/v1/sites` (+ `/{id}`)
+- Scheduler stagger (`SCHEDULER_STAGGER` / `SCHEDULER_MAX_STARTS_PER_TICK`)
+- Optional MinIO/S3 artifact mirror via `OBJECT_STORE_*` (compose `--profile object`)
+- Preset revision list/restore (`GET …/revisions`, `POST …/restore`)
 - `GET/PUT /api/v1/admin/rate-cards`  
 - `GET /api/v1/printers` (projection)  
-- `CRUD /api/v1/jobs` + queue/cancel/reprint  
-- `POST /api/v1/artifacts` (object store + metadata)  
-- Preset revision list/restore endpoints  
+- Jobs create/list/dispatch/cancel/reprint + scheduler + `GET …/events`  
+- `POST/GET /api/v1/artifacts` (+ `/content`) — local `ARTIFACTS_DIR` staging
+- `GET/POST /api/v1/notify*` when `NOTIFY_URL` set; `GET/POST /api/v1/power` when `POWER_URL` set
 
 ---
 
@@ -90,5 +104,5 @@ On boot: `db.Migrate`.
 2. Rate cards CRUD  
 3. Printer projection consumer  
 4. Jobs create → command edge → track finish  
-5. Artifact upload to MinIO/S3  
+5. Artifact upload to MinIO/S3 — done when `OBJECT_STORE_ENDPOINT` is set (`--profile object`)
 6. Lan users for gateway

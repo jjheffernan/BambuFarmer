@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  GO_VERSION: "1.23.x"
+  GO_VERSION: "1.26.x"
 
 jobs:
   go-test:
@@ -27,6 +27,7 @@ jobs:
           - packages/events
           - packages/farm
           - packages/httpserver
+          - packages/objectstore
           - packages/printerstate
           - packages/version
           - services/gateway
@@ -34,6 +35,8 @@ jobs:
           - services/edge
           - services/integrations
           - services/analytics
+          - services/commerce
+          - services/slicer
           - services/web
     defaults:
       run:
@@ -97,6 +100,8 @@ jobs:
           - edge
           - integrations
           - analytics
+          - commerce
+          - slicer
           - web
     steps:
       - uses: actions/checkout@v7
@@ -129,6 +134,8 @@ jobs:
           - edge
           - integrations
           - analytics
+          - commerce
+          - slicer
           - web
     steps:
       - uses: actions/checkout@v7
@@ -151,3 +158,17 @@ jobs:
           # compose services reference ../.env via env_file; CI has no secrets file
           cp .env.example .env
           docker compose -f deploy/compose.yml config --quiet
+
+  changelog:
+    name: Changelog shape
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Require Keep a Changelog Unreleased
+        run: |
+          set -euo pipefail
+          test -f CHANGELOG.md
+          grep -qE '^## \[Unreleased\]' CHANGELOG.md
+          grep -qE '^## \[[0-9]+\.[0-9]+\.[0-9]+\]' CHANGELOG.md
+          # VERSION file must be SemVer-ish
+          grep -qE '^[0-9]+\.[0-9]+\.[0-9]+' VERSION

@@ -10,10 +10,11 @@ Per-module design docs that expand [`DESIGN_SPEC.md`](../DESIGN_SPEC.md) into im
 | **edge / FM research** | [edge-farm-manager.md](./edge-farm-manager.md) | Protocol research, endpoints, lab checklist |
 | **integrations** | [integrations.md](./integrations.md) | Spoolman + Manyfold adapters |
 | **analytics** | [analytics.md](./analytics.md) | Event rollups, reports |
-| **web** | [web.md](./web.md) | HTMX + Tailwind operator UI |
-| **slicer** | [slicer.md](./slicer.md) | Post-MVP OrcaSlicer wrapper |
+| **commerce** | [commerce.md](./commerce.md) | Optional shop-orders plugin (`compose --profile commerce`) |
+| **web** | [web.md](./web.md) | Operator UI (`html/template` + SSE + Tailwind) |
+| **slicer** | [slicer.md](./slicer.md) | Optional slice plugin (`compose --profile slicer`); Orca binary not bundled |
 
-Cross-cutting: [`DEPLOYMENT_MODES.md`](../DEPLOYMENT_MODES.md) (LAN vs OIDC) · [`INSTALL.md`](../INSTALL.md) (wizard + releases) · [`TESTING.md`](../TESTING.md) (module `tests/` layout).
+Cross-cutting: [`DEPLOYMENT_MODES.md`](../DEPLOYMENT_MODES.md) (LAN vs OIDC) · [`INSTALL.md`](../INSTALL.md) (wizard + releases) · [`TESTING.md`](../TESTING.md) · [`BUILD_OUT.md`](../BUILD_OUT.md) · [`plugins.md`](../plugins.md).
 
 ## Layout convention
 
@@ -31,7 +32,7 @@ Do not put service-private code under `packages/`. Edge Farm Manager HTTP lives 
 ## Cross-cutting contracts
 
 - **Events:** [`packages/events`](../../packages/events) — Redis Streams keys + envelope
-- **API DTOs:** [`packages/api`](../../packages/api)
+- **API DTOs / errors:** [`packages/api`](../../packages/api) — `api.Error` + `httpserver.WriteError` → JSON `{error,code,details?}`
 - **DB:** [`packages/db`](../../packages/db) — baseline + forward migrations; see [`DATABASE.md`](../DATABASE.md)
 - **Config / secrets:** [`.env.example`](../../.env.example) → `.env` (gitignored)
 - **Bambu integration:** [`packages/farm`](../../packages/farm) — `ControlPlane` abstraction (edge-only implementations)
@@ -42,6 +43,8 @@ Do not put service-private code under `packages/`. Edge Farm Manager HTTP lives 
 web ──► gateway ──► core
                  ├─► analytics
                  ├─► integrations
+                 ├─► commerce*   (* compose --profile commerce)
+                 ├─► slicer*     (* compose --profile slicer)
                  └─► edge ──► Farm Manager Server (LAN)
 core ◄── Redis Streams ◄── edge / integrations
 analytics ◄── Redis Streams

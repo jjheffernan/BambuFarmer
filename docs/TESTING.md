@@ -19,7 +19,7 @@ services/edge/
 
 ## Rules
 
-1. **No colocated `*_test.go`** next to implementation (keeps source trees scannable).
+1. Prefer `tests/` packages for black-box coverage. Colocated `*_test.go` is OK for package-private helpers and web `*_ui_test.go` string asserts.
 2. **`package tests`** black-box imports the code under test (exported API only).
 3. **`go test ./...`** from each module still discovers `tests/` automatically.
 4. Testable logic in `package main` belongs in **`internal/…` (core)**, **`auth/…` (gateway)**, **`setup/…` (web)**, or **`app/…` (edge/integrations)** so `tests/` can import it.

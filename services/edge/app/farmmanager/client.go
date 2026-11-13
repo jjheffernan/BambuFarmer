@@ -26,8 +26,8 @@ type ClientOptions struct {
 
 // Client is an fm_native Farm Manager REST client (Client-shaped headers).
 type Client struct {
-	base    string
-	http    *http.Client
+	base     string
+	http     *http.Client
 	serverID string
 
 	mu    sync.RWMutex
@@ -44,14 +44,9 @@ func NewClient(opts ClientOptions) (*Client, error) {
 		opts.Timeout = 15 * time.Second
 	}
 
-	tlsCfg := &tls.Config{
-		MinVersion:         tls.VersionTLS12,
-		InsecureSkipVerify: opts.TLSInsecure, //nolint:gosec // lab opt-in
-	}
-	if opts.CertDir != "" {
-		if err := loadClientCerts(opts.CertDir, tlsCfg); err != nil {
-			return nil, err
-		}
+	tlsCfg, err := ClientTLS(opts.CertDir, opts.TLSInsecure)
+	if err != nil {
+		return nil, err
 	}
 
 	tr := &http.Transport{
@@ -66,6 +61,33 @@ func NewClient(opts ClientOptions) (*Client, error) {
 			Transport: tr,
 		},
 	}, nil
+}
+
+// CertMaterial reports whether dir holds a client cert or a CA file.
+func CertMaterial(dir string) bool {
+	if dir == "" {
+		return false
+	}
+	certFile := firstExisting(dir, "client.crt", "tls.crt", "cert.pem")
+	keyFile := firstExisting(dir, "client.key", "tls.key", "key.pem")
+	if certFile != "" && keyFile != "" {
+		return true
+	}
+	return firstExisting(dir, "ca.crt", "ca.pem") != ""
+}
+
+// ClientTLS builds a TLS config from an optional cert directory.
+func ClientTLS(dir string, insecure bool) (*tls.Config, error) {
+	cfg := &tls.Config{
+		MinVersion:         tls.VersionTLS12,
+		InsecureSkipVerify: insecure, //nolint:gosec // lab opt-in
+	}
+	if dir != "" {
+		if err := loadClientCerts(dir, cfg); err != nil {
+			return nil, err
+		}
+	}
+	return cfg, nil
 }
 
 func loadClientCerts(dir string, cfg *tls.Config) error {

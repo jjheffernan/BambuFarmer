@@ -1,7 +1,7 @@
 # bambufarmer-edge — standalone image (one binary, distroless)
 # Keep on printer LAN; do not combine with web/gateway.
 # podman build -t localhost/bambufarmer-edge:dev -f services/edge/Containerfile .
-FROM golang:1.23-bookworm AS build
+FROM golang:1.26-bookworm AS build
 WORKDIR /src
 ENV GOWORK=off
 COPY packages/api ./packages/api
@@ -9,6 +9,7 @@ COPY packages/httpserver ./packages/httpserver
 COPY packages/printerstate ./packages/printerstate
 COPY packages/events ./packages/events
 COPY packages/farm ./packages/farm
+COPY packages/objectstore ./packages/objectstore
 COPY services/edge ./services/edge
 WORKDIR /src/services/edge
 RUN go mod tidy && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/service .

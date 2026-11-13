@@ -14,10 +14,11 @@ import (
 type Kind string
 
 const (
-	KindNative  Kind = "fm_native" // Farm Manager Client–shaped REST
-	KindCDP     Kind = "cdp"      // FM Client DevTools escape hatch
-	KindFixture Kind = "fixture"  // redacted JSON for lab / CI
-	KindHub     Kind = "fleet_hub" // future
+	KindNative  Kind = "fm_native"      // Farm Manager Client–shaped REST (primary)
+	KindCDP     Kind = "cdp"            // FM Client DevTools escape hatch
+	KindFixture Kind = "fixture"        // redacted JSON for lab / CI
+	KindDirect  Kind = "direct_printer" // in-process list (DIRECT_PRINTERS); no LAN
+	KindHub     Kind = "fleet_hub"      // future
 	KindNone    Kind = "none"
 )
 

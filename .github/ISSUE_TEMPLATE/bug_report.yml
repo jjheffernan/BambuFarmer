@@ -1,0 +1,66 @@
+name: Bug report
+description: Something broken in BambuFarmer
+title: "bug: "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: Expected vs actual behavior
+      placeholder: |
+        Expected: …
+        Actual: …
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. …
+        2. …
+    validations:
+      required: true
+  - type: dropdown
+    id: services
+    attributes:
+      label: Affected area
+      multiple: true
+      options:
+        - gateway
+        - core
+        - edge
+        - integrations
+        - analytics
+        - web
+        - packages
+        - deploy / CLI
+        - docs
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      description: "AUTH_MODE, ENGINE (podman/docker), OS, `./scripts/bf version` or git SHA"
+      placeholder: "AUTH_MODE=lan · ENGINE=docker · macOS · 0.1.0-dev"
+    validations:
+      required: true
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options:
+        - blocker
+        - major
+        - minor
+        - cosmetic
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / screenshots
+      description: Redact secrets (.env, passwords, tokens, JWTs).
+      render: shell

@@ -73,6 +73,16 @@ updates:
         patterns: ["*"]
 
   - package-ecosystem: gomod
+    directory: /packages/objectstore
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    labels: [dependencies, go]
+    groups:
+      go-packages:
+        patterns: ["*"]
+
+  - package-ecosystem: gomod
     directory: /packages/printerstate
     schedule:
       interval: weekly
@@ -135,6 +145,26 @@ updates:
 
   - package-ecosystem: gomod
     directory: /services/analytics
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    labels: [dependencies, go]
+    groups:
+      go-services:
+        patterns: ["*"]
+
+  - package-ecosystem: gomod
+    directory: /services/commerce
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    labels: [dependencies, go]
+    groups:
+      go-services:
+        patterns: ["*"]
+
+  - package-ecosystem: gomod
+    directory: /services/slicer
     schedule:
       interval: weekly
     open-pull-requests-limit: 5

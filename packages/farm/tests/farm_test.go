@@ -7,7 +7,7 @@ import (
 )
 
 func TestKinds(t *testing.T) {
-	for _, k := range []farm.Kind{farm.KindNative, farm.KindCDP, farm.KindFixture, farm.KindHub, farm.KindNone} {
+	for _, k := range []farm.Kind{farm.KindNative, farm.KindCDP, farm.KindFixture, farm.KindDirect, farm.KindHub, farm.KindNone} {
 		if k == "" {
 			t.Fatal("empty kind")
 		}

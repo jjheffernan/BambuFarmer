@@ -16,7 +16,7 @@ permissions:
   packages: write
 
 env:
-  GO_VERSION: "1.23.x"
+  GO_VERSION: "1.26.x"
   REGISTRY: ghcr.io
 
 jobs:
@@ -94,7 +94,7 @@ jobs:
           VERSION: ${{ steps.ver.outputs.version }}
 
       - name: Log in to GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -126,7 +126,7 @@ jobs:
           done
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.ver.outputs.tag }}
           name: BambuFarmer ${{ steps.ver.outputs.tag }}

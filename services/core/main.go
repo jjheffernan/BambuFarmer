@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -13,14 +15,21 @@ import (
 	"github.com/jjheffernan/BambuFarmer/packages/db"
 	"github.com/jjheffernan/BambuFarmer/packages/events"
 	"github.com/jjheffernan/BambuFarmer/packages/httpserver"
+	"github.com/jjheffernan/BambuFarmer/packages/objectstore"
 	"github.com/jjheffernan/BambuFarmer/packages/version"
+	"github.com/jjheffernan/BambuFarmer/services/core/internal/alerts"
+	"github.com/jjheffernan/BambuFarmer/services/core/internal/artifacts"
 	"github.com/jjheffernan/BambuFarmer/services/core/internal/config"
 	"github.com/jjheffernan/BambuFarmer/services/core/internal/httpx"
 	"github.com/jjheffernan/BambuFarmer/services/core/internal/jobs"
+	"github.com/jjheffernan/BambuFarmer/services/core/internal/notify"
+	"github.com/jjheffernan/BambuFarmer/services/core/internal/power"
 	"github.com/jjheffernan/BambuFarmer/services/core/internal/presets"
 	"github.com/jjheffernan/BambuFarmer/services/core/internal/printers"
 	"github.com/jjheffernan/BambuFarmer/services/core/internal/rates"
 	"github.com/jjheffernan/BambuFarmer/services/core/internal/setup"
+	"github.com/jjheffernan/BambuFarmer/services/core/internal/sites"
+	"github.com/jjheffernan/BambuFarmer/services/core/internal/users"
 )
 
 func main() {
@@ -52,21 +61,72 @@ func main() {
 		var err error
 		bus, err = events.Dial(ctx, cfg.RedisURL)
 		if err != nil {
-			slog.Warn("redis unavailable; printer projection consumer disabled", "err", err)
+			slog.Warn("redis unavailable; consumers/scheduler command publish disabled", "err", err)
 		} else {
 			defer bus.Close()
-			go printers.ConsumePrinterEvents(ctx, bus, pool, cfg.SiteID, "core-"+cfg.Hostname)
+			go printers.ConsumePrinterEvents(ctx, bus, pool, cfg.SiteID, "core-printers-"+cfg.Hostname)
+			go jobs.ConsumeJobEvents(ctx, bus, pool, cfg.SiteID, "core-jobs-"+cfg.Hostname)
+			go alerts.ConsumeAlertEvents(ctx, bus, cfg.SiteID, "core-alerts-"+cfg.Hostname)
 		}
+	}
+	if pool != nil {
+		sched := &jobs.Scheduler{
+			Pool:             pool,
+			Bus:              bus,
+			SiteID:           cfg.SiteID,
+			CircuitMax:       circuitMax(),
+			Stagger:          schedulerStagger(),
+			MaxStartsPerTick: schedulerMaxStarts(),
+		}
+		if sched.Stagger > 0 || sched.MaxStartsPerTick > 0 {
+			capN := sched.MaxStartsPerTick
+			if capN <= 0 && sched.Stagger > 0 {
+				capN = 1
+			}
+			slog.Info("scheduler stagger", "stagger", sched.Stagger, "max_starts_per_tick", capN)
+		}
+		go sched.Run(ctx)
+	}
+
+	artStore := artifacts.Store{Dir: cfg.ArtifactsDir}
+	objCfg := objectstore.FromEnv()
+	if remote, err := objectstore.Dial(objCfg); err != nil {
+		slog.Warn("object store dial", "err", err)
+	} else if remote != nil {
+		artStore.Remote = remote
+		if err := remote.EnsureBucket(ctx); err != nil {
+			slog.Warn("object store bucket", "err", err)
+		} else {
+			slog.Info("object store enabled", "bucket", objCfg.Bucket)
+		}
+	}
+	if err := artStore.EnsureDir(); err != nil {
+		slog.Warn("artifacts dir", "dir", cfg.ArtifactsDir, "err", err)
 	}
 
 	mux := httpserver.NewMux("core")
 	presets.Register(mux, pool, cfg.SiteID)
 	rates.Register(mux, pool, cfg.SiteID)
+	artifacts.Register(mux, pool, cfg.SiteID, artStore)
 	jobs.Register(mux, pool, bus, cfg.SiteID)
-	printers.Register(mux, pool, cfg.SiteID)
+	power.Register(mux, os.Getenv("POWER_URL"))
+	notify.Register(mux, os.Getenv("NOTIFY_URL"))
+	printers.Register(mux, pool, bus, cfg.SiteID)
 	setup.Register(mux, pool, cfg.SiteID)
+	sites.Register(mux, pool)
+	users.Register(mux, pool)
 	mux.HandleFunc("GET /api/v1/version", func(w http.ResponseWriter, _ *http.Request) {
 		httpx.WriteJSON(w, version.Get())
+	})
+	mux.HandleFunc("GET /api/v1/admin/scheduler", func(w http.ResponseWriter, _ *http.Request) {
+		stagger := schedulerStagger()
+		httpx.WriteJSON(w, map[string]any{
+			"circuit_max":               circuitMax(),
+			"scheduler_stagger":         stagger.String(),
+			"scheduler_stagger_ms":      stagger.Milliseconds(),
+			"scheduler_max_starts_tick": schedulerMaxStarts(),
+			"note":                      "Empty CIRCUIT_MAX / SCHEDULER_* means unlimited (no circuit cap / no stagger)",
+		})
 	})
 
 	addr := cfg.HTTPAddr
@@ -89,4 +149,43 @@ func main() {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	_ = srv.Shutdown(shutdownCtx)
+}
+
+// circuitMax reads CIRCUIT_MAX. Empty or invalid means no circuit tag limit.
+func circuitMax() int {
+	raw := strings.TrimSpace(os.Getenv("CIRCUIT_MAX"))
+	if raw == "" {
+		return 0
+	}
+	n, err := strconv.Atoi(raw)
+	if err != nil || n < 0 {
+		return 0
+	}
+	return n
+}
+
+// schedulerStagger reads SCHEDULER_STAGGER (e.g. 5s). Empty = no stagger.
+func schedulerStagger() time.Duration {
+	raw := strings.TrimSpace(os.Getenv("SCHEDULER_STAGGER"))
+	if raw == "" {
+		return 0
+	}
+	d, err := time.ParseDuration(raw)
+	if err != nil || d < 0 {
+		return 0
+	}
+	return d
+}
+
+// schedulerMaxStarts reads SCHEDULER_MAX_STARTS_PER_TICK. 0/empty = unlimited (unless stagger).
+func schedulerMaxStarts() int {
+	raw := strings.TrimSpace(os.Getenv("SCHEDULER_MAX_STARTS_PER_TICK"))
+	if raw == "" {
+		return 0
+	}
+	n, err := strconv.Atoi(raw)
+	if err != nil || n < 0 {
+		return 0
+	}
+	return n
 }

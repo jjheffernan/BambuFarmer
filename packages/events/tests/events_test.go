@@ -13,6 +13,15 @@ func TestCommandStream(t *testing.T) {
 	}
 }
 
+func TestJobCommandTypeNames(t *testing.T) {
+	if events.TypeCommandStartPrint != "command.start_print" {
+		t.Fatal(events.TypeCommandStartPrint)
+	}
+	if events.TypeJobAssigned != "job.assigned" {
+		t.Fatal(events.TypeJobAssigned)
+	}
+}
+
 func TestNewEnvelope(t *testing.T) {
 	env := events.NewEnvelope(events.TypePrinterStateChanged, "edge", "default", map[string]any{"external_sn": "x"})
 	if env.Type != events.TypePrinterStateChanged || env.Source != "edge" || env.SiteID != "default" {
@@ -29,5 +38,11 @@ func TestNewEnvelope(t *testing.T) {
 func TestStreamConstants(t *testing.T) {
 	if events.StreamPrinter != "bf.events.printer" || events.StreamJob != "bf.events.job" {
 		t.Fatalf("%s %s", events.StreamPrinter, events.StreamJob)
+	}
+	if events.StreamSlice != "bf.events.slice" || events.TypeSliceQueued != "slice.queued" {
+		t.Fatalf("%s %s", events.StreamSlice, events.TypeSliceQueued)
+	}
+	if events.TypePrinterAMSChanged != "printer.ams_changed" {
+		t.Fatal(events.TypePrinterAMSChanged)
 	}
 }

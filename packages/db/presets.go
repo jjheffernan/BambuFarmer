@@ -12,6 +12,36 @@ import (
 	"github.com/jjheffernan/BambuFarmer/packages/api"
 )
 
+// GetFilamentPreset loads one tip by id for a site.
+func GetFilamentPreset(ctx context.Context, pool *pgxpool.Pool, siteID, id string) (api.FilamentPreset, error) {
+	var p api.FilamentPreset
+	err := pool.QueryRow(ctx, `
+		SELECT id, name, version, material, vendor, product_line, color_hex,
+		       density_g_cm3, diameter_mm, nozzle_temp_min, nozzle_temp_max, bed_temp,
+		       tray_info_idx, price_per_kg, spoolman_filament_id, notes, active, updated_at
+		FROM filament_presets WHERE id=$1 AND site_id=$2`, id, siteID).Scan(
+		&p.ID, &p.Name, &p.Version, &p.Material, &p.Vendor, &p.ProductLine, &p.ColorHex,
+		&p.DensityGCm3, &p.DiameterMM, &p.NozzleTempMin, &p.NozzleTempMax, &p.BedTemp,
+		&p.TrayInfoIdx, &p.PricePerKg, &p.SpoolmanFilamentID, &p.Notes, &p.Active, &p.UpdatedAt,
+	)
+	if err != nil {
+		return p, MapQueryError(err)
+	}
+	return p, nil
+}
+
+// DeleteFilamentPreset removes a tip (revisions cascade).
+func DeleteFilamentPreset(ctx context.Context, pool *pgxpool.Pool, siteID, id string) error {
+	tag, err := pool.Exec(ctx, `DELETE FROM filament_presets WHERE id=$1 AND site_id=$2`, id, siteID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return api.NotFound("filament preset")
+	}
+	return nil
+}
+
 // ListFilamentPresets returns current tips for a site.
 func ListFilamentPresets(ctx context.Context, pool *pgxpool.Pool, siteID string) ([]api.FilamentPreset, error) {
 	rows, err := pool.Query(ctx, `
@@ -103,6 +133,47 @@ func UpsertFilamentPreset(ctx context.Context, pool *pgxpool.Pool, siteID string
 		return p, err
 	}
 	return p, nil
+}
+
+// GetPrintPreset loads one tip by id for a site.
+func GetPrintPreset(ctx context.Context, pool *pgxpool.Pool, siteID, id string) (api.PrintPreset, error) {
+	var p api.PrintPreset
+	var models, process, printer []byte
+	err := pool.QueryRow(ctx, `
+		SELECT id, name, version, compatible_models, nozzle_diameter_mm, layer_height_mm, infill_pct,
+		       process_json, printer_json, default_for_model, est_speed_factor, active, updated_at
+		FROM print_presets WHERE id=$1 AND site_id=$2`, id, siteID).Scan(
+		&p.ID, &p.Name, &p.Version, &models, &p.NozzleDiameterMM, &p.LayerHeightMM, &p.InfillPct,
+		&process, &printer, &p.DefaultForModel, &p.EstSpeedFactor, &p.Active, &p.UpdatedAt,
+	)
+	if err != nil {
+		return p, MapQueryError(err)
+	}
+	_ = json.Unmarshal(models, &p.CompatibleModels)
+	_ = json.Unmarshal(process, &p.ProcessJSON)
+	_ = json.Unmarshal(printer, &p.PrinterJSON)
+	if p.CompatibleModels == nil {
+		p.CompatibleModels = []string{}
+	}
+	if p.ProcessJSON == nil {
+		p.ProcessJSON = map[string]any{}
+	}
+	if p.PrinterJSON == nil {
+		p.PrinterJSON = map[string]any{}
+	}
+	return p, nil
+}
+
+// DeletePrintPreset removes a tip (revisions cascade).
+func DeletePrintPreset(ctx context.Context, pool *pgxpool.Pool, siteID, id string) error {
+	tag, err := pool.Exec(ctx, `DELETE FROM print_presets WHERE id=$1 AND site_id=$2`, id, siteID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return api.NotFound("print preset")
+	}
+	return nil
 }
 
 // ListPrintPresets returns current tips for a site.
@@ -221,7 +292,7 @@ func UpsertPrintPreset(ctx context.Context, pool *pgxpool.Pool, siteID string, p
 func ImportPresetBundle(ctx context.Context, pool *pgxpool.Pool, siteID string, bundle api.PresetBundle) error {
 	for _, f := range bundle.FilamentPresets {
 		if f.ID == "" {
-			return fmt.Errorf("filament preset missing id")
+			return Validation("filament preset missing id")
 		}
 		if _, err := UpsertFilamentPreset(ctx, pool, siteID, f); err != nil {
 			return err
@@ -229,7 +300,7 @@ func ImportPresetBundle(ctx context.Context, pool *pgxpool.Pool, siteID string, 
 	}
 	for _, p := range bundle.PrintPresets {
 		if p.ID == "" {
-			return fmt.Errorf("print preset missing id")
+			return Validation("print preset missing id")
 		}
 		if _, err := UpsertPrintPreset(ctx, pool, siteID, p); err != nil {
 			return err

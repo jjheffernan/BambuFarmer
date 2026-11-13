@@ -22,7 +22,20 @@
         "layer_num": 120,
         "total_layer_num": 320,
         "nozzle_diameter": "0.4",
-        "nozzle_type": "stainless_steel"
+        "nozzle_type": "stainless_steel",
+        "task_id": "task-fixture-1",
+        "subtask_name": "Benchy plate",
+        "ams": {
+          "ams": [
+            {
+              "id": 0,
+              "tray": [
+                {"id": 0, "tray_type": "PLA", "tray_color": "00AE42FF", "tag_uid": "RUN0", "remain": 72},
+                {"id": 1, "tray_type": "PETG", "tray_color": "1E90FFFF", "tag_uid": "RUN1", "remain": 40}
+              ]
+            }
+          ]
+        }
       }
     }
   ]

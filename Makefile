@@ -2,7 +2,7 @@
 ENGINE ?= podman
 # --env-file .env: interpolate ${VAR} from repo-root secrets file
 COMPOSE := $(ENGINE) compose --env-file .env -f deploy/compose.yml
-SERVICES := gateway core edge integrations analytics web
+SERVICES := gateway core edge integrations analytics web commerce
 
 VERSION ?= $(shell tr -d '[:space:]' < VERSION 2>/dev/null || echo 0.1.0-dev)
 
@@ -76,7 +76,7 @@ health:
 web-css:
 	cd services/web && npm install && npm run build:css
 
-# Requires local Go 1.23+
+# Requires local Go 1.26+
 tidy:
 	@for s in $(SERVICES); do (cd services/$$s && go mod tidy); done
 	@for p in api config db events farm httpserver printerstate version; do (cd packages/$$p && go mod tidy); done
@@ -99,11 +99,12 @@ db-reset: env
 	  if curl -sf http://127.0.0.1:18081/healthz >/dev/null 2>&1; then break; fi; \
 	  i=$$((i+1)); sleep 1; \
 	done
-	@echo "Applying seed/lab.sql…"
-	$(COMPOSE) exec -T postgres psql -U $(POSTGRES_USER) -d $(POSTGRES_DB) -v ON_ERROR_STOP=1 < packages/db/seed/lab.sql
+	@echo "Applying lab seed (Go: packages/db)…"
+	@DATABASE_URL="$${DATABASE_URL:-postgres://$(POSTGRES_USER):bambufarmer@127.0.0.1:5432/$(POSTGRES_DB)?sslmode=disable}" \
+		go run ./packages/db/cmd/seedlab
 	@echo "db-reset complete"
 
-# Optional local custom-format dump (gitignored). Prefer seed/lab.sql as source of truth.
+# Optional local custom-format dump (gitignored). Schema/seed source of truth is Go under packages/db.
 db-snapshot: env
 	@mkdir -p deploy/snapshots
 	$(COMPOSE) exec -T postgres pg_dump -U $(POSTGRES_USER) -d $(POSTGRES_DB) -Fc > deploy/snapshots/lab.dump

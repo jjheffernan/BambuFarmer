@@ -1,0 +1,14 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Install / bring-up
+    url: https://github.com/jjheffernan/BambuFarmer/blob/dev/docs/INSTALL.md
+    about: Setup, wizard, and CLI (`./scripts/bf`)
+  - name: Deployment modes (LAN vs OIDC)
+    url: https://github.com/jjheffernan/BambuFarmer/blob/dev/docs/DEPLOYMENT_MODES.md
+    about: Auth and network placement
+  - name: Database / reset
+    url: https://github.com/jjheffernan/BambuFarmer/blob/dev/docs/DATABASE.md
+    about: Migrations, seed, db-reset
+  - name: Changelog
+    url: https://github.com/jjheffernan/BambuFarmer/blob/dev/CHANGELOG.md
+    about: Released and unreleased notes

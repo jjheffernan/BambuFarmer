@@ -1,3 +1,3 @@
 module github.com/jjheffernan/BambuFarmer/packages/version
 
-go 1.23.0
+go 1.26.0

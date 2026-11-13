@@ -135,7 +135,13 @@ Topics:
 | `device/<sn>/request` | server → printer (commands) |
 | `device/<sn>/report` | printer → server (telemetry, mostly `push_status`) |
 
-Telemetry field set aligns with OpenBambuAPI `push_status` (`gcode_state`, `mc_percent`, temps, AMS, …). `msg: 0` = full snapshot, `msg: 1` = delta.
+Telemetry field set aligns with OpenBambuAPI `push_status` (`gcode_state`, `mc_percent`, temps, AMS, `hms`, …). `msg: 0` = full snapshot, `msg: 1` = delta.
+
+`hms` entries are `{attr, code}` integers; edge formats each as `XXXX_XXXX_XXXX_XXXX` on the printer snapshot and Redis payload so analytics can roll codes into `agg_hms_daily` (alongside non-zero `print_error`).
+
+`ams` (nested `{ams:[…]}` or a bare unit array) normalizes to snapshot `ams[].trays[]` with slot/type/color/tag_uid/remain. `task_id` / `subtask_name` land on snapshot `task`. When AMS trays change, edge also publishes `printer.ams_changed` on `bf.events.printer` (first empty AMS is skipped).
+
+Attention: offline, `PAUSE`/`FAILED`, or non-empty HMS publishes `alert.raised` on `bf.events.alert` when the attention fingerprint changes (clearing attention does not emit).
 
 **Edge strategy:**
 
@@ -158,50 +164,25 @@ GeraldCox docs also capture a rich `POST /task` body used by the Client for mult
 
 ---
 
-## 6. Edge package shape (implementation plan)
+## 6. Edge package shape (as shipped)
 
 ```text
 services/edge/
   main.go                 # process, health, status, control
   app/
-    config/               # env: SITE_ID, FARM_MANAGER_*, REDIS_URL, CDP_URL
-    adapter/              # Connect + REST poll + Status (M1)
-    fm/
-      client.go           # HTTP client + BBL headers + JWT
-      auth.go             # tickets → tokens (+ HashPasswordChallenge helper)
-      devices.go          # list / get
-      control.go          # POST /device/{sn}/opt
-      # tasks.go / files.go / transport/cdp — planned
-    tracker/              # per-SN packages/printerstate.Machine
-    normalize/            # FM JSON → packages/api.PrinterSnapshot
-    delta/                # snapshot hash filter
-    mqtt/                 # optional report subscriber (planned)
-    bus/                  # Redis Streams publish + command consumer (planned)
+    config/               # env: SITE_ID, FARM_MANAGER_*, REDIS_URL, DIRECT_PRINTERS, …
+    agent/                # poll / track / delta / Redis / command consumer
+    bambu/                # factory + native|fixture|cdp|direct|none
+    farmmanager/          # FM HTTP (auth, devices, control, tasks, files, liveview, tags)
+    mqtt/                 # device/+/report when FARM_MQTT_URL + cert files are set
+    tracker/ normalize/ delta/ bus/ fixture/
+packages/farm/            # ControlPlane abstraction
 packages/printerstate/    # IDLE/PREPARE/RUNNING/PAUSE/FINISH/FAILED + attention buckets
 ```
 
 ### Go interfaces
 
-Canonical types live in [`packages/farm`](../../packages/farm):
-
-```go
-// farm.ControlPlane — implemented by edge/app/bambu/{native,fixture,cdp,none}
-type ControlPlane interface {
-    Kind() Kind
-    Connect(ctx context.Context) error
-    Ready(ctx context.Context) error
-    Captain(ctx context.Context) (api.CaptainInfo, error)
-    ListDevices(ctx context.Context) ([]DeviceReport, error)
-    Control(ctx context.Context, sn string, opt api.ControlOpt) error
-    Upload3MF(ctx context.Context, name string, r io.Reader) (FileRef, error)
-    StartPrint(ctx context.Context, req PrintRequest) (ExternalJobRef, error)
-    LiveviewJPEG(ctx context.Context, sn string) ([]byte, error)
-}
-
-type EventSource interface {
-    Subscribe(ctx context.Context) (<-chan DeviceReport, error) // MQTT later
-}
-```
+Canonical types live in [`packages/farm`](../../packages/farm). Planes: `edge/app/bambu/{native,fixture,cdp,direct}`. CDP remains a stub; MQTT subscribe is opt-in via `FARM_MQTT_URL` + `EDGE_CERT_DIR`.
 
 Edge agent (`app/agent`) polls `ListDevices`, runs `printerstate` tracking, publishes Redis deltas, and consumes commands via the same plane.
 
@@ -220,6 +201,17 @@ Edge agent (`app/agent`) polls `ListDevices`, runs `printerstate` tracking, publ
 Run these before coding the full adapter; paste results into an internal runbook (do not commit secrets).
 
 ### Connectivity
+
+Point edge at your lab FM via **`.env` only** (never hardcode host/port in source):
+
+```bash
+FARM_MANAGER_URL=http://<fm-lan-ip>:8888
+FARM_MANAGER_USER=...
+FARM_MANAGER_PASSWORD=...
+FARM_MANAGER_TRANSPORT=fm_native
+```
+
+You may need a Farm Manager local account (or API access) created on that server first. Leave `FARM_MANAGER_URL` empty for fixture mode / CI.
 
 - [ ] From edge host: `curl -vk https://<fm-ip>:8888/captain` (expect TLS/cert behavior)  
 - [ ] From edge host: TCP connect to `:1883`  

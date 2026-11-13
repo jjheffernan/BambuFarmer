@@ -1,6 +1,6 @@
 # Service shape: `bambufarmer-web`
 
-**Language:** Go (`html/template` → templ), HTMX, Tailwind CSS (compiled), minimal Alpine  
+**Language:** Go `html/template`, Tailwind CSS (compiled), vanilla JS  
 **Container:** `localhost/bambufarmer-web`  
 **Role:** Operator GUI mirroring Farm Manager interaction patterns  
 
@@ -11,35 +11,40 @@
 | Owns | Does not own |
 |------|----------------|
 | HTML routes + design tokens | Business rules |
-| HTMX partials / SSE-driven swaps | Direct FM calls |
+| Client-side SSE handlers + forms | Direct FM calls |
 | Compiled CSS (`static/css/app.css`, `go:embed`) | Auth IdP (gateway cookies/tokens) |
-| Client column prefs (later) | |
+| Shared UI helpers (`bfJSON`, `bfFlash`, `bfBindFile`) | |
 
 Prefer browsing via **gateway** (`:18080`) so API + UI share origin. Direct `:13000` remains for debug.
 
 ---
 
-## 2. Screens (MVP)
+## 2. Screens
 
 | Route | Purpose |
 |-------|---------|
-| `/` | Fleet — status chips + grid (SSE later) |
-| `/jobs` | Queue / board |
+| `/` | Fleet — filters, cards, drawer, SSE |
+| `/jobs` | Create (progressive disclosure) + queue table with expandable rows |
+| `/artifacts` | Upload drop zone + list / expandable detail |
 | `/presets` | Filament + print presets (versioned) |
-| `/analytics` | Charts from analytics API |
-| `/admin` | Site, rates, adapters, lan users |
+| `/filament` | Spoolman status / spools |
+| `/library` | Manyfold import/export |
+| `/slice` | Optional slicer plugin UI |
+| `/commerce` | Optional commerce plugin UI |
+| `/analytics` | Charts / utilization from analytics API |
+| `/admin` | Site, rates, users, lab controls |
 | `/setup` | First-run install wizard (blocked by gateway until complete) |
-
-Fleet/SSE and setup wizard are live; other panels are still light.
+| `/login` | LAN / OIDC entry |
 
 ---
 
 ## 3. UX rules (from FM Client)
 
 - Status nav: Ready / Attention / Completed / Not in Task  
-- Detail drawer, not full-page navigation for printer detail  
-- Bulk action bar with multi-select (Alpine)  
+- Detail drawer, not full-page navigation for printer detail (fleet card opens drawer)
+- Bulk action bar with multi-select  
 - No browser polling of printers — gateway SSE only  
+- Dense forms use progressive disclosure; dense tables use expandable rows  
 
 Tokens live in Tailwind `@theme` (`static/css/input.css`) as `bf-*` colors/fonts, matching DESIGN_SPEC §11.4.
 
@@ -47,7 +52,7 @@ Tokens live in Tailwind `@theme` (`static/css/input.css`) as `bf-*` colors/fonts
 
 ---
 
-## 4. Package layout (target)
+## 4. Package layout
 
 ```text
 services/web/
@@ -58,10 +63,10 @@ services/web/
     css/input.css  # Tailwind source
     css/app.css    # compiled (embedded)
   package.json     # Tailwind CLI (dev)
-  tests/
+  *_ui_test.go
 ```
 
-Migrate from inline `html/template` to [templ](https://templ.guide/) once pages grow.
+Templ migration remains optional; current pages are inline `html/template`.
 
 ---
 
@@ -71,11 +76,11 @@ Migrate from inline `html/template` to [templ](https://templ.guide/) once pages 
 
 ---
 
-## 6. MVP milestones
+## 6. Milestones
 
-1. Nav shell (done)  
-2. Presets page: list + import via HTMX → gateway  
-3. Fleet table fed by SSE fragments  
-4. Job composer form  
-5. Analytics charts  
-6. Admin rate card editor ($/hr, $/kg, kg/hr)
+1. Nav shell (done; collapsible)  
+2. Presets page: list + import/export via gateway (done)
+3. Fleet grid fed by SSE (done)
+4. Job composer + expandable job rows (done)
+5. Analytics charts (done)
+6. Admin rate card editor ($/hr, $/kg, kg/hr) (done)

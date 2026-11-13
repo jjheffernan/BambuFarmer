@@ -15,7 +15,7 @@ Or via Make: `make setup`, `make update`, `make doctor`, `make uninstall`, `make
 | Command | Script | Purpose |
 |---------|--------|---------|
 | `setup` | [`setup.sh`](./setup.sh) | First deploy / rebuild |
-| `update` | [`update.sh`](./update.sh) | Upgrade without wiping volumes |
+| `update` | [`update.sh`](./update.sh) | Upgrade without wiping volumes (`--pull`, `--watch`) |
 | `doctor` | [`doctor.sh`](./doctor.sh) | Preflight + HTTP health |
 | `uninstall` | [`uninstall.sh`](./uninstall.sh) | Stop stack; optional wipe |
 | `help` | [`help.sh`](./help.sh) | CLI help |

@@ -3,6 +3,7 @@
 package manyfold
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -26,9 +27,9 @@ type Client struct {
 	clientSecret string
 	http         *http.Client
 
-	mu        sync.Mutex
-	oauthTok  string
-	oauthExp  time.Time
+	mu       sync.Mutex
+	oauthTok string
+	oauthExp time.Time
 }
 
 // New returns a client. Prefer MANYFOLD_TOKEN (personal access token); otherwise
@@ -47,9 +48,9 @@ func New(baseURL, token, clientID, clientSecret string, timeout time.Duration) *
 }
 
 type collectionDTO struct {
-	Type        string `json:"@type"`
-	TotalItems  int    `json:"totalItems"`
-	Member      []memberDTO `json:"member"`
+	Type       string      `json:"@type"`
+	TotalItems int         `json:"totalItems"`
+	Member     []memberDTO `json:"member"`
 	// Some serializers nest under hydra:member
 	HydraMember []memberDTO `json:"hydra:member"`
 }
@@ -63,7 +64,7 @@ type memberDTO struct {
 // ListModels calls GET /models?page=&order= (JSON-LD hydra:Collection).
 func (c *Client) ListModels(ctx context.Context, page int, order string) ([]api.ModelSummary, error) {
 	if c == nil || c.base == "" {
-		return nil, fmt.Errorf("manyfold: not configured")
+		return nil, api.NotConfigured("manyfold: not configured")
 	}
 	if page <= 0 {
 		page = 1
@@ -95,7 +96,7 @@ func (c *Client) ListModels(ctx context.Context, page int, order string) ([]api.
 	defer res.Body.Close()
 	body, _ := io.ReadAll(io.LimitReader(res.Body, 4<<20))
 	if res.StatusCode >= 300 {
-		return nil, fmt.Errorf("manyfold: list models: %s: %s", res.Status, truncate(string(body), 200))
+		return nil, api.BadGateway(fmt.Sprintf("manyfold: list models: %s: %s", res.Status, truncate(string(body), 200)))
 	}
 	var col collectionDTO
 	if err := json.Unmarshal(body, &col); err != nil {
@@ -118,6 +119,47 @@ func (c *Client) ListModels(ctx context.Context, page int, order string) ([]api.
 		})
 	}
 	return out, nil
+}
+
+// CreateModel POSTs a model name to /models. A nil client or empty base does not call Manyfold.
+func (c *Client) CreateModel(ctx context.Context, name string) (string, error) {
+	if c == nil || c.base == "" {
+		return "", api.NotConfigured("manyfold: not configured")
+	}
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return "", api.BadRequest("name required")
+	}
+	raw, err := json.Marshal(map[string]string{"name": name})
+	if err != nil {
+		return "", err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.base+"/models", bytes.NewReader(raw))
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Accept", acceptV0)
+	req.Header.Set("Content-Type", acceptV0)
+	if err := c.authorize(ctx, req); err != nil {
+		return "", err
+	}
+	res, err := c.http.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer res.Body.Close()
+	body, _ := io.ReadAll(io.LimitReader(res.Body, 1<<20))
+	if res.StatusCode >= 300 {
+		return "", api.BadGateway(fmt.Sprintf("manyfold: create model: %s: %s", res.Status, truncate(string(body), 200)))
+	}
+	var created memberDTO
+	if err := json.Unmarshal(body, &created); err != nil {
+		return "", err
+	}
+	if created.ID == "" {
+		return "", api.BadGateway("manyfold: create model missing id")
+	}
+	return created.ID, nil
 }
 
 func (c *Client) authorize(ctx context.Context, req *http.Request) error {
@@ -161,7 +203,7 @@ func (c *Client) oauthToken(ctx context.Context) (string, error) {
 	defer res.Body.Close()
 	body, _ := io.ReadAll(io.LimitReader(res.Body, 1<<20))
 	if res.StatusCode >= 300 {
-		return "", fmt.Errorf("manyfold: oauth token: %s: %s", res.Status, truncate(string(body), 200))
+		return "", api.BadGateway(fmt.Sprintf("manyfold: oauth token: %s: %s", res.Status, truncate(string(body), 200)))
 	}
 	var tok struct {
 		AccessToken string `json:"access_token"`
@@ -171,7 +213,7 @@ func (c *Client) oauthToken(ctx context.Context) (string, error) {
 		return "", err
 	}
 	if tok.AccessToken == "" {
-		return "", fmt.Errorf("manyfold: oauth token empty")
+		return "", api.BadGateway("manyfold: oauth token empty")
 	}
 	exp := 30 * time.Minute
 	if tok.ExpiresIn > 0 {

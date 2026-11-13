@@ -43,6 +43,23 @@ func New(dir string) (*Source, error) {
 	return &Source{dir: dir, files: files}, nil
 }
 
+// LoadTags reads tags.json from the fixture directory. Missing file yields nil.
+func LoadTags(dir string) ([]farmmanager.Tag, error) {
+	path := filepath.Join(dir, "tags.json")
+	b, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	var resp farmmanager.TagsResponse
+	if err := json.Unmarshal(b, &resp); err != nil {
+		return nil, err
+	}
+	return resp.Tags, nil
+}
+
 // NextDevices returns the next fixture device list (round-robin).
 func (s *Source) NextDevices() ([]farmmanager.Device, error) {
 	i := s.idx.Add(1) - 1

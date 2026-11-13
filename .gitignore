@@ -1,37 +1,92 @@
-# Binaries
+# --- Binaries / build ---
 bin/
 dist/
 *.exe
+*.dll
+*.so
+*.dylib
 *.test
 *.out
+*.o
+*.a
+coverage.out
+coverage.html
+*.coverprofile
 
-# Go
+# --- Go ---
 vendor/
+# local module cache / workspace overrides
+.gomodcache/
 
-# IDE / OS
-.idea/
-.vscode/
-*.swp
-.DS_Store
+# --- Node (web Tailwind) ---
+services/web/node_modules/
+services/web/tmp/
+npm-debug.log*
+yarn-error.log*
 
-# Env / secrets (commit .env.example only)
+# --- Env / secrets (commit *.example only) ---
 .env
 .env.*
 !.env.example
+!.env.*.example
 deploy/.env
 deploy/.env.*
 !deploy/env.example
 *.pem
+*.key
+*.p12
+*.pfx
+*.crt
+!**/testdata/**/*.crt
 certs/
+secrets/
+credentials.json
+**/credentials.json
+service-account*.json
+*.kubeconfig
 
-# Build artifacts
-services/web/tmp/
-services/web/node_modules/
-**/*.templ.go
+# --- SQL dumps / ad-hoc scripts (schema lives in Go under packages/db) ---
+*.sql
+!**/testdata/**/*.sql
 
-# Data volumes
+# --- Local data / snapshots ---
 data/
 .minio/
+deploy/snapshots/*
+!deploy/snapshots/.gitkeep
+*.dump
 
-# Local Postgres dumps (regenerate via make db-snapshot; prefer seed/lab.sql)
-deploy/snapshots/*.dump
+# --- IDE / OS ---
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+*.log
+
+# --- Templ / generated ---
+**/*.templ.go
+
+# --- Misc ---
+.direnv/
+.venv/
+venv/
+__pycache__/
+.cache/
+tmp/
+*.tmp
+
+# --- Local research / third-party trees (never commit) ---
+.reference/
+third_party/
+third-party/
+vendor_ref/
+*_upstream/
+*.clone/
+
+# --- Local agent session artifacts (do not commit) ---
+.cursor/after-hours-*
+.cursor/*-loop.state.json
+.cursor/*-morning-brief.md

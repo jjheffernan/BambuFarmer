@@ -2,10 +2,18 @@ package db
 
 import "github.com/jjheffernan/BambuFarmer/packages/api"
 
-// EstimateJobCost computes machine + filament cost from rate card and job estimates.
-// machine = (est_seconds/3600) * $/hr ; filament = (est_grams/1000) * $/kg
+// CostParts is the machine / filament / labor split before summing.
+type CostParts struct {
+	Machine  float64
+	Filament float64
+	Labor    float64
+	Grams    float64
+	Total    float64
+}
+
+// SplitJobCost returns the rate-card cost parts for one job.
 // If est_grams is 0 and kg/hr > 0, filament mass ≈ hours * kg/hr.
-func EstimateJobCost(rc api.RateCard, estSeconds int, estGrams float64, copies int) float64 {
+func SplitJobCost(rc api.RateCard, estSeconds int, estGrams float64, copies int) CostParts {
 	if copies < 1 {
 		copies = 1
 	}
@@ -16,5 +24,18 @@ func EstimateJobCost(rc api.RateCard, estSeconds int, estGrams float64, copies i
 	}
 	machine := hours * rc.MachineRatePerHour
 	filament := (grams / 1000.0) * rc.FilamentPricePerKg
-	return (machine + filament + rc.LaborFlat) * float64(copies)
+	labor := rc.LaborFlat
+	mul := float64(copies)
+	return CostParts{
+		Machine:  machine * mul,
+		Filament: filament * mul,
+		Labor:    labor * mul,
+		Grams:    grams * mul,
+		Total:    (machine + filament + labor) * mul,
+	}
+}
+
+// EstimateJobCost computes machine + filament cost from rate card and job estimates.
+func EstimateJobCost(rc api.RateCard, estSeconds int, estGrams float64, copies int) float64 {
+	return SplitJobCost(rc, estSeconds, estGrams, copies).Total
 }

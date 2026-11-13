@@ -1,6 +1,6 @@
 module github.com/jjheffernan/BambuFarmer/packages/httpserver
 
-go 1.23.0
+go 1.26.0
 
 require github.com/jjheffernan/BambuFarmer/packages/api v0.0.0
 

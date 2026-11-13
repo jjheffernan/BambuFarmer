@@ -1,0 +1,22 @@
+---
+description: Clean-room Go implementation; no third-party product source in-tree
+alwaysApply: true
+---
+
+# Clean-room build
+
+BambuFarmer is a first-party **Go** codebase. Grow it with thin interfaces and optional compose services—not by importing another product's tree.
+
+## Do
+
+- Implement features against our own contracts (`packages/farm.ControlPlane`, `packages/api`, Redis Streams, Go migrations).
+- Use public product marketing / our FM research docs as **capability** inspiration only.
+- Keep the stack Go + Podman-first; one module → one image → one container.
+
+## Do not
+
+- Vendor, mirror, submodule, or paste third-party product **source** into this repository (including "reference", "upstream", or scratch clones under the tree).
+- Leave research dumps, extracted trees, or copied AGPL/GPL application code as repo artifacts.
+- Migrate the stack to Python/TypeScript or collapse services into an all-in-one image.
+
+Local scratch outside git (and covered by `.gitignore`) is fine; never commit it.

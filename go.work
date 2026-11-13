@@ -1,4 +1,4 @@
-go 1.23.0
+go 1.26.0
 
 use (
 	./packages/api
@@ -7,12 +7,15 @@ use (
 	./packages/events
 	./packages/farm
 	./packages/httpserver
+	./packages/objectstore
 	./packages/printerstate
 	./packages/version
 	./services/analytics
+	./services/commerce
 	./services/core
 	./services/edge
 	./services/gateway
 	./services/integrations
+	./services/slicer
 	./services/web
 )

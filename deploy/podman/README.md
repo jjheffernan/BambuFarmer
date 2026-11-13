@@ -13,7 +13,7 @@ One process → one image → one container:
 | `localhost/bambufarmer-edge` | Farm Manager LAN adapter |
 | `localhost/bambufarmer-integrations` | Spoolman / Manyfold |
 | `localhost/bambufarmer-analytics` | rollups |
-| `localhost/bambufarmer-web` | HTMX UI |
+| `localhost/bambufarmer-web` | Operator UI |
 
 Do **not** combine these into a fat “all-in-one” app container. Backing services (Postgres, Redis, optional MinIO) stay separate too.
 
@@ -37,7 +37,9 @@ Uninstall: `./scripts/bf uninstall --yes` (add `--volumes` to wipe DB).
 
 See [`../../scripts/README.md`](../../scripts/README.md). Secrets: [`docs/DEPLOYMENT_MODES.md`](../../docs/DEPLOYMENT_MODES.md).
 
-Optional MinIO: `podman compose --env-file .env -f deploy/compose.yml --profile object up -d`
+Optional MinIO: set `OBJECT_STORE_ENDPOINT=http://minio:9000` (and matching keys) in `.env`, then
+`podman compose --env-file .env -f deploy/compose.yml --profile object up -d`
+(`minio-init` creates the bucket; core/edge talk S3 when the endpoint is set.)
 
 ## Build a single module
 

@@ -11,6 +11,7 @@ import (
 // Config is integrations process configuration.
 type Config struct {
 	HTTPAddr string
+	RedisURL string
 
 	SpoolmanURL   string
 	SpoolmanToken string // optional; for reverse-proxy auth (X-API-Key / Bearer)
@@ -27,6 +28,7 @@ type Config struct {
 func Load() Config {
 	return Config{
 		HTTPAddr:             pkgconfig.Getenv(pkgconfig.EnvHTTPAddr, ":8080"),
+		RedisURL:             os.Getenv(pkgconfig.EnvRedisURL),
 		SpoolmanURL:          strings.TrimRight(os.Getenv("SPOOLMAN_URL"), "/"),
 		SpoolmanToken:        os.Getenv("SPOOLMAN_API_TOKEN"),
 		ManyfoldURL:          strings.TrimRight(os.Getenv("MANYFOLD_URL"), "/"),

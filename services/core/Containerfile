@@ -3,7 +3,7 @@
 ARG VERSION=0.1.0-dev
 ARG COMMIT=unknown
 ARG BUILT_AT=unknown
-FROM golang:1.23-bookworm AS build
+FROM golang:1.26-bookworm AS build
 ARG VERSION
 ARG COMMIT
 ARG BUILT_AT
@@ -14,6 +14,7 @@ COPY packages/config ./packages/config
 COPY packages/httpserver ./packages/httpserver
 COPY packages/db ./packages/db
 COPY packages/events ./packages/events
+COPY packages/objectstore ./packages/objectstore
 COPY packages/version ./packages/version
 COPY services/core ./services/core
 WORKDIR /src/services/core

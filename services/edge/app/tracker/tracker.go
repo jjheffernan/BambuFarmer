@@ -68,13 +68,24 @@ func (t *Tracker) ObserveAll(devices []farm.DeviceReport) ([]api.PrinterSnapshot
 	return out, nil
 }
 
-// Summaries returns the latest fleet list.
+// Summaries returns the latest fleet list (summary fields only).
 func (t *Tracker) Summaries() []api.PrinterSummary {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	out := make([]api.PrinterSummary, 0, len(t.latest))
 	for _, s := range t.latest {
 		out = append(out, s.PrinterSummary)
+	}
+	return out
+}
+
+// Snapshots returns the latest full printer snapshots (AMS, task, temps).
+func (t *Tracker) Snapshots() []api.PrinterSnapshot {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	out := make([]api.PrinterSnapshot, 0, len(t.latest))
+	for _, s := range t.latest {
+		out = append(out, s)
 	}
 	return out
 }

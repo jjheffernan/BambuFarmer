@@ -7,6 +7,7 @@ import (
 
 	"github.com/jjheffernan/BambuFarmer/packages/farm"
 	"github.com/jjheffernan/BambuFarmer/services/edge/app/bambu/cdp"
+	"github.com/jjheffernan/BambuFarmer/services/edge/app/bambu/direct"
 	"github.com/jjheffernan/BambuFarmer/services/edge/app/bambu/fixtureplane"
 	"github.com/jjheffernan/BambuFarmer/services/edge/app/bambu/native"
 	"github.com/jjheffernan/BambuFarmer/services/edge/app/bambu/none"
@@ -16,13 +17,18 @@ import (
 // Open builds the ControlPlane for this edge process from env-derived config.
 //
 // Selection:
-//  1. FARM_MANAGER_URL set + transport cdp → CDP stub
-//  2. FARM_MANAGER_URL set → fm_native
-//  3. EDGE_FIXTURE_DIR set (and no URL) → fixture
-//  4. else → none
+//  1. FARM_MANAGER_TRANSPORT=direct_printer → in-process printer list (no LAN)
+//  2. FARM_MANAGER_URL set + transport cdp → CDP stub
+//  3. FARM_MANAGER_URL set → fm_native
+//  4. EDGE_FIXTURE_DIR set (and no URL) → fixture
+//  5. else → none
 func Open(cfg config.Config, log *slog.Logger) (farm.ControlPlane, error) {
 	if log == nil {
 		log = slog.Default()
+	}
+	if cfg.FarmManagerTransport == string(farm.KindDirect) {
+		log.Info("direct printer control plane")
+		return direct.New(cfg.DirectPrinters), nil
 	}
 	if cfg.Configured() {
 		switch cfg.FarmManagerTransport {

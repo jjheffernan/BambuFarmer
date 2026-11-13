@@ -11,9 +11,11 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jjheffernan/BambuFarmer/packages/api"
 	"github.com/jjheffernan/BambuFarmer/packages/db"
 	"github.com/jjheffernan/BambuFarmer/packages/events"
 	"github.com/jjheffernan/BambuFarmer/packages/httpserver"
+	"github.com/jjheffernan/BambuFarmer/services/analytics/internal/fail"
 )
 
 func main() {
@@ -53,25 +55,41 @@ func main() {
 
 	mux := httpserver.NewMux(service)
 	mux.HandleFunc("GET /api/v1/analytics/utilization", func(w http.ResponseWriter, r *http.Request) {
+		win, err := parseDayWindow(r)
+		if err != nil {
+			httpserver.WriteError(w, api.BadRequest(err.Error()))
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		series := []map[string]any{}
 		if pool != nil {
-			rows, err := pool.Query(r.Context(), `
-				SELECT day::text, site_id, external_sn, idle_s, run_s, fail_s, samples
-				FROM agg_utilization_daily ORDER BY day DESC LIMIT 30`)
-			if err == nil {
-				defer rows.Close()
-				for rows.Next() {
-					var day, site, sn string
-					var idle, run, fail, samples int
-					if err := rows.Scan(&day, &site, &sn, &idle, &run, &fail, &samples); err == nil {
-						series = append(series, map[string]any{
-							"day": day, "site_id": site, "external_sn": sn,
-							"idle_s": idle, "run_s": run, "fail_s": fail, "samples": samples,
-						})
-					}
-				}
-			}
+			series = queryUtilization(r.Context(), pool, win, groupBy(r))
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"series": series, "group_by": groupBy(r)})
+	})
+	mux.HandleFunc("GET /api/v1/analytics/costs", func(w http.ResponseWriter, r *http.Request) {
+		win, err := parseDayWindow(r)
+		if err != nil {
+			httpserver.WriteError(w, api.BadRequest(err.Error()))
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		series := []map[string]any{}
+		if pool != nil {
+			series = queryCosts(r.Context(), pool, win)
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"series": series})
+	})
+	mux.HandleFunc("GET /api/v1/analytics/failures", func(w http.ResponseWriter, r *http.Request) {
+		win, err := parseDayWindow(r)
+		if err != nil {
+			httpserver.WriteError(w, api.BadRequest(err.Error()))
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		series := []map[string]any{}
+		if pool != nil {
+			series = queryFailures(r.Context(), pool, win)
 		}
 		_ = json.NewEncoder(w).Encode(map[string]any{"series": series})
 	})
@@ -93,6 +111,26 @@ func main() {
 		}
 		_ = json.NewEncoder(w).Encode(out)
 	})
+	mux.HandleFunc("GET /api/v1/analytics/export", func(w http.ResponseWriter, r *http.Request) {
+		win, err := parseDayWindow(r)
+		if err != nil {
+			httpserver.WriteError(w, api.BadRequest(err.Error()))
+			return
+		}
+		bundle := exportBundle{
+			Utilization: []map[string]any{},
+			Costs:       []map[string]any{},
+			Failures:    []map[string]any{},
+		}
+		if pool != nil {
+			bundle.Utilization = queryUtilization(r.Context(), pool, win, groupBy(r))
+			bundle.Costs = queryCosts(r.Context(), pool, win)
+			bundle.Failures = queryFailures(r.Context(), pool, win)
+		}
+		if err := writeExport(w, exportFormat(r), exportKind(r), bundle); err != nil {
+			httpserver.WriteError(w, api.Internal("export failed: "+err.Error()))
+		}
+	})
 
 	srv := &http.Server{
 		Addr:              httpserver.DefaultAddr(),
@@ -113,7 +151,7 @@ func main() {
 }
 
 func consume(ctx context.Context, bus *events.Bus, pool *pgxpool.Pool) {
-	for _, stream := range []string{events.StreamPrinter, events.StreamJob} {
+	for _, stream := range []string{events.StreamPrinter, events.StreamJob, events.StreamSlice, events.StreamAlert} {
 		s := stream
 		go func() {
 			consumer := "analytics-" + getenv("HOSTNAME", "1")
@@ -140,12 +178,12 @@ func bump(ctx context.Context, pool *pgxpool.Pool, env events.Envelope) error {
 			site = "default"
 		}
 		state, _ := env.Payload["gcode_state"].(string)
-		idle, run, fail := 0, 0, 0
+		idle, run, failSec := 0, 0, 0
 		switch state {
 		case "RUNNING", "PREPARE", "PAUSE":
 			run = 3 // poll interval approx
 		case "FAILED":
-			fail = 3
+			failSec = 3
 		default:
 			idle = 3
 		}
@@ -157,20 +195,86 @@ func bump(ctx context.Context, pool *pgxpool.Pool, env events.Envelope) error {
 				run_s = agg_utilization_daily.run_s + EXCLUDED.run_s,
 				fail_s = agg_utilization_daily.fail_s + EXCLUDED.fail_s,
 				samples = agg_utilization_daily.samples + 1`,
-			site, sn, idle, run, fail)
+			site, sn, idle, run, failSec)
+		for _, code := range fail.Codes(env.Payload) {
+			_, err = pool.Exec(ctx, `
+				INSERT INTO agg_hms_daily(day, site_id, code, count)
+				VALUES (CURRENT_DATE, $1, $2, 1)
+				ON CONFLICT (day, site_id, code) DO UPDATE SET
+					count = agg_hms_daily.count + 1`,
+				site, code)
+			if err != nil {
+				return err
+			}
+		}
 	}
-	if env.Type == events.TypeJobFinished {
+	if env.Type == events.TypeJobFinished || env.Type == events.TypeJobFailed {
 		jobID, _ := env.Payload["job_id"].(string)
 		site := env.SiteID
 		if site == "" {
 			site = "default"
 		}
-		_, _ = pool.Exec(ctx, `
-			INSERT INTO fact_job_completed(job_id, site_id, success, completed_at)
-			VALUES ($1,$2,true,now())
-			ON CONFLICT (job_id) DO NOTHING`, jobID, site)
+		sn, _ := env.Payload["external_sn"].(string)
+		success := env.Type == events.TypeJobFinished
+		_, err = pool.Exec(ctx, `
+			INSERT INTO fact_job_completed(job_id, site_id, external_sn, success, completed_at)
+			VALUES ($1,$2,$3,$4,now())
+			ON CONFLICT (job_id) DO NOTHING`, jobID, site, sn, success)
+	}
+	if env.Type == events.TypeJobCosted {
+		jobID, _ := env.Payload["job_id"].(string)
+		site := env.SiteID
+		if site == "" {
+			site = "default"
+		}
+		sn, _ := env.Payload["external_sn"].(string)
+		seconds := intNum(env.Payload["duration_s"])
+		grams := floatNum(env.Payload["grams"])
+		actual := floatNum(env.Payload["cost_actual"])
+		material := floatNum(env.Payload["material_cost"])
+		machine := floatNum(env.Payload["machine_cost"])
+		labor := floatNum(env.Payload["labor_cost"])
+		_, err = pool.Exec(ctx, `
+			INSERT INTO fact_job_completed(job_id, site_id, external_sn, duration_s, success, cost_actual, grams, completed_at)
+			VALUES ($1,$2,$3,$4,true,$5,$6,now())
+			ON CONFLICT (job_id) DO UPDATE SET
+				external_sn = EXCLUDED.external_sn,
+				duration_s = EXCLUDED.duration_s,
+				cost_actual = EXCLUDED.cost_actual,
+				grams = EXCLUDED.grams,
+				success = true`,
+			jobID, site, sn, seconds, actual, grams)
+		if err != nil {
+			return err
+		}
+		_, err = pool.Exec(ctx, `
+			INSERT INTO agg_cost_daily(day, site_id, material_cost, machine_cost, labor_cost, jobs)
+			VALUES (CURRENT_DATE, $1, $2, $3, $4, 1)
+			ON CONFLICT (day, site_id) DO UPDATE SET
+				material_cost = agg_cost_daily.material_cost + EXCLUDED.material_cost,
+				machine_cost = agg_cost_daily.machine_cost + EXCLUDED.machine_cost,
+				labor_cost = agg_cost_daily.labor_cost + EXCLUDED.labor_cost,
+				jobs = agg_cost_daily.jobs + 1`,
+			site, material, machine, labor)
 	}
 	return err
+}
+
+func floatNum(v any) float64 {
+	switch n := v.(type) {
+	case float64:
+		return n
+	case int:
+		return float64(n)
+	case int64:
+		return float64(n)
+	default:
+		return 0
+	}
+}
+
+func intNum(v any) int {
+	return int(floatNum(v))
 }
 
 func getenv(k, d string) string {
