@@ -16,6 +16,7 @@ import (
 	"github.com/jjheffernan/BambuFarmer/packages/events"
 	"github.com/jjheffernan/BambuFarmer/packages/httpserver"
 	"github.com/jjheffernan/BambuFarmer/packages/version"
+	"github.com/jjheffernan/BambuFarmer/services/core/internal/alerts"
 	"github.com/jjheffernan/BambuFarmer/services/core/internal/artifacts"
 	"github.com/jjheffernan/BambuFarmer/services/core/internal/config"
 	"github.com/jjheffernan/BambuFarmer/services/core/internal/httpx"
@@ -62,6 +63,7 @@ func main() {
 			defer bus.Close()
 			go printers.ConsumePrinterEvents(ctx, bus, pool, cfg.SiteID, "core-printers-"+cfg.Hostname)
 			go jobs.ConsumeJobEvents(ctx, bus, pool, cfg.SiteID, "core-jobs-"+cfg.Hostname)
+			go alerts.ConsumeAlertEvents(ctx, bus, cfg.SiteID, "core-alerts-"+cfg.Hostname)
 		}
 	}
 	if pool != nil {
