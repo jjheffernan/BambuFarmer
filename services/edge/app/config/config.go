@@ -25,6 +25,7 @@ type Config struct {
 	FixtureDir     string // when set (or URL empty), poll redacted FM JSON fixtures
 	ArtifactsDir   string // shared with core; object_key relative paths for Upload3MF
 	DirectPrinters string // sn=name pairs when transport is direct_printer
+	MQTTURL        string // tls://host:1883; empty skips the broker
 }
 
 // Load reads env with defaults suitable for local compose.
@@ -44,6 +45,7 @@ func Load() Config {
 		FixtureDir:           os.Getenv("EDGE_FIXTURE_DIR"),
 		ArtifactsDir:         getenv("ARTIFACTS_DIR", "/data/artifacts"),
 		DirectPrinters:       os.Getenv("DIRECT_PRINTERS"),
+		MQTTURL:              strings.TrimSpace(os.Getenv("FARM_MQTT_URL")),
 	}
 }
 

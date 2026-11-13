@@ -10,7 +10,8 @@ On release: move that section to a new `## [X.Y.Z] — YYYY-MM-DD`, bump [`VERSI
 ## [Unreleased]
 
 ### Added
-- Farm report payloads (`device/<sn>/report`) fold into the existing printer snapshot. `msg` 0 replaces telemetry and `msg` 1 updates only fields that are present. No broker dial yet
+- Edge subscribes to `device/+/report` when `FARM_MQTT_URL` and cert files in `EDGE_CERT_DIR` are both set. Polling continues either way
+- Farm report payloads (`device/<sn>/report`) fold into the existing printer snapshot. `msg` 0 replaces telemetry and `msg` 1 updates only fields that are present
 - Direct printer control plane (`FARM_MANAGER_TRANSPORT=direct_printer`) lists printers from `DIRECT_PRINTERS` and runs upload, start, and pause in process; it does not open a network connection
 - Slice plugin (`compose --profile slicer`, `POST /api/v1/slice/jobs`) records a slice job; empty `ORCA_BIN` does not invoke a slicer, and the Orca binary is not bundled
 - Library export (`POST /api/v1/library/export`) creates a Manyfold model from an artifact id and name when `MANYFOLD_URL` is set; an empty URL does not call Manyfold

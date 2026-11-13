@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 	"os"
@@ -12,10 +13,12 @@ import (
 
 	"github.com/jjheffernan/BambuFarmer/packages/api"
 	"github.com/jjheffernan/BambuFarmer/packages/events"
+	"github.com/jjheffernan/BambuFarmer/packages/farm"
 	"github.com/jjheffernan/BambuFarmer/packages/httpserver"
 	"github.com/jjheffernan/BambuFarmer/services/edge/app/agent"
 	"github.com/jjheffernan/BambuFarmer/services/edge/app/bambu"
 	"github.com/jjheffernan/BambuFarmer/services/edge/app/config"
+	"github.com/jjheffernan/BambuFarmer/services/edge/app/mqtt"
 )
 
 func main() {
@@ -58,7 +61,15 @@ func main() {
 	}
 	defer plane.Close()
 
-	ag := agent.New(agent.Options{Config: cfg, Plane: plane, Bus: busClient, Log: log})
+	var reports farm.EventSource
+	if src, err := mqtt.Open(cfg.MQTTURL, cfg.CertDir, cfg.TLSInsecure); err == nil {
+		reports = src
+		log.Info("mqtt reports enabled", "url", cfg.MQTTURL)
+	} else if !errors.Is(err, farm.ErrNotConfigured) {
+		log.Warn("mqtt reports disabled", "err", err)
+	}
+
+	ag := agent.New(agent.Options{Config: cfg, Plane: plane, Bus: busClient, Reports: reports, Log: log})
 	if err := ag.Connect(ctx); err != nil {
 		slog.Warn("initial farm connect failed; will retry on poll", "kind", plane.Kind(), "err", err)
 	}

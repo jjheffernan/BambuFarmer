@@ -35,6 +35,7 @@ type Agent struct {
 	delta *delta.Filter
 	pub   *bus.Publisher
 	log   *slog.Logger
+	feeds farm.EventSource
 
 	mu       sync.RWMutex
 	captain  api.CaptainInfo
@@ -46,10 +47,11 @@ type Agent struct {
 
 // Options configures New.
 type Options struct {
-	Config config.Config
-	Plane  farm.ControlPlane
-	Bus    *events.Bus
-	Log    *slog.Logger
+	Config  config.Config
+	Plane   farm.ControlPlane
+	Bus     *events.Bus
+	Reports farm.EventSource
+	Log     *slog.Logger
 }
 
 // New builds an agent around an already-selected ControlPlane.
@@ -64,6 +66,7 @@ func New(opts Options) *Agent {
 		track: tracker.New(opts.Config.SiteID),
 		delta: delta.New(),
 		log:   log,
+		feeds: opts.Reports,
 		jobs:  make(map[string]activeJob),
 	}
 	if opts.Bus != nil {
@@ -115,6 +118,9 @@ func (a *Agent) Start(ctx context.Context) {
 	a.started = true
 	a.mu.Unlock()
 
+	if a.feeds != nil {
+		go a.consumeReports(ctx, a.feeds)
+	}
 	go func() {
 		t := time.NewTicker(a.cfg.PollInterval)
 		defer t.Stop()
@@ -143,6 +149,34 @@ func (a *Agent) pollOnce(ctx context.Context) {
 		a.setErr(err)
 		return
 	}
+	a.noteSnaps(ctx, snaps)
+}
+
+func (a *Agent) consumeReports(ctx context.Context, src farm.EventSource) {
+	ch, err := src.Subscribe(ctx)
+	if err != nil {
+		a.log.Warn("mqtt subscribe skipped", "err", err)
+		return
+	}
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case d, ok := <-ch:
+			if !ok {
+				return
+			}
+			snap, _, _, _, err := a.track.Observe(d)
+			if err != nil {
+				a.log.Debug("mqtt observe", "sn", d.ExternalSN, "err", err)
+				continue
+			}
+			a.noteSnaps(ctx, []api.PrinterSnapshot{snap})
+		}
+	}
+}
+
+func (a *Agent) noteSnaps(ctx context.Context, snaps []api.PrinterSnapshot) {
 	changed := 0
 	for _, s := range snaps {
 		if a.delta.Changed(s) {
@@ -158,7 +192,7 @@ func (a *Agent) pollOnce(ctx context.Context) {
 	a.lastErr = ""
 	a.mu.Unlock()
 	if changed > 0 {
-		a.log.Info("poll", "kind", a.plane.Kind(), "devices", len(snaps), "changed", changed)
+		a.log.Info("printer deltas", "devices", len(snaps), "changed", changed)
 	}
 }
 

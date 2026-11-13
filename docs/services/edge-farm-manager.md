@@ -175,7 +175,7 @@ services/edge/
     tracker/              # per-SN packages/printerstate.Machine
     normalize/            # FM JSON → packages/api.PrinterSnapshot
     delta/                # snapshot hash filter
-    mqtt/                 # report JSON → DeviceReport (broker dial still later)
+    mqtt/                 # device/+/report when FARM_MQTT_URL and cert files are set
     bus/                  # Redis Streams publish + command consumer (planned)
 packages/printerstate/    # IDLE/PREPARE/RUNNING/PAUSE/FINISH/FAILED + attention buckets
 ```

@@ -146,6 +146,8 @@ services:
       FARM_MANAGER_POLL_INTERVAL: ${FARM_MANAGER_POLL_INTERVAL:-3s}
       EDGE_FIXTURE_DIR: ${EDGE_FIXTURE_DIR:-/fixtures/fm}
       EDGE_CERT_DIR: ${EDGE_CERT_DIR:-}
+      # tls://host:1883. Subscribe runs only when this URL and cert files in EDGE_CERT_DIR are set.
+      FARM_MQTT_URL: ${FARM_MQTT_URL:-}
       CDP_URL: ${CDP_URL:-}
       EDGE_TOKEN: ${EDGE_TOKEN:-}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}

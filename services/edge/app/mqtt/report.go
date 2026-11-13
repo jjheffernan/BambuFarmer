@@ -1,5 +1,5 @@
 // Package mqtt turns a farm report payload into a farm.DeviceReport.
-// It does not dial a broker. Polling stays the live path until a broker client lands.
+// Subscribe dials only when FARM_MQTT_URL and cert files are both set. Polling stays on either way.
 package mqtt
 
 import (
