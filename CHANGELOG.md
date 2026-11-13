@@ -10,6 +10,8 @@ On release: move that section to a new `## [X.Y.Z] — YYYY-MM-DD`, bump [`VERSI
 ## [Unreleased]
 
 ### Added
+- Jobs/Artifacts collapsible create panels and expandable table detail rows; create-job progressive disclosure (plate source / targeting / estimates)
+- Shared `bfBindFile` drop zones for plate upload (Jobs + Artifacts) with clear + filename feedback
 - Collapsible shell nav (toggle + `localStorage`; defaults collapsed on narrow screens)
 - Shared `bfFlash` toast for copy/control feedback; Jobs row primary actions + More menu; `bf-btn-danger` + Stop confirm
 - Fleet `/?sn=` deep-link; Artifacts `?artifact=`; Jobs honor `?q=`/`?state=`; job detail Fleet/Artifacts links; drawer Copy SN; commerce Open job; Jobs Copy link

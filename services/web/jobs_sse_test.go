@@ -41,14 +41,17 @@ func TestJobsPageUsesSSENotIntervalPoll(t *testing.T) {
 		!strings.Contains(layoutHTML, `id="job-spool-pick"`) {
 		t.Fatal("jobs page missing printer/after/spool pickers")
 	}
-	if !strings.Contains(layoutHTML, "data-history") || !strings.Contains(layoutHTML, "/events") {
+	if !strings.Contains(layoutHTML, `data-expand-mode="history"`) || !strings.Contains(layoutHTML, "/events") {
 		t.Fatal("jobs page missing history control")
 	}
-	if !strings.Contains(layoutHTML, "data-detail") || !strings.Contains(layoutHTML, "job-detail-panel") {
-		t.Fatal("jobs page missing detail panel")
+	if !strings.Contains(layoutHTML, "data-expand-job") || !strings.Contains(layoutHTML, "fillJobExpand") {
+		t.Fatal("jobs page missing expandable detail rows")
 	}
-	if !strings.Contains(layoutHTML, "job-events-panel") {
-		t.Fatal("jobs page missing events panel")
+	if !strings.Contains(layoutHTML, "job-create") || !strings.Contains(layoutHTML, "Plate source") {
+		t.Fatal("jobs create form missing progressive disclosure")
+	}
+	if !strings.Contains(layoutHTML, "job-file-zone") {
+		t.Fatal("jobs page missing plate file drop zone")
 	}
 	if !strings.Contains(layoutHTML, `id="jobs-q"`) || !strings.Contains(layoutHTML, `id="jobs-state"`) {
 		t.Fatal("jobs page missing search or state filter")

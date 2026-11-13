@@ -122,6 +122,57 @@ const layoutHTML = `<!DOCTYPE html>
       clearTimeout(bfFlashTimer);
       bfFlashTimer = setTimeout(() => { el.hidden = true; }, 3200);
     }
+    function bfBindFile(input, zone) {
+      if (!input || !zone) return;
+      const nameEl = zone.querySelector('[data-bf-file-name]');
+      const clearBtn = zone.querySelector('[data-bf-file-clear]');
+      const empty = zone.dataset.empty || 'Drop a file or click to choose';
+      function sync() {
+        const f = input.files && input.files[0];
+        zone.classList.toggle('has-file', !!f);
+        if (nameEl) nameEl.textContent = f ? f.name : empty;
+        if (clearBtn) clearBtn.hidden = !f;
+      }
+      zone.addEventListener('click', (ev) => {
+        if (ev.target.closest('[data-bf-file-clear]')) return;
+        input.click();
+      });
+      zone.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Enter' || ev.key === ' ') {
+          ev.preventDefault();
+          input.click();
+        }
+      });
+      ['dragenter', 'dragover'].forEach((t) => zone.addEventListener(t, (ev) => {
+        ev.preventDefault();
+        zone.classList.add('drag');
+      }));
+      ['dragleave', 'drop'].forEach((t) => zone.addEventListener(t, (ev) => {
+        ev.preventDefault();
+        zone.classList.remove('drag');
+      }));
+      zone.addEventListener('drop', (ev) => {
+        const files = ev.dataTransfer && ev.dataTransfer.files;
+        if (!files || !files.length) return;
+        const dt = new DataTransfer();
+        dt.items.add(files[0]);
+        input.files = dt.files;
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+        sync();
+      });
+      input.addEventListener('change', sync);
+      if (clearBtn) {
+        clearBtn.addEventListener('click', (ev) => {
+          ev.preventDefault();
+          ev.stopPropagation();
+          input.value = '';
+          sync();
+        });
+      }
+      const form = input.closest('form');
+      if (form) form.addEventListener('reset', () => setTimeout(sync, 0));
+      sync();
+    }
   </script>
 </head>
 <body>
@@ -822,12 +873,22 @@ const layoutHTML = `<!DOCTYPE html>
         </script>
       {{else if eq .Active "artifacts"}}
         <p class="bf-lede">Staged <code>.gcode.3mf</code> plates under <code>ARTIFACTS_DIR</code> (mirrored to object store when configured). Copy an id into Jobs to enqueue.</p>
-        <div class="bf-panel mb-4">
-          <h2 class="font-display text-lg mb-3">Upload</h2>
-          <form id="artifact-form" class="flex flex-wrap items-end gap-3">
-            <label class="text-sm">File
-              <input class="bf-input block mt-1" id="artifact-file" type="file" accept=".3mf,.gcode.3mf,application/octet-stream" required/>
-            </label>
+        <details class="bf-panel mb-4 bf-disclose" id="artifact-upload" open>
+          <summary class="bf-disclose-sum">
+            <span class="font-display text-lg">Upload</span>
+            <span class="text-bf-muted text-xs font-ui font-normal">.gcode.3mf plate</span>
+          </summary>
+          <form id="artifact-form" class="bf-disclose-body flex flex-wrap items-end gap-3 mt-1">
+            <div class="min-w-[14rem] flex-1">
+              <label class="bf-field" for="artifact-file">File</label>
+              <div class="bf-file" id="artifact-file-zone" tabindex="0" role="button"
+                   aria-controls="artifact-file" data-empty="Drop a .gcode.3mf or click to choose">
+                <input class="sr-only" id="artifact-file" type="file"
+                       accept=".3mf,.gcode.3mf,application/octet-stream" required/>
+                <span class="bf-file-name" data-bf-file-name>Drop a .gcode.3mf or click to choose</span>
+                <button type="button" class="bf-btn shrink-0" data-bf-file-clear hidden>Clear</button>
+              </div>
+            </div>
             <label class="text-sm">Est. seconds
               <input class="bf-input block mt-1 w-28" id="artifact-est-sec" type="number" min="0" step="1"/>
             </label>
@@ -837,18 +898,10 @@ const layoutHTML = `<!DOCTYPE html>
             <button type="submit" class="bf-btn bf-btn-primary">Upload</button>
             <p class="text-sm m-0" id="artifact-form-msg"></p>
           </form>
-        </div>
+        </details>
         <div class="flex flex-wrap items-center gap-3 mb-3">
           <div id="artifacts-status" class="bf-status m-0">loading…</div>
           <button type="button" class="bf-btn" id="artifacts-refresh">Refresh</button>
-        </div>
-        <div id="artifact-detail-panel" class="bf-panel mb-3 hidden">
-          <div class="flex items-center justify-between gap-2 mb-2">
-            <h2 class="font-display text-base m-0">Artifact detail <span class="text-bf-muted font-mono text-xs" id="artifact-detail-id"></span></h2>
-            <button type="button" class="bf-btn" id="artifact-detail-close">Close</button>
-          </div>
-          <dl class="grid gap-x-4 gap-y-1 md:grid-cols-2 text-sm mb-3" id="artifact-detail-fields"></dl>
-          <pre class="bf-pre text-xs m-0" id="artifact-detail-json">…</pre>
         </div>
         <div class="bf-panel overflow-x-auto">
           <table class="bf-table">
@@ -869,6 +922,8 @@ const layoutHTML = `<!DOCTYPE html>
           const API = {{printf "%q" .APIBase}};
           const artStatus = document.getElementById('artifacts-status');
           const artBody = document.getElementById('artifacts-body');
+          let expandedArtifactId = null;
+          bfBindFile(document.getElementById('artifact-file'), document.getElementById('artifact-file-zone'));
           function esc(s) {
             return String(s == null ? '' : s)
               .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
@@ -878,6 +933,71 @@ const layoutHTML = `<!DOCTYPE html>
             if (v < 1024) return v + ' B';
             if (v < 1048576) return (v / 1024).toFixed(1) + ' KB';
             return (v / 1048576).toFixed(1) + ' MB';
+          }
+          function artDetailRow(label, value) {
+            return '<div><dt class="text-bf-muted text-xs">' + esc(label) + '</dt>' +
+              '<dd class="m-0 font-mono text-xs break-all">' + esc(value == null || value === '' ? '—' : value) + '</dd></div>';
+          }
+          async function fillArtifactDetail(id) {
+            const body = artBody.querySelector('[data-art-exp-body="' + id.replace(/"/g, '') + '"]');
+            if (!body) return;
+            body.innerHTML = '<p class="bf-empty m-0">loading…</p>';
+            try {
+              const a = await bfJSON(API + '/api/v1/artifacts/' + encodeURIComponent(id));
+              const key = a.object_key
+                ? (esc(a.object_key) +
+                  ' <button type="button" class="bf-btn" data-copy-key="' + esc(a.object_key) + '">Copy key</button>')
+                : esc('—');
+              body.innerHTML =
+                '<div class="flex items-center justify-between gap-2 mb-2">' +
+                '<h3 class="font-display text-sm m-0">Artifact <span class="text-bf-muted font-mono text-xs">' + esc(id) + '</span></h3>' +
+                '<button type="button" class="bf-btn" data-collapse-art>Collapse</button></div>' +
+                '<dl class="grid gap-x-4 gap-y-1 md:grid-cols-2 text-sm mb-2">' + [
+                  artDetailRow('Filename', a.filename),
+                  '<div><dt class="text-bf-muted text-xs">Object key</dt><dd class="m-0 font-mono text-xs break-all">' + key + '</dd></div>',
+                  artDetailRow('Site', a.site_id),
+                  artDetailRow('Bytes', a.bytes),
+                  artDetailRow('Est. seconds', a.est_seconds),
+                  artDetailRow('Est. grams', a.est_grams),
+                  artDetailRow('Created', a.created_at),
+                ].join('') + '</dl>' +
+                '<pre class="bf-pre text-xs m-0">' + esc(JSON.stringify(a, null, 2)) + '</pre>';
+              body.querySelectorAll('[data-copy-key]').forEach(btn => {
+                btn.onclick = async () => {
+                  try {
+                    await navigator.clipboard.writeText(btn.dataset.copyKey);
+                    bfFlash('Copied object_key', 'ok');
+                  } catch (_) {
+                    bfFlash(btn.dataset.copyKey);
+                  }
+                };
+              });
+              const collapse = body.querySelector('[data-collapse-art]');
+              if (collapse) collapse.onclick = () => expandArtifact(null);
+            } catch (e) {
+              body.innerHTML = '<p class="text-bf-danger m-0">' + esc(e.message || e) + '</p>';
+            }
+          }
+          function expandArtifact(id) {
+            if (id && expandedArtifactId === id) id = null;
+            expandedArtifactId = id;
+            artBody.querySelectorAll('.bf-row-detail').forEach(tr => { tr.hidden = true; });
+            artBody.querySelectorAll('[data-expand-art]').forEach(btn => {
+              btn.setAttribute('aria-expanded', 'false');
+              btn.textContent = '▸';
+            });
+            if (!id) return;
+            const detailTr = document.getElementById('art-exp-' + id);
+            const btn = artBody.querySelector('[data-expand-art="' + id.replace(/"/g, '\\"') + '"]');
+            if (btn) {
+              btn.setAttribute('aria-expanded', 'true');
+              btn.textContent = '▾';
+            }
+            if (detailTr) {
+              detailTr.hidden = false;
+              fillArtifactDetail(id);
+              detailTr.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
           }
           async function loadArtifacts() {
             artStatus.textContent = 'loading…';
@@ -893,21 +1013,26 @@ const layoutHTML = `<!DOCTYPE html>
                 const est = [];
                 if (a.est_seconds) est.push(a.est_seconds + 's');
                 if (a.est_grams) est.push(a.est_grams + 'g');
-                return '<tr>' +
-                  '<td>' + esc(a.filename || '—') + '</td>' +
+                const open = expandedArtifactId === a.id;
+                return '<tr class="bf-row">' +
+                  '<td><button type="button" class="bf-row-toggle" data-expand-art="' + esc(a.id) +
+                  '" aria-expanded="' + (open ? 'true' : 'false') + '">' + (open ? '▾' : '▸') + '</button> ' +
+                  esc(a.filename || '—') + '</td>' +
                   '<td class="font-mono text-xs">' + esc(a.id) + '</td>' +
                   '<td class="font-mono text-xs">' + esc(fmtBytes(a.bytes)) + '</td>' +
                   '<td class="text-bf-muted text-xs">' + esc(est.join(' · ') || '—') + '</td>' +
                   '<td class="font-mono text-xs">' + esc(a.created_at ? new Date(a.created_at).toLocaleString() : '—') + '</td>' +
                   '<td class="whitespace-nowrap">' +
-                  '<button type="button" class="bf-btn" data-detail="' + esc(a.id) + '">Detail</button> ' +
+                  '<button type="button" class="bf-btn" data-expand-art="' + esc(a.id) + '">Detail</button> ' +
                   '<a class="bf-btn" href="' + API + '/api/v1/artifacts/' + encodeURIComponent(a.id) + '/content">Download</a> ' +
                   '<button type="button" class="bf-btn" data-copy="' + esc(a.id) + '">Copy id</button> ' +
                   '<button type="button" class="bf-btn" data-del="' + esc(a.id) + '" data-del-name="' + esc(a.filename || a.id) + '">Delete</button>' +
-                  '</td></tr>';
+                  '</td></tr>' +
+                  '<tr class="bf-row-detail" id="art-exp-' + esc(a.id) + '"' + (open ? '' : ' hidden') + '>' +
+                  '<td colspan="6"><div class="bf-row-detail-inner" data-art-exp-body="' + esc(a.id) + '"></div></td></tr>';
               }).join('');
-              artBody.querySelectorAll('[data-detail]').forEach(btn => {
-                btn.onclick = () => loadArtifactDetail(btn.dataset.detail);
+              artBody.querySelectorAll('[data-expand-art]').forEach(btn => {
+                btn.onclick = () => expandArtifact(btn.dataset.expandArt);
               });
               artBody.querySelectorAll('[data-copy]').forEach(btn => {
                 btn.onclick = async () => {
@@ -930,6 +1055,7 @@ const layoutHTML = `<!DOCTYPE html>
                       const t = await r.text();
                       throw new Error(t || r.statusText);
                     }
+                    if (expandedArtifactId === btn.dataset.del) expandedArtifactId = null;
                     await loadArtifacts();
                   } catch (e) {
                     artStatus.textContent = String(e.message || e);
@@ -937,6 +1063,7 @@ const layoutHTML = `<!DOCTYPE html>
                   }
                 };
               });
+              if (expandedArtifactId) fillArtifactDetail(expandedArtifactId);
               artStatus.textContent = 'updated · ' + items.length;
               artStatus.classList.add('live');
             } catch (e) {
@@ -944,58 +1071,13 @@ const layoutHTML = `<!DOCTYPE html>
               artBody.innerHTML = '<tr><td colspan="6" class="text-bf-danger">' + esc(e.message || e) + '</td></tr>';
             }
           }
-          function artDetailRow(label, value) {
-            return '<div><dt class="text-bf-muted text-xs">' + esc(label) + '</dt>' +
-              '<dd class="m-0 font-mono text-xs break-all">' + esc(value == null || value === '' ? '—' : value) + '</dd></div>';
-          }
-          async function loadArtifactDetail(id) {
-            const panel = document.getElementById('artifact-detail-panel');
-            const fields = document.getElementById('artifact-detail-fields');
-            const jsonEl = document.getElementById('artifact-detail-json');
-            document.getElementById('artifact-detail-id').textContent = id;
-            panel.classList.remove('hidden');
-            fields.innerHTML = '<p class="bf-empty md:col-span-2">loading…</p>';
-            jsonEl.textContent = '…';
-            try {
-              const a = await bfJSON(API + '/api/v1/artifacts/' + encodeURIComponent(id));
-              const key = a.object_key
-                ? (esc(a.object_key) +
-                  ' <button type="button" class="bf-btn" data-copy-key="' + esc(a.object_key) + '">Copy key</button>')
-                : esc('—');
-              fields.innerHTML = [
-                artDetailRow('Filename', a.filename),
-                '<div><dt class="text-bf-muted text-xs">Object key</dt><dd class="m-0 font-mono text-xs break-all">' + key + '</dd></div>',
-                artDetailRow('Site', a.site_id),
-                artDetailRow('Bytes', a.bytes),
-                artDetailRow('Est. seconds', a.est_seconds),
-                artDetailRow('Est. grams', a.est_grams),
-                artDetailRow('Created', a.created_at),
-              ].join('');
-              fields.querySelectorAll('[data-copy-key]').forEach(btn => {
-                btn.onclick = async () => {
-                  try {
-                    await navigator.clipboard.writeText(btn.dataset.copyKey);
-                    bfFlash('Copied object_key', 'ok');
-                  } catch (_) {
-                    bfFlash(btn.dataset.copyKey);
-                  }
-                };
-              });
-              jsonEl.textContent = JSON.stringify(a, null, 2);
-            } catch (e) {
-              fields.innerHTML = '<p class="text-bf-danger md:col-span-2">' + esc(e.message || e) + '</p>';
-              jsonEl.textContent = String(e.message || e);
-            }
-          }
-          document.getElementById('artifact-detail-close').onclick = () => {
-            document.getElementById('artifact-detail-panel').classList.add('hidden');
-          };
           document.getElementById('artifacts-refresh').onclick = loadArtifacts;
           document.getElementById('artifact-form').onsubmit = async (ev) => {
             ev.preventDefault();
             const msg = document.getElementById('artifact-form-msg');
             msg.textContent = '';
-            const file = document.getElementById('artifact-file').files[0];
+            const fileInput = document.getElementById('artifact-file');
+            const file = fileInput.files[0];
             if (!file) return;
             const fd = new FormData();
             fd.append('file', file);
@@ -1006,7 +1088,8 @@ const layoutHTML = `<!DOCTYPE html>
             try {
               const art = await bfJSON(API + '/api/v1/artifacts', {method: 'POST', credentials: 'include', body: fd});
               msg.textContent = 'Uploaded ' + (art.id || art.filename);
-              document.getElementById('artifact-file').value = '';
+              fileInput.value = '';
+              fileInput.dispatchEvent(new Event('change'));
               await loadArtifacts();
             } catch (e) {
               msg.textContent = String(e.message || e);
@@ -1015,14 +1098,17 @@ const layoutHTML = `<!DOCTYPE html>
           loadArtifacts().then(() => {
             const id = (new URLSearchParams(location.search).get('artifact') || '').trim();
             if (!id) return;
-            loadArtifactDetail(id);
-            document.getElementById('artifact-detail-panel').scrollIntoView({behavior: 'smooth', block: 'nearest'});
+            expandedArtifactId = null;
+            expandArtifact(id);
           });
         </script>
       {{else if eq .Active "jobs"}}
         <p class="bf-lede">Upload a <code>.gcode.3mf</code>, enqueue against core. Target a printer SN when known; leave blank to queue unassigned.</p>
-        <div class="bf-panel mb-4">
-          <h2 class="font-display text-lg mb-3">Create job</h2>
+        <details class="bf-panel mb-4 bf-disclose" id="job-create" open>
+          <summary class="bf-disclose-sum">
+            <span class="font-display text-lg">Create job</span>
+            <span class="text-bf-muted text-xs font-ui font-normal">name · plate · printer</span>
+          </summary>
           <form id="job-form" class="grid gap-x-4 gap-y-1 md:grid-cols-2">
             <div>
               <label class="bf-field" for="job-name">Name</label>
@@ -1030,21 +1116,13 @@ const layoutHTML = `<!DOCTYPE html>
             </div>
             <div>
               <label class="bf-field" for="job-file">Plate file</label>
-              <input class="bf-input" id="job-file" name="file" type="file" accept=".3mf,.gcode.3mf,application/octet-stream"/>
-            </div>
-            <div>
-              <label class="bf-field" for="job-artifact-pick">Staged artifact</label>
-              <select class="bf-input" id="job-artifact-pick">
-                <option value="">— pick or type id below —</option>
-              </select>
-            </div>
-            <div>
-              <label class="bf-field" for="job-artifact">Artifact ID <span class="text-bf-muted">(or upload above)</span></label>
-              <input class="bf-input" id="job-artifact" name="artifact_id" placeholder="from prior upload"/>
-            </div>
-            <div>
-              <label class="bf-field" for="job-file-id">FM file id <span class="text-bf-muted">(optional f3mf_id)</span></label>
-              <input class="bf-input" id="job-file-id" name="file_id" placeholder="skip upload when set"/>
+              <div class="bf-file" id="job-file-zone" tabindex="0" role="button"
+                   aria-controls="job-file" data-empty="Drop a .gcode.3mf or click to choose">
+                <input class="sr-only" id="job-file" name="file" type="file"
+                       accept=".3mf,.gcode.3mf,application/octet-stream"/>
+                <span class="bf-file-name" data-bf-file-name>Drop a .gcode.3mf or click to choose</span>
+                <button type="button" class="bf-btn shrink-0" data-bf-file-clear hidden>Clear</button>
+              </div>
             </div>
             <div>
               <label class="bf-field" for="job-sn-pick">Printer</label>
@@ -1057,57 +1135,86 @@ const layoutHTML = `<!DOCTYPE html>
               <input class="bf-input" id="job-sn" name="external_sn" placeholder="optional — triggers start when set"/>
             </div>
             <div>
-              <label class="bf-field" for="job-model-pick">Target model</label>
-              <select class="bf-input" id="job-model-pick">
-                <option value="">— pick or type below —</option>
-              </select>
-            </div>
-            <div>
-              <label class="bf-field" for="job-model">Target model <span class="text-bf-muted">(optional)</span></label>
-              <input class="bf-input" id="job-model" name="target_model" placeholder="P1S, X1C, …"/>
-            </div>
-            <div>
-              <label class="bf-field" for="job-after-pick">After job</label>
-              <select class="bf-input" id="job-after-pick">
-                <option value="">— pick or type id below —</option>
-              </select>
-            </div>
-            <div>
-              <label class="bf-field" for="job-after">After job id <span class="text-bf-muted">(wait until it succeeds)</span></label>
-              <input class="bf-input" id="job-after" name="after_job_id" placeholder="job id"/>
-            </div>
-            <div>
-              <label class="bf-field" for="job-spool-pick">Spoolman spool</label>
-              <select class="bf-input" id="job-spool-pick">
-                <option value="">— pick or type id below —</option>
-              </select>
-            </div>
-            <div>
-              <label class="bf-field" for="job-spool">Spool id <span class="text-bf-muted">(posted on finish)</span></label>
-              <input class="bf-input" id="job-spool" name="spool_id" placeholder="optional"/>
-            </div>
-            <div>
               <label class="bf-field" for="job-copies">Copies</label>
               <input class="bf-input" id="job-copies" name="copies" type="number" min="1" value="1"/>
             </div>
-            <div>
-              <label class="bf-field" for="job-queue-pos">Queue pos <span class="text-bf-muted">(optional)</span></label>
-              <input class="bf-input" id="job-queue-pos" name="queue_pos" type="number" min="0" step="1" placeholder="default"/>
-            </div>
-            <div>
-              <label class="bf-field" for="job-est-sec">Est. seconds</label>
-              <input class="bf-input" id="job-est-sec" name="est_seconds" type="number" min="0" placeholder="0"/>
-            </div>
-            <div>
-              <label class="bf-field" for="job-est-g">Est. grams</label>
-              <input class="bf-input" id="job-est-g" name="est_grams" type="number" min="0" step="0.1" placeholder="0"/>
-            </div>
+            <details class="bf-disclose md:col-span-2 mt-2">
+              <summary class="bf-disclose-sum">Plate source</summary>
+              <div class="grid gap-x-4 gap-y-1 md:grid-cols-2">
+                <div>
+                  <label class="bf-field" for="job-artifact-pick">Staged artifact</label>
+                  <select class="bf-input" id="job-artifact-pick">
+                    <option value="">— pick or type id below —</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="bf-field" for="job-artifact">Artifact ID <span class="text-bf-muted">(or upload above)</span></label>
+                  <input class="bf-input" id="job-artifact" name="artifact_id" placeholder="from prior upload"/>
+                </div>
+                <div class="md:col-span-2">
+                  <label class="bf-field" for="job-file-id">FM file id <span class="text-bf-muted">(optional f3mf_id)</span></label>
+                  <input class="bf-input" id="job-file-id" name="file_id" placeholder="skip upload when set"/>
+                </div>
+              </div>
+            </details>
+            <details class="bf-disclose md:col-span-2">
+              <summary class="bf-disclose-sum">Targeting</summary>
+              <div class="grid gap-x-4 gap-y-1 md:grid-cols-2">
+                <div>
+                  <label class="bf-field" for="job-model-pick">Target model</label>
+                  <select class="bf-input" id="job-model-pick">
+                    <option value="">— pick or type below —</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="bf-field" for="job-model">Target model <span class="text-bf-muted">(optional)</span></label>
+                  <input class="bf-input" id="job-model" name="target_model" placeholder="P1S, X1C, …"/>
+                </div>
+                <div>
+                  <label class="bf-field" for="job-after-pick">After job</label>
+                  <select class="bf-input" id="job-after-pick">
+                    <option value="">— pick or type id below —</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="bf-field" for="job-after">After job id <span class="text-bf-muted">(wait until it succeeds)</span></label>
+                  <input class="bf-input" id="job-after" name="after_job_id" placeholder="job id"/>
+                </div>
+                <div>
+                  <label class="bf-field" for="job-spool-pick">Spoolman spool</label>
+                  <select class="bf-input" id="job-spool-pick">
+                    <option value="">— pick or type id below —</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="bf-field" for="job-spool">Spool id <span class="text-bf-muted">(posted on finish)</span></label>
+                  <input class="bf-input" id="job-spool" name="spool_id" placeholder="optional"/>
+                </div>
+              </div>
+            </details>
+            <details class="bf-disclose md:col-span-2">
+              <summary class="bf-disclose-sum">Estimates &amp; queue</summary>
+              <div class="grid gap-x-4 gap-y-1 md:grid-cols-2">
+                <div>
+                  <label class="bf-field" for="job-queue-pos">Queue pos <span class="text-bf-muted">(optional)</span></label>
+                  <input class="bf-input" id="job-queue-pos" name="queue_pos" type="number" min="0" step="1" placeholder="default"/>
+                </div>
+                <div>
+                  <label class="bf-field" for="job-est-sec">Est. seconds</label>
+                  <input class="bf-input" id="job-est-sec" name="est_seconds" type="number" min="0" placeholder="0"/>
+                </div>
+                <div>
+                  <label class="bf-field" for="job-est-g">Est. grams</label>
+                  <input class="bf-input" id="job-est-g" name="est_grams" type="number" min="0" step="0.1" placeholder="0"/>
+                </div>
+              </div>
+            </details>
             <div class="md:col-span-2 bf-actions">
               <button type="submit" class="bf-btn bf-btn-primary">Create job</button>
               <p class="text-sm self-center" id="job-form-msg"></p>
             </div>
           </form>
-        </div>
+        </details>
         <div class="flex flex-wrap items-center gap-3 mb-3">
           <div id="jobs-status" class="bf-status m-0">loading…</div>
           <input class="bf-input max-w-xs" id="jobs-q" type="search" placeholder="Search name, SN, artifact, id"/>
@@ -1123,26 +1230,6 @@ const layoutHTML = `<!DOCTYPE html>
             <option>cancelled</option>
           </select>
           <button type="button" class="bf-btn" id="jobs-refresh">Refresh</button>
-        </div>
-        <div id="job-detail-panel" class="bf-panel mb-3 hidden">
-          <div class="flex items-center justify-between gap-2 mb-2">
-            <h2 class="font-display text-base m-0">Job detail <span class="text-bf-muted font-mono text-xs" id="job-detail-id"></span></h2>
-            <button type="button" class="bf-btn" id="job-detail-close">Close</button>
-          </div>
-          <dl class="grid gap-x-4 gap-y-1 md:grid-cols-2 text-sm mb-3" id="job-detail-fields"></dl>
-          <pre class="bf-pre text-xs m-0" id="job-detail-json">…</pre>
-        </div>
-        <div id="job-events-panel" class="bf-panel mb-3 hidden">
-          <div class="flex items-center justify-between gap-2 mb-2">
-            <h2 class="font-display text-base m-0">Job history <span class="text-bf-muted font-mono text-xs" id="job-events-id"></span></h2>
-            <button type="button" class="bf-btn" id="job-events-close">Close</button>
-          </div>
-          <div class="overflow-x-auto">
-            <table class="bf-table" id="job-events-table">
-              <thead><tr><th>When</th><th>From</th><th>To</th><th>Actor</th><th>Reason</th></tr></thead>
-              <tbody id="job-events-body"><tr><td colspan="5" class="bf-empty">—</td></tr></tbody>
-            </table>
-          </div>
         </div>
         <div class="bf-panel overflow-x-auto">
           <table class="bf-table" id="jobs-table">
@@ -1167,6 +1254,9 @@ const layoutHTML = `<!DOCTYPE html>
           const API = {{printf "%q" .APIBase}};
           const jobsStatus = document.getElementById('jobs-status');
           const jobsTb = document.querySelector('#jobs-table tbody');
+          let expandedJobId = null;
+          let expandedJobMode = 'detail';
+          bfBindFile(document.getElementById('job-file'), document.getElementById('job-file-zone'));
 
           function esc(s) {
             return String(s == null ? '' : s)
@@ -1237,9 +1327,14 @@ const layoutHTML = `<!DOCTYPE html>
                 const est = prog
                   ? (esc(prog) + (fmtEst(j) !== '—' ? (' · ' + esc(fmtEst(j))) : ''))
                   : esc(fmtEst(j));
-                return '<tr>' +
-                '<td><div class="font-medium">' + esc(j.name || j.id) + '</div>' +
-                  '<div class="text-bf-muted text-xs font-mono">' + esc(j.id) + '</div></td>' +
+                const open = expandedJobId === j.id;
+                return '<tr class="bf-row">' +
+                '<td><button type="button" class="bf-row-toggle" data-expand-job="' + esc(j.id) +
+                  '" data-expand-mode="detail" aria-expanded="' + (open ? 'true' : 'false') + '">' +
+                  (open ? '▾' : '▸') + '</button> ' +
+                  '<div class="inline-block align-middle">' +
+                  '<div class="font-medium">' + esc(j.name || j.id) + '</div>' +
+                  '<div class="text-bf-muted text-xs font-mono">' + esc(j.id) + '</div></div></td>' +
                 '<td><span class="' + stateClass(j.state) + '">' + esc(j.state || '') + '</span></td>' +
                 '<td class="font-mono text-xs">' + esc(qPos) + '</td>' +
                 '<td class="text-bf-muted font-mono text-xs">' + esc(j.external_sn || '—') + '</td>' +
@@ -1250,7 +1345,7 @@ const layoutHTML = `<!DOCTYPE html>
                 '<td class="' + (j.error ? 'text-bf-danger text-xs' : 'text-bf-muted') + '">' +
                   esc(j.error || '—') + '</td>' +
                 '<td class="whitespace-nowrap">' +
-                  '<button type="button" class="bf-btn" data-detail="' + esc(j.id) + '">Detail</button> ' +
+                  '<button type="button" class="bf-btn" data-expand-job="' + esc(j.id) + '" data-expand-mode="detail">Detail</button> ' +
                   (['queued','assigned'].indexOf(j.state) >= 0
                     ? '<button type="button" class="bf-btn bf-btn-primary" data-dispatch="' + esc(j.id) + '" data-sn="' + esc(j.external_sn || '') + '">Dispatch</button> '
                     : '') +
@@ -1262,7 +1357,7 @@ const layoutHTML = `<!DOCTYPE html>
                   '<div class="job-more-menu">' +
                   '<button type="button" class="bf-btn w-full justify-start" data-copy="' + esc(j.id) + '">Copy id</button>' +
                   '<button type="button" class="bf-btn w-full justify-start" data-copy-link="' + esc(j.id) + '">Copy link</button>' +
-                  '<button type="button" class="bf-btn w-full justify-start" data-history="' + esc(j.id) + '">History</button>' +
+                  '<button type="button" class="bf-btn w-full justify-start" data-expand-job="' + esc(j.id) + '" data-expand-mode="history">History</button>' +
                   '<button type="button" class="bf-btn w-full justify-start" data-reprint="' + esc(j.id) + '">Reprint</button>' +
                   (j.state === 'queued'
                     ? '<button type="button" class="bf-btn w-full justify-start" data-queue="earlier" data-job="' + esc(j.id) + '">Earlier</button>' +
@@ -1270,8 +1365,11 @@ const layoutHTML = `<!DOCTYPE html>
                     : '') +
                   '</div></details>' +
                 '</td>' +
-              '</tr>';
+              '</tr>' +
+              '<tr class="bf-row-detail" id="job-exp-' + esc(j.id) + '"' + (open ? '' : ' hidden') + '>' +
+              '<td colspan="10"><div class="bf-row-detail-inner" data-job-exp-body="' + esc(j.id) + '"></div></td></tr>';
               }).join('');
+              if (expandedJobId) fillJobExpand(expandedJobId, expandedJobMode);
             } catch (e) {
               jobsStatus.textContent = 'Error';
               jobsStatus.classList.remove('live');
@@ -1279,12 +1377,6 @@ const layoutHTML = `<!DOCTYPE html>
             }
           }
 
-          const detailPanel = document.getElementById('job-detail-panel');
-          const detailFields = document.getElementById('job-detail-fields');
-          const detailJSON = document.getElementById('job-detail-json');
-          const eventsPanel = document.getElementById('job-events-panel');
-          const eventsBody = document.getElementById('job-events-body');
-          const eventsId = document.getElementById('job-events-id');
           function fmtWhen(v) {
             if (v == null || v === '') return '—';
             const d = new Date(v);
@@ -1294,78 +1386,112 @@ const layoutHTML = `<!DOCTYPE html>
             return '<div><dt class="text-bf-muted text-xs">' + esc(label) + '</dt>' +
               '<dd class="m-0 font-mono text-xs break-all">' + esc(value == null || value === '' ? '—' : value) + '</dd></div>';
           }
-          async function loadJobDetail(id) {
-            document.getElementById('job-detail-id').textContent = id;
-            detailPanel.classList.remove('hidden');
-            detailFields.innerHTML = '<p class="bf-empty md:col-span-2">loading…</p>';
-            detailJSON.textContent = '…';
-            try {
-              const j = await bfJSON(API + '/api/v1/jobs/' + encodeURIComponent(id));
-              const art = j.artifact_id
-                ? (esc(j.artifact_id) +
-                  ' <a class="bf-btn" href="/artifacts?artifact=' + encodeURIComponent(j.artifact_id) + '">Open</a>' +
-                  ' <a class="bf-btn" href="' + API + '/api/v1/artifacts/' + encodeURIComponent(j.artifact_id) +
-                  '/content" target="_blank" rel="noopener">Download</a>')
-                : esc('—');
-              const snCell = j.external_sn
-                ? (esc(j.external_sn) +
-                  ' <a class="bf-btn" href="/?sn=' + encodeURIComponent(j.external_sn) + '">Fleet</a>')
-                : esc('—');
-              detailFields.innerHTML = [
-                detailRow('Name', j.name),
-                detailRow('State', j.state),
-                '<div><dt class="text-bf-muted text-xs">Printer SN</dt><dd class="m-0 font-mono text-xs break-all">' + snCell + '</dd></div>',
-                '<div><dt class="text-bf-muted text-xs">Artifact</dt><dd class="m-0 font-mono text-xs break-all">' + art + '</dd></div>',
-                detailRow('File id', j.external_file_id || j.file_id),
-                detailRow('Queue pos', j.queue_pos),
-                detailRow('Target model', j.target_model),
-                detailRow('After job', j.after_job_id),
-                detailRow('Spool', j.spool_id),
-                detailRow('Copies', j.copies),
-                detailRow('Est. seconds', j.est_seconds),
-                detailRow('Est. grams', j.est_grams),
-                detailRow('Cost estimate', j.cost_estimate),
-                detailRow('Cost actual', j.cost_actual),
-                detailRow('Currency', j.currency),
-                detailRow('Error', j.error),
-                detailRow('Started', fmtWhen(j.started_at)),
-                detailRow('Finished', fmtWhen(j.finished_at)),
-                detailRow('Created', fmtWhen(j.created_at)),
-                detailRow('Updated', fmtWhen(j.updated_at)),
-              ].join('');
-              detailJSON.textContent = JSON.stringify(j, null, 2);
-            } catch (err) {
-              detailFields.innerHTML = '<p class="text-bf-danger md:col-span-2">' + esc(err.message || err) + '</p>';
-              detailJSON.textContent = String(err.message || err);
-            }
+          function jobExpBody(id) {
+            return jobsTb.querySelector('[data-job-exp-body="' + String(id).replace(/"/g, '') + '"]');
           }
-          document.getElementById('job-detail-close').onclick = () => {
-            detailPanel.classList.add('hidden');
-          };
-          async function loadJobEvents(id) {
-            eventsId.textContent = id;
-            eventsPanel.classList.remove('hidden');
-            eventsBody.innerHTML = '<tr><td colspan="5" class="bf-empty">loading…</td></tr>';
+          async function fillJobExpand(id, mode) {
+            const body = jobExpBody(id);
+            if (!body) return;
+            body.innerHTML = '<p class="bf-empty m-0">loading…</p>';
+            const head =
+              '<div class="flex flex-wrap items-center justify-between gap-2 mb-2">' +
+              '<h3 class="font-display text-sm m-0">Job <span class="text-bf-muted font-mono text-xs">' + esc(id) + '</span></h3>' +
+              '<div class="flex flex-wrap gap-2">' +
+              '<button type="button" class="bf-btn' + (mode === 'detail' ? ' bf-btn-primary' : '') +
+              '" data-expand-job="' + esc(id) + '" data-expand-mode="detail">Detail</button>' +
+              '<button type="button" class="bf-btn' + (mode === 'history' ? ' bf-btn-primary' : '') +
+              '" data-expand-job="' + esc(id) + '" data-expand-mode="history">History</button>' +
+              '<button type="button" class="bf-btn" data-collapse-job>Collapse</button>' +
+              '</div></div>';
             try {
-              const items = await bfJSON(API + '/api/v1/jobs/' + encodeURIComponent(id) + '/events');
-              if (!items || !items.length) {
-                eventsBody.innerHTML = '<tr><td colspan="5" class="bf-empty">No transitions yet</td></tr>';
-                return;
+              if (mode === 'history') {
+                const items = await bfJSON(API + '/api/v1/jobs/' + encodeURIComponent(id) + '/events');
+                let table = '<div class="overflow-x-auto"><table class="bf-table"><thead><tr>' +
+                  '<th>When</th><th>From</th><th>To</th><th>Actor</th><th>Reason</th></tr></thead><tbody>';
+                if (!items || !items.length) {
+                  table += '<tr><td colspan="5" class="bf-empty">No transitions yet</td></tr>';
+                } else {
+                  table += items.map(e => '<tr>' +
+                    '<td class="font-mono text-xs">' + esc(e.at ? new Date(e.at).toLocaleString() : '—') + '</td>' +
+                    '<td class="font-mono text-xs">' + esc(e.from_state || '—') + '</td>' +
+                    '<td class="font-mono text-xs">' + esc(e.to_state || '—') + '</td>' +
+                    '<td>' + esc(e.actor || '—') + '</td>' +
+                    '<td class="text-bf-muted text-xs">' + esc(e.reason || '—') + '</td>' +
+                    '</tr>').join('');
+                }
+                table += '</tbody></table></div>';
+                body.innerHTML = head + table;
+              } else {
+                const j = await bfJSON(API + '/api/v1/jobs/' + encodeURIComponent(id));
+                const art = j.artifact_id
+                  ? (esc(j.artifact_id) +
+                    ' <a class="bf-btn" href="/artifacts?artifact=' + encodeURIComponent(j.artifact_id) + '">Open</a>' +
+                    ' <a class="bf-btn" href="' + API + '/api/v1/artifacts/' + encodeURIComponent(j.artifact_id) +
+                    '/content" target="_blank" rel="noopener">Download</a>')
+                  : esc('—');
+                const snCell = j.external_sn
+                  ? (esc(j.external_sn) +
+                    ' <a class="bf-btn" href="/?sn=' + encodeURIComponent(j.external_sn) + '">Fleet</a>')
+                  : esc('—');
+                body.innerHTML = head +
+                  '<dl class="grid gap-x-4 gap-y-1 md:grid-cols-2 text-sm mb-2">' + [
+                    detailRow('Name', j.name),
+                    detailRow('State', j.state),
+                    '<div><dt class="text-bf-muted text-xs">Printer SN</dt><dd class="m-0 font-mono text-xs break-all">' + snCell + '</dd></div>',
+                    '<div><dt class="text-bf-muted text-xs">Artifact</dt><dd class="m-0 font-mono text-xs break-all">' + art + '</dd></div>',
+                    detailRow('File id', j.external_file_id || j.file_id),
+                    detailRow('Queue pos', j.queue_pos),
+                    detailRow('Target model', j.target_model),
+                    detailRow('After job', j.after_job_id),
+                    detailRow('Spool', j.spool_id),
+                    detailRow('Copies', j.copies),
+                    detailRow('Est. seconds', j.est_seconds),
+                    detailRow('Est. grams', j.est_grams),
+                    detailRow('Cost estimate', j.cost_estimate),
+                    detailRow('Cost actual', j.cost_actual),
+                    detailRow('Currency', j.currency),
+                    detailRow('Error', j.error),
+                    detailRow('Started', fmtWhen(j.started_at)),
+                    detailRow('Finished', fmtWhen(j.finished_at)),
+                    detailRow('Created', fmtWhen(j.created_at)),
+                    detailRow('Updated', fmtWhen(j.updated_at)),
+                  ].join('') + '</dl>' +
+                  '<pre class="bf-pre text-xs m-0">' + esc(JSON.stringify(j, null, 2)) + '</pre>';
               }
-              eventsBody.innerHTML = items.map(e => '<tr>' +
-                '<td class="font-mono text-xs">' + esc(e.at ? new Date(e.at).toLocaleString() : '—') + '</td>' +
-                '<td class="font-mono text-xs">' + esc(e.from_state || '—') + '</td>' +
-                '<td class="font-mono text-xs">' + esc(e.to_state || '—') + '</td>' +
-                '<td>' + esc(e.actor || '—') + '</td>' +
-                '<td class="text-bf-muted text-xs">' + esc(e.reason || '—') + '</td>' +
-                '</tr>').join('');
+              const collapse = body.querySelector('[data-collapse-job]');
+              if (collapse) collapse.onclick = () => expandJob(null);
             } catch (err) {
-              eventsBody.innerHTML = '<tr><td colspan="5" class="text-bf-danger">' + esc(err.message || err) + '</td></tr>';
+              body.innerHTML = head + '<p class="text-bf-danger m-0">' + esc(err.message || err) + '</p>';
+              const collapse = body.querySelector('[data-collapse-job]');
+              if (collapse) collapse.onclick = () => expandJob(null);
             }
           }
-          document.getElementById('job-events-close').onclick = () => {
-            eventsPanel.classList.add('hidden');
-          };
+          function expandJob(id, mode) {
+            mode = mode || 'detail';
+            if (id && expandedJobId === id && expandedJobMode === mode) {
+              id = null;
+            }
+            expandedJobId = id;
+            expandedJobMode = mode;
+            jobsTb.querySelectorAll('.bf-row-detail').forEach(tr => { tr.hidden = true; });
+            jobsTb.querySelectorAll('.bf-row-toggle[data-expand-job]').forEach(btn => {
+              btn.setAttribute('aria-expanded', 'false');
+              btn.textContent = '▸';
+            });
+            if (!id) return;
+            const detailTr = document.getElementById('job-exp-' + id);
+            jobsTb.querySelectorAll('.bf-row-toggle[data-expand-job="' + String(id).replace(/"/g, '\\"') + '"]').forEach(btn => {
+              btn.setAttribute('aria-expanded', 'true');
+              btn.textContent = '▾';
+            });
+            if (detailTr) {
+              detailTr.hidden = false;
+              fillJobExpand(id, mode);
+              detailTr.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+          }
+          async function loadJobDetail(id) { expandJob(id, 'detail'); }
+          async function loadJobEvents(id) { expandJob(id, 'history'); }
 
           async function loadJobArtifacts() {
             const sel = document.getElementById('job-artifact-pick');
@@ -1478,14 +1604,9 @@ const layoutHTML = `<!DOCTYPE html>
               }
               return;
             }
-            const detail = ev.target.closest('[data-detail]');
-            if (detail) {
-              await loadJobDetail(detail.dataset.detail);
-              return;
-            }
-            const hist = ev.target.closest('[data-history]');
-            if (hist) {
-              await loadJobEvents(hist.dataset.history);
+            const expand = ev.target.closest('[data-expand-job]');
+            if (expand) {
+              expandJob(expand.dataset.expandJob, expand.dataset.expandMode || 'detail');
               return;
             }
             const move = ev.target.closest('[data-queue]');
@@ -1681,9 +1802,8 @@ const layoutHTML = `<!DOCTYPE html>
             connectJobsSSE();
             const job = (params.get('job') || '').trim();
             if (!job) return;
-            await loadJobDetail(job);
             if (params.get('history') === '1') await loadJobEvents(job);
-            detailPanel.scrollIntoView({behavior: 'smooth', block: 'nearest'});
+            else await loadJobDetail(job);
           })();
         </script>
       {{else if eq .Active "presets"}}

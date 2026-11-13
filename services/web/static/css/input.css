@@ -166,6 +166,58 @@
     @apply absolute right-0 z-20 mt-1 min-w-[9rem] flex flex-col gap-1
       bg-bf-1 border border-bf-border rounded-bf p-2 shadow-[0_8px_24px_rgb(0_0_0/0.35)];
   }
+  .bf-disclose {
+    @apply border border-bf-border rounded-bf bg-bf-0/40;
+  }
+  .bf-disclose.bf-panel {
+    @apply bg-bf-1/90;
+  }
+  .bf-disclose > summary.bf-disclose-sum,
+  .bf-disclose-sum {
+    @apply list-none cursor-pointer flex flex-wrap items-baseline gap-2
+      px-3 py-2.5 text-bf-text select-none;
+  }
+  .bf-disclose > summary.bf-disclose-sum::-webkit-details-marker {
+    display: none;
+  }
+  .bf-disclose > summary.bf-disclose-sum::before {
+    content: "▸";
+    @apply text-bf-muted text-xs shrink-0 w-3;
+  }
+  .bf-disclose[open] > summary.bf-disclose-sum::before {
+    content: "▾";
+  }
+  .bf-disclose > .bf-disclose-body,
+  .bf-disclose > form {
+    @apply px-3 pb-3;
+  }
+  .bf-file {
+    @apply w-full rounded-bf border border-dashed border-bf-border bg-bf-0
+      px-3 py-3 text-sm text-bf-muted cursor-pointer
+      flex flex-wrap items-center gap-2
+      transition-colors hover:border-bf-muted
+      focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-bf-accent;
+  }
+  .bf-file.drag {
+    @apply border-bf-accent text-bf-accent bg-bf-accent/10;
+  }
+  .bf-file.has-file {
+    @apply border-solid border-bf-accent/50 text-bf-text;
+  }
+  .bf-file-name {
+    @apply flex-1 min-w-0 truncate font-mono text-xs;
+  }
+  .bf-row-toggle {
+    @apply inline-flex items-center justify-center rounded-bf border border-bf-border
+      bg-bf-0 text-bf-text px-1.5 py-0.5 text-xs min-w-[1.5rem] mr-1 align-middle cursor-pointer
+      transition-colors hover:bg-bf-3 hover:border-bf-muted;
+  }
+  .bf-row-detail > td {
+    @apply bg-bf-0/50 py-3;
+  }
+  .bf-row-detail-inner {
+    @apply space-y-2;
+  }
   .bf-status {
     @apply text-sm text-bf-muted mb-3;
   }

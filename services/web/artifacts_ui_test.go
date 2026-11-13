@@ -18,8 +18,11 @@ func TestArtifactsPage(t *testing.T) {
 	if !strings.Contains(layoutHTML, `data-del=`) || !strings.Contains(layoutHTML, "DELETE") {
 		t.Fatal("expected artifact delete control")
 	}
-	if !strings.Contains(layoutHTML, "artifact-detail-panel") || !strings.Contains(layoutHTML, "loadArtifactDetail") {
-		t.Fatal("expected artifact detail panel")
+	if !strings.Contains(layoutHTML, "data-expand-art") || !strings.Contains(layoutHTML, "fillArtifactDetail") {
+		t.Fatal("expected expandable artifact detail rows")
+	}
+	if !strings.Contains(layoutHTML, "artifact-file-zone") {
+		t.Fatal("expected artifact file drop zone")
 	}
 	if !strings.Contains(layoutHTML, "object_key") {
 		t.Fatal("expected object_key in artifact detail")
