@@ -12,7 +12,7 @@ Per-module design docs that expand [`DESIGN_SPEC.md`](../DESIGN_SPEC.md) into im
 | **analytics** | [analytics.md](./analytics.md) | Event rollups, reports |
 | **commerce** | — | Optional shop-orders plugin (`compose --profile commerce`) |
 | **web** | [web.md](./web.md) | HTMX + Tailwind operator UI |
-| **slicer** | [slicer.md](./slicer.md) | Post-MVP OrcaSlicer wrapper |
+| **slicer** | [slicer.md](./slicer.md) | Optional slice plugin (`compose --profile slicer`); Orca binary not bundled |
 
 Cross-cutting: [`DEPLOYMENT_MODES.md`](../DEPLOYMENT_MODES.md) (LAN vs OIDC) · [`INSTALL.md`](../INSTALL.md) (wizard + releases) · [`TESTING.md`](../TESTING.md) · [`BUILD_OUT.md`](../BUILD_OUT.md) · [`plugins.md`](../plugins.md).
 

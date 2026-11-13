@@ -8,8 +8,43 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jjheffernan/BambuFarmer/packages/api"
+	"github.com/jjheffernan/BambuFarmer/packages/events"
 	"github.com/jjheffernan/BambuFarmer/services/integrations/app/spoolman"
 )
+
+func TestLowStock(t *testing.T) {
+	if spoolman.LowGrams("") != 100 || spoolman.LowGrams("nope") != 100 || spoolman.LowGrams("50") != 50 {
+		t.Fatal(spoolman.LowGrams(""))
+	}
+	got := spoolman.LowStock([]api.SpoolSummary{
+		{ID: "a", RemainingG: 40},
+		{ID: "b", RemainingG: 100},
+		{ID: "c", RemainingG: 10, Archived: true},
+	}, 100)
+	if len(got) != 1 || got[0].ID != "a" {
+		t.Fatalf("%+v", got)
+	}
+	if len(spoolman.LowStock(nil, 100)) != 0 {
+		t.Fatal("nil spools")
+	}
+}
+
+func TestAMSSlots(t *testing.T) {
+	if len(spoolman.ParseSlots("")) != 0 || len(spoolman.ParseSlots("nope,-1=x,2=")) != 0 {
+		t.Fatal(spoolman.ParseSlots(""))
+	}
+	slots := spoolman.ParseSlots("0=spool-a, 1=spool-b")
+	if id, ok := spoolman.SpoolFor(slots, 0); !ok || id != "spool-a" {
+		t.Fatalf("%q %v", id, ok)
+	}
+	if _, ok := spoolman.SpoolFor(slots, 3); ok {
+		t.Fatal("missing tray")
+	}
+	if _, ok := spoolman.SpoolFor(nil, 0); ok {
+		t.Fatal("empty map")
+	}
+}
 
 func TestListSpoolsMapsResponse(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -49,4 +84,38 @@ func TestListSpoolsMapsResponse(t *testing.T) {
 	if spools[0].RemainingG != 987.5 {
 		t.Fatalf("remaining %v", spools[0].RemainingG)
 	}
+}
+
+func TestUseWeightNoopWhenUnset(t *testing.T) {
+	if err := spoolman.Consume(context.Background(), nil, spoolmanEnvelope(4, "9")); err != nil {
+		t.Fatal(err)
+	}
+	cli := spoolman.New("", "", time.Second)
+	if err := cli.UseWeight(context.Background(), "9", 4); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestUseWeightPostsGrams(t *testing.T) {
+	var gotMethod, gotPath string
+	var got map[string]float64
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotMethod, gotPath = r.Method, r.URL.Path
+		_ = json.NewDecoder(r.Body).Decode(&got)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+	cli := spoolman.New(srv.URL, "", time.Second)
+	if err := spoolman.Consume(context.Background(), cli, spoolmanEnvelope(12.5, "42")); err != nil {
+		t.Fatal(err)
+	}
+	if gotMethod != http.MethodPut || gotPath != "/api/v1/spool/42/use" || got["use_weight"] != 12.5 {
+		t.Fatalf("%s %s %#v", gotMethod, gotPath, got)
+	}
+}
+
+func spoolmanEnvelope(grams float64, spoolID string) events.Envelope {
+	return events.NewEnvelope(events.TypeFilamentConsumed, "core", "default", map[string]any{
+		"grams": grams, "spool_id": spoolID,
+	})
 }

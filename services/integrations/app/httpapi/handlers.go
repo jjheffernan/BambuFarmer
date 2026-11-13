@@ -3,7 +3,10 @@ package httpapi
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
+	"strings"
 
+	"github.com/jjheffernan/BambuFarmer/packages/api"
 	"github.com/jjheffernan/BambuFarmer/packages/httpserver"
 	"github.com/jjheffernan/BambuFarmer/services/integrations/app/manyfold"
 	"github.com/jjheffernan/BambuFarmer/services/integrations/app/spoolman"
@@ -12,10 +15,12 @@ import (
 
 // Deps are optional upstream clients (nil = disabled).
 type Deps struct {
-	Spoolman *spoolman.Client
-	Manyfold *manyfold.Client
-	SpoolURL string
-	ManyURL  string
+	Spoolman      *spoolman.Client
+	Manyfold      *manyfold.Client
+	SpoolURL      string
+	ManyURL       string
+	LowStockGrams float64
+	Slots         map[int]string
 }
 
 // Register mounts integration HTTP routes.
@@ -34,7 +39,7 @@ func Register(mux *http.ServeMux, d Deps) {
 
 	mux.HandleFunc("GET /api/v1/filament/spools", func(w http.ResponseWriter, r *http.Request) {
 		if d.Spoolman == nil {
-			writeJSON(w, map[string]any{"configured": false, "spools": []any{}})
+			writeJSON(w, map[string]any{"configured": false, "spools": []any{}, "low_stock": []any{}})
 			return
 		}
 		spools, err := d.Spoolman.ListSpools(r.Context(), 1000)
@@ -42,7 +47,24 @@ func Register(mux *http.ServeMux, d Deps) {
 			httpserver.WriteError(w, err)
 			return
 		}
-		writeJSON(w, map[string]any{"configured": true, "spools": spools})
+		writeJSON(w, map[string]any{
+			"configured":  true,
+			"threshold_g": d.LowStockGrams,
+			"spools":      spools,
+			"low_stock":   spoolman.LowStock(spools, d.LowStockGrams),
+		})
+	})
+
+	mux.HandleFunc("GET /api/v1/filament/links", func(w http.ResponseWriter, r *http.Request) {
+		raw := r.URL.Query().Get("tray")
+		tray, err := strconv.Atoi(raw)
+		id := ""
+		if err == nil && tray >= 0 {
+			id, _ = spoolman.SpoolFor(d.Slots, tray)
+		} else {
+			tray = -1
+		}
+		writeJSON(w, map[string]any{"tray": tray, "spool_id": id})
 	})
 
 	mux.HandleFunc("GET /api/v1/library/models", func(w http.ResponseWriter, r *http.Request) {
@@ -56,6 +78,58 @@ func Register(mux *http.ServeMux, d Deps) {
 			return
 		}
 		writeJSON(w, map[string]any{"configured": true, "models": models})
+	})
+
+	mux.HandleFunc("POST /api/v1/library/import", func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Name string `json:"name"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			httpserver.WriteError(w, api.BadRequest("invalid JSON body"))
+			return
+		}
+		if d.Manyfold == nil {
+			writeJSON(w, map[string]any{"imported": false, "reason": "MANYFOLD_URL unset"})
+			return
+		}
+		name := strings.TrimSpace(body.Name)
+		if name == "" {
+			httpserver.WriteError(w, api.BadRequest("name required"))
+			return
+		}
+		id, err := d.Manyfold.CreateModel(r.Context(), name)
+		if err != nil {
+			httpserver.WriteError(w, err)
+			return
+		}
+		writeJSON(w, map[string]any{"imported": true, "id": id, "name": name})
+	})
+
+	mux.HandleFunc("POST /api/v1/library/export", func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			ArtifactID string `json:"artifact_id"`
+			Name       string `json:"name"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			httpserver.WriteError(w, api.BadRequest("invalid JSON body"))
+			return
+		}
+		if d.Manyfold == nil {
+			writeJSON(w, map[string]any{"exported": false, "reason": "MANYFOLD_URL unset"})
+			return
+		}
+		artifactID := strings.TrimSpace(body.ArtifactID)
+		name := strings.TrimSpace(body.Name)
+		if artifactID == "" || name == "" {
+			httpserver.WriteError(w, api.BadRequest("artifact_id and name required"))
+			return
+		}
+		id, err := d.Manyfold.CreateModel(r.Context(), name)
+		if err != nil {
+			httpserver.WriteError(w, err)
+			return
+		}
+		writeJSON(w, map[string]any{"exported": true, "id": id, "artifact_id": artifactID, "name": name})
 	})
 }
 

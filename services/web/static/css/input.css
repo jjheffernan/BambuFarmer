@@ -38,14 +38,42 @@
 
 @layer components {
   .bf-shell {
-    @apply min-h-screen grid grid-cols-1 md:grid-cols-[15rem_1fr];
+    @apply min-h-screen grid grid-cols-1 md:grid-cols-[15rem_1fr]
+      transition-[grid-template-columns] duration-200;
+  }
+  .bf-shell.bf-nav-collapsed {
+    @apply md:grid-cols-[3.25rem_1fr];
   }
   .bf-aside {
     @apply bg-bf-1/95 border-b md:border-b-0 md:border-r border-bf-border
-      px-4 py-5 flex flex-col gap-6 backdrop-blur-sm;
+      px-4 py-5 flex flex-col gap-6 backdrop-blur-sm
+      transition-[padding] duration-200;
+  }
+  .bf-aside-top {
+    @apply flex items-start justify-between gap-2;
+  }
+  .bf-nav-toggle {
+    @apply shrink-0 px-2 py-1.5 min-w-[2.25rem];
+  }
+  .bf-shell.bf-nav-collapsed .bf-aside {
+    @apply md:px-2 md:items-center;
+  }
+  .bf-shell.bf-nav-collapsed .bf-aside-top {
+    @apply md:flex-col md:items-center;
+  }
+  .bf-shell.bf-nav-collapsed .bf-brand {
+    @apply md:sr-only;
+  }
+  .bf-shell.bf-nav-collapsed .bf-nav,
+  .bf-shell.bf-nav-collapsed .bf-aside-foot {
+    @apply hidden;
+  }
+  /* Mobile: collapse hides links; keep brand + toggle in one row */
+  .bf-shell.bf-nav-collapsed .bf-aside {
+    @apply max-md:py-3 max-md:gap-0;
   }
   .bf-brand {
-    @apply font-display text-bf-accent font-bold tracking-wide text-lg;
+    @apply font-display text-bf-accent font-bold tracking-wide text-lg min-w-0;
   }
   .bf-brand span {
     @apply block font-ui font-medium text-bf-muted text-xs mt-1 tracking-normal;
@@ -72,7 +100,8 @@
   .bf-chip {
     @apply inline-flex items-center border border-bf-border rounded-full
       px-3 py-1 text-xs text-bf-muted cursor-pointer select-none
-      transition-colors hover:border-bf-muted;
+      transition-colors hover:border-bf-muted
+      focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-bf-accent;
   }
   .bf-chip.on {
     @apply border-bf-accent text-bf-accent bg-bf-accent/10;
@@ -87,14 +116,107 @@
   .bf-card-meta {
     @apply text-bf-muted text-sm mt-1;
   }
+  .bf-drawer-backdrop {
+    @apply fixed inset-0 z-40 bg-black/50 hidden;
+  }
+  .bf-drawer-backdrop.open {
+    @apply block;
+  }
+  .bf-drawer {
+    @apply fixed inset-y-0 right-0 z-50 w-full max-w-md border-l border-bf-border
+      bg-bf-1 p-5 overflow-y-auto shadow-[-8px_0_24px_rgb(0_0_0/0.35)]
+      translate-x-full transition-transform duration-200;
+  }
+  .bf-drawer.open {
+    @apply translate-x-0;
+  }
   .bf-btn {
     @apply inline-flex items-center justify-center rounded-bf border border-bf-border
       bg-bf-0 text-bf-text px-2.5 py-1.5 text-xs cursor-pointer
-      transition-colors hover:bg-bf-3 hover:border-bf-muted;
+      transition-colors hover:bg-bf-3 hover:border-bf-muted
+      focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-bf-accent;
   }
   .bf-btn-primary {
     @apply bg-bf-accent text-[#04140a] border-bf-accent font-semibold
       hover:bg-bf-accent-dim hover:text-bf-text;
+  }
+  .bf-btn-danger {
+    @apply border-bf-danger/60 text-bf-danger hover:bg-bf-danger/15 hover:border-bf-danger;
+  }
+  .bf-flash {
+    @apply fixed top-3 right-3 z-[60] max-w-sm rounded-bf border border-bf-border
+      bg-bf-1 text-bf-text text-sm px-3 py-2 shadow-[0_8px_24px_rgb(0_0_0/0.35)];
+  }
+  .bf-flash-ok {
+    @apply border-bf-accent/50 text-bf-accent;
+  }
+  .bf-flash-error {
+    @apply border-bf-danger/50 text-bf-danger;
+  }
+  .job-more {
+    @apply relative inline-block align-middle;
+  }
+  .job-more > summary {
+    @apply list-none;
+  }
+  .job-more > summary::-webkit-details-marker {
+    display: none;
+  }
+  .job-more-menu {
+    @apply absolute right-0 z-20 mt-1 min-w-[9rem] flex flex-col gap-1
+      bg-bf-1 border border-bf-border rounded-bf p-2 shadow-[0_8px_24px_rgb(0_0_0/0.35)];
+  }
+  .bf-disclose {
+    @apply border border-bf-border rounded-bf bg-bf-0/40;
+  }
+  .bf-disclose.bf-panel {
+    @apply bg-bf-1/90;
+  }
+  .bf-disclose > summary.bf-disclose-sum,
+  .bf-disclose-sum {
+    @apply list-none cursor-pointer flex flex-wrap items-baseline gap-2
+      px-3 py-2.5 text-bf-text select-none;
+  }
+  .bf-disclose > summary.bf-disclose-sum::-webkit-details-marker {
+    display: none;
+  }
+  .bf-disclose > summary.bf-disclose-sum::before {
+    content: "▸";
+    @apply text-bf-muted text-xs shrink-0 w-3;
+  }
+  .bf-disclose[open] > summary.bf-disclose-sum::before {
+    content: "▾";
+  }
+  .bf-disclose > .bf-disclose-body,
+  .bf-disclose > form {
+    @apply px-3 pb-3;
+  }
+  .bf-file {
+    @apply w-full rounded-bf border border-dashed border-bf-border bg-bf-0
+      px-3 py-3 text-sm text-bf-muted cursor-pointer
+      flex flex-wrap items-center gap-2
+      transition-colors hover:border-bf-muted
+      focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-bf-accent;
+  }
+  .bf-file.drag {
+    @apply border-bf-accent text-bf-accent bg-bf-accent/10;
+  }
+  .bf-file.has-file {
+    @apply border-solid border-bf-accent/50 text-bf-text;
+  }
+  .bf-file-name {
+    @apply flex-1 min-w-0 truncate font-mono text-xs;
+  }
+  .bf-row-toggle {
+    @apply inline-flex items-center justify-center rounded-bf border border-bf-border
+      bg-bf-0 text-bf-text px-1.5 py-0.5 text-xs min-w-[1.5rem] mr-1 align-middle cursor-pointer
+      transition-colors hover:bg-bf-3 hover:border-bf-muted;
+  }
+  .bf-row-detail > td {
+    @apply bg-bf-0/50 py-3;
+  }
+  .bf-row-detail-inner {
+    @apply space-y-2;
   }
   .bf-status {
     @apply text-sm text-bf-muted mb-3;

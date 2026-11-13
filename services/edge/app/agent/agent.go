@@ -11,6 +11,7 @@ import (
 	"github.com/jjheffernan/BambuFarmer/packages/api"
 	"github.com/jjheffernan/BambuFarmer/packages/events"
 	"github.com/jjheffernan/BambuFarmer/packages/farm"
+	"github.com/jjheffernan/BambuFarmer/packages/objectstore"
 	"github.com/jjheffernan/BambuFarmer/packages/printerstate"
 	"github.com/jjheffernan/BambuFarmer/services/edge/app/bus"
 	"github.com/jjheffernan/BambuFarmer/services/edge/app/config"
@@ -20,11 +21,11 @@ import (
 
 // activeJob correlates an in-flight BambuFarmer job with a printer SN.
 type activeJob struct {
-	JobID      string
-	TaskID     string
-	SubtaskID  string
-	LastState  string
-	LastPct    int
+	JobID     string
+	TaskID    string
+	SubtaskID string
+	LastState string
+	LastPct   int
 }
 
 // Agent owns the farm control plane and Redis workers for one site.
@@ -35,6 +36,7 @@ type Agent struct {
 	delta *delta.Filter
 	pub   *bus.Publisher
 	log   *slog.Logger
+	feeds farm.EventSource
 
 	mu       sync.RWMutex
 	captain  api.CaptainInfo
@@ -46,10 +48,11 @@ type Agent struct {
 
 // Options configures New.
 type Options struct {
-	Config config.Config
-	Plane  farm.ControlPlane
-	Bus    *events.Bus
-	Log    *slog.Logger
+	Config  config.Config
+	Plane   farm.ControlPlane
+	Bus     *events.Bus
+	Reports farm.EventSource
+	Log     *slog.Logger
 }
 
 // New builds an agent around an already-selected ControlPlane.
@@ -64,6 +67,7 @@ func New(opts Options) *Agent {
 		track: tracker.New(opts.Config.SiteID),
 		delta: delta.New(),
 		log:   log,
+		feeds: opts.Reports,
 		jobs:  make(map[string]activeJob),
 	}
 	if opts.Bus != nil {
@@ -72,6 +76,12 @@ func New(opts Options) *Agent {
 			SiteID:       opts.Config.SiteID,
 			ArtifactsDir: opts.Config.ArtifactsDir,
 			Log:          log,
+		}
+		if remote, err := objectstore.Dial(objectstore.FromEnv()); err != nil {
+			log.Warn("object store dial", "err", err)
+		} else if remote != nil {
+			a.pub.ObjectStore = remote
+			log.Info("object store enabled for artifact fetch")
 		}
 	}
 	return a
@@ -115,6 +125,9 @@ func (a *Agent) Start(ctx context.Context) {
 	a.started = true
 	a.mu.Unlock()
 
+	if a.feeds != nil {
+		go a.consumeReports(ctx, a.feeds)
+	}
 	go func() {
 		t := time.NewTicker(a.cfg.PollInterval)
 		defer t.Stop()
@@ -143,6 +156,34 @@ func (a *Agent) pollOnce(ctx context.Context) {
 		a.setErr(err)
 		return
 	}
+	a.noteSnaps(ctx, snaps)
+}
+
+func (a *Agent) consumeReports(ctx context.Context, src farm.EventSource) {
+	ch, err := src.Subscribe(ctx)
+	if err != nil {
+		a.log.Warn("mqtt subscribe skipped", "err", err)
+		return
+	}
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case d, ok := <-ch:
+			if !ok {
+				return
+			}
+			snap, _, _, _, err := a.track.Observe(d)
+			if err != nil {
+				a.log.Debug("mqtt observe", "sn", d.ExternalSN, "err", err)
+				continue
+			}
+			a.noteSnaps(ctx, []api.PrinterSnapshot{snap})
+		}
+	}
+}
+
+func (a *Agent) noteSnaps(ctx context.Context, snaps []api.PrinterSnapshot) {
 	changed := 0
 	for _, s := range snaps {
 		if a.delta.Changed(s) {
@@ -151,6 +192,12 @@ func (a *Agent) pollOnce(ctx context.Context) {
 				a.pub.PublishPrinterDelta(ctx, s)
 			}
 		}
+		if a.delta.AMSChanged(s) && a.pub != nil {
+			a.pub.PublishAMSChanged(ctx, s)
+		}
+		if a.delta.AlertRaised(s) && a.pub != nil {
+			a.pub.PublishAlertRaised(ctx, s)
+		}
 		a.emitJobLifecycle(ctx, s)
 	}
 	a.mu.Lock()
@@ -158,7 +205,7 @@ func (a *Agent) pollOnce(ctx context.Context) {
 	a.lastErr = ""
 	a.mu.Unlock()
 	if changed > 0 {
-		a.log.Info("poll", "kind", a.plane.Kind(), "devices", len(snaps), "changed", changed)
+		a.log.Info("printer deltas", "devices", len(snaps), "changed", changed)
 	}
 }
 
@@ -250,16 +297,16 @@ func (a *Agent) emitJobLifecycle(ctx context.Context, snap api.PrinterSnapshot) 
 	a.mu.Unlock()
 
 	payload := map[string]any{
-		"job_id":           jobCopy.JobID,
-		"external_sn":      snap.ExternalSN,
-		"external_task":    jobCopy.TaskID,
-		"task_id":          jobCopy.TaskID,
-		"subtask_id":       jobCopy.SubtaskID,
-		"gcode_state":      snap.GcodeState,
-		"mc_percent":       snap.MCPercent,
+		"job_id":            jobCopy.JobID,
+		"external_sn":       snap.ExternalSN,
+		"external_task":     jobCopy.TaskID,
+		"task_id":           jobCopy.TaskID,
+		"subtask_id":        jobCopy.SubtaskID,
+		"gcode_state":       snap.GcodeState,
+		"mc_percent":        snap.MCPercent,
 		"mc_remaining_time": snap.RemainingS,
-		"layer_num":        snap.LayerNum,
-		"total_layer_num":  snap.TotalLayerNum,
+		"layer_num":         snap.LayerNum,
+		"total_layer_num":   snap.TotalLayerNum,
 	}
 
 	switch printerstate.GcodeState(snap.GcodeState) {
@@ -310,7 +357,7 @@ func (a *Agent) Status() api.EdgeStatus {
 		Release:        a.captain.Release,
 		DeviceCount:    a.track.Count(),
 		LastError:      a.lastErr,
-		Devices:        a.track.Summaries(),
+		Devices:        a.track.Snapshots(),
 	}
 	if !a.lastPoll.IsZero() {
 		t := a.lastPoll
@@ -323,6 +370,9 @@ func (a *Agent) Status() api.EdgeStatus {
 		st.Note = "no farm backend — set FARM_MANAGER_URL or EDGE_FIXTURE_DIR"
 	case farm.KindCDP:
 		st.Note = "CDP backend stub — not connected"
+	case farm.KindDirect:
+		st.FarmMode = "direct_printer"
+		st.Note = "direct printer adapter — no farm manager connection"
 	case farm.KindNative:
 		if !connected {
 			st.Note = "fm_native awaiting session"

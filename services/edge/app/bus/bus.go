@@ -12,6 +12,7 @@ import (
 	"github.com/jjheffernan/BambuFarmer/packages/api"
 	"github.com/jjheffernan/BambuFarmer/packages/events"
 	"github.com/jjheffernan/BambuFarmer/packages/farm"
+	"github.com/jjheffernan/BambuFarmer/packages/objectstore"
 )
 
 // Commander is the subset of farm.ControlPlane the command consumer needs.
@@ -29,7 +30,8 @@ type Uploader interface {
 type Publisher struct {
 	Bus          *events.Bus
 	SiteID       string
-	ArtifactsDir string // shared volume with core; object_key is relative
+	ArtifactsDir string             // shared volume with core; object_key is relative
+	ObjectStore  *objectstore.Client // optional MinIO/S3 when local file missing
 	Log          *slog.Logger
 }
 
@@ -50,6 +52,13 @@ func (p *Publisher) PublishPrinterDelta(ctx context.Context, snap api.PrinterSna
 		"state_forced":      snap.StateForced,
 		"nozzle_temper":     snap.NozzleTemper,
 		"bed_temper":        snap.BedTemper,
+		"print_error":       snap.PrintError,
+		"hms":               snap.HMS,
+		"ams":               snap.AMS,
+		"tags":              snap.Tags,
+	}
+	if snap.Task != nil {
+		payload["task"] = snap.Task
 	}
 	typ := events.TypePrinterStateChanged
 	if !snap.Online {
@@ -62,6 +71,61 @@ func (p *Publisher) PublishPrinterDelta(ctx context.Context, snap api.PrinterSna
 		return
 	}
 	p.Log.Debug("published", "stream", events.StreamPrinter, "id", id, "sn", snap.ExternalSN, "state", snap.GcodeState)
+}
+
+// PublishAlertRaised emits alert.raised for operator attention (PAUSE/FAILED/offline/HMS).
+func (p *Publisher) PublishAlertRaised(ctx context.Context, snap api.PrinterSnapshot) {
+	if p == nil || p.Bus == nil {
+		return
+	}
+	reasons := make([]string, 0, 3)
+	if !snap.Online {
+		reasons = append(reasons, "offline")
+	}
+	switch snap.GcodeState {
+	case "PAUSE", "FAILED":
+		reasons = append(reasons, snap.GcodeState)
+	}
+	if len(snap.HMS) > 0 {
+		reasons = append(reasons, "hms")
+	}
+	payload := map[string]any{
+		"external_sn": snap.ExternalSN,
+		"name":        snap.Name,
+		"model":       snap.Model,
+		"online":      snap.Online,
+		"gcode_state": snap.GcodeState,
+		"hms":         snap.HMS,
+		"reasons":     reasons,
+		"bucket":      snap.Bucket,
+	}
+	env := events.NewEnvelope(events.TypeAlertRaised, "edge", p.SiteID, payload)
+	id, err := p.Bus.Publish(ctx, events.StreamAlert, env)
+	if err != nil {
+		p.Log.Warn("publish alert.raised", "err", err)
+		return
+	}
+	p.Log.Debug("published", "stream", events.StreamAlert, "id", id, "sn", snap.ExternalSN, "type", events.TypeAlertRaised)
+}
+
+// PublishAMSChanged emits printer.ams_changed with the current AMS tray map.
+func (p *Publisher) PublishAMSChanged(ctx context.Context, snap api.PrinterSnapshot) {
+	if p == nil || p.Bus == nil {
+		return
+	}
+	payload := map[string]any{
+		"external_sn": snap.ExternalSN,
+		"name":        snap.Name,
+		"model":       snap.Model,
+		"ams":         snap.AMS,
+	}
+	env := events.NewEnvelope(events.TypePrinterAMSChanged, "edge", p.SiteID, payload)
+	id, err := p.Bus.Publish(ctx, events.StreamPrinter, env)
+	if err != nil {
+		p.Log.Warn("publish ams_changed", "err", err)
+		return
+	}
+	p.Log.Debug("published", "stream", events.StreamPrinter, "id", id, "sn", snap.ExternalSN, "type", events.TypePrinterAMSChanged)
 }
 
 // PublishJob emits a job lifecycle event on bf.events.job.
@@ -204,26 +268,16 @@ func (p *Publisher) uploadArtifact(ctx context.Context, cmd Commander, objectKey
 	if !ok {
 		return "", "", fmt.Errorf("start_print: commander cannot Upload3MF")
 	}
-	dir := ""
-	if p != nil {
-		dir = p.ArtifactsDir
-	}
-	if dir == "" {
-		return "", "", fmt.Errorf("start_print: ARTIFACTS_DIR unset and no file_id")
-	}
-	path, err := absArtifact(dir, objectKey)
+	rc, cleanup, baseName, err := p.openArtifact(ctx, objectKey)
 	if err != nil {
 		return "", "", err
 	}
-	f, err := os.Open(path)
-	if err != nil {
-		return "", "", fmt.Errorf("open artifact %s: %w", objectKey, err)
-	}
-	defer f.Close()
+	defer cleanup()
+	defer rc.Close()
 	if name == "" {
-		name = filepath.Base(path)
+		name = baseName
 	}
-	ref, err := up.Upload3MF(ctx, name, f)
+	ref, err := up.Upload3MF(ctx, name, rc)
 	if err != nil {
 		return "", "", err
 	}
@@ -231,6 +285,38 @@ func (p *Publisher) uploadArtifact(ctx context.Context, cmd Commander, objectKey
 		return "", "", fmt.Errorf("upload returned empty file id")
 	}
 	return ref.ID, firstNonEmpty(ref.Name, name), nil
+}
+
+func (p *Publisher) openArtifact(ctx context.Context, objectKey string) (io.ReadCloser, func(), string, error) {
+	nop := func() {}
+	dir := ""
+	if p != nil {
+		dir = p.ArtifactsDir
+	}
+	if dir != "" {
+		path, err := absArtifact(dir, objectKey)
+		if err != nil {
+			return nil, nop, "", err
+		}
+		f, err := os.Open(path)
+		if err == nil {
+			return f, nop, filepath.Base(path), nil
+		}
+		if !os.IsNotExist(err) {
+			return nil, nop, "", fmt.Errorf("open artifact %s: %w", objectKey, err)
+		}
+	}
+	if p != nil && p.ObjectStore != nil {
+		rc, err := p.ObjectStore.Get(ctx, objectKey)
+		if err != nil {
+			return nil, nop, "", fmt.Errorf("object store get %s: %w", objectKey, err)
+		}
+		return rc, nop, filepath.Base(objectKey), nil
+	}
+	if dir == "" {
+		return nil, nop, "", fmt.Errorf("start_print: ARTIFACTS_DIR unset and no file_id")
+	}
+	return nil, nop, "", fmt.Errorf("open artifact %s: not in local store or object store", objectKey)
 }
 
 func absArtifact(dir, objectKey string) (string, error) {

@@ -39,4 +39,10 @@ func TestStreamConstants(t *testing.T) {
 	if events.StreamPrinter != "bf.events.printer" || events.StreamJob != "bf.events.job" {
 		t.Fatalf("%s %s", events.StreamPrinter, events.StreamJob)
 	}
+	if events.StreamSlice != "bf.events.slice" || events.TypeSliceQueued != "slice.queued" {
+		t.Fatalf("%s %s", events.StreamSlice, events.TypeSliceQueued)
+	}
+	if events.TypePrinterAMSChanged != "printer.ams_changed" {
+		t.Fatal(events.TypePrinterAMSChanged)
+	}
 }

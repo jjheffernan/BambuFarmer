@@ -41,6 +41,7 @@ func main() {
 	integrationsURL := mustURL(getenv("INTEGRATIONS_URL", "http://integrations:8080"))
 	edgeURL := mustURL(getenv("EDGE_URL", "http://edge:8080"))
 	commerceURLRaw := os.Getenv("COMMERCE_URL") // optional plugin; empty = not proxied
+	slicerURLRaw := os.Getenv("SLICER_URL")     // optional plugin; empty = not proxied
 	redisURL := os.Getenv("REDIS_URL")
 	databaseURL := os.Getenv("DATABASE_URL")
 	oidcIssuer := os.Getenv("OIDC_ISSUER")
@@ -72,6 +73,10 @@ func main() {
 	var commerceProxy *httputil.ReverseProxy
 	if commerceURLRaw != "" {
 		commerceProxy = httputil.NewSingleHostReverseProxy(mustURL(commerceURLRaw))
+	}
+	var slicerProxy *httputil.ReverseProxy
+	if slicerURLRaw != "" {
+		slicerProxy = httputil.NewSingleHostReverseProxy(mustURL(slicerURLRaw))
 	}
 
 	hub := newSSEHub()
@@ -260,14 +265,26 @@ func main() {
 	mux.Handle("/api/v1/presets/", coreProxy)
 	mux.Handle("/api/v1/jobs", coreProxy)
 	mux.Handle("/api/v1/jobs/", coreProxy)
+	mux.Handle("/api/v1/power", coreProxy)
+	mux.Handle("/api/v1/power/", coreProxy)
+	mux.Handle("/api/v1/notify", coreProxy)
+	mux.Handle("/api/v1/notify/", coreProxy)
 	mux.Handle("/api/v1/artifacts", coreProxy)
 	mux.Handle("/api/v1/artifacts/", coreProxy)
 	mux.Handle("/api/v1/printers", coreProxy)
+	mux.Handle("GET /api/v1/printers/{id}/liveview", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+		r.URL.Path = "/api/v1/edge/printers/" + id + "/liveview"
+		r.URL.RawPath = ""
+		edgeProxy.ServeHTTP(w, r)
+	}))
 	mux.Handle("/api/v1/printers/", coreProxy)
 	mux.Handle("/api/v1/admin/", coreProxy)
 	mux.Handle("/api/v1/setup", coreProxy)
 	mux.Handle("/api/v1/setup/", coreProxy)
 	mux.Handle("/api/v1/version", coreProxy)
+	mux.Handle("/api/v1/sites", coreProxy)
+	mux.Handle("/api/v1/sites/", coreProxy)
 	mux.Handle("/api/v1/analytics/", analyticsProxy)
 	mux.Handle("/api/v1/integrations/", integrationsProxy)
 	mux.Handle("/api/v1/filament/", integrationsProxy)
@@ -276,6 +293,10 @@ func main() {
 	if commerceProxy != nil {
 		mux.Handle("/api/v1/commerce", commerceProxy)
 		mux.Handle("/api/v1/commerce/", commerceProxy)
+	}
+	if slicerProxy != nil {
+		mux.Handle("/api/v1/slice", slicerProxy)
+		mux.Handle("/api/v1/slice/", slicerProxy)
 	}
 
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -333,7 +354,7 @@ func main() {
 }
 
 func fanout(ctx context.Context, bus *events.Bus, hub *sseHub) {
-	for _, stream := range []string{events.StreamPrinter, events.StreamJob, events.StreamAlert} {
+	for _, stream := range []string{events.StreamPrinter, events.StreamJob, events.StreamAlert, events.StreamSlice} {
 		s := stream
 		go func() {
 			consumer := "gateway-" + getenv("HOSTNAME", "1") + "-" + s

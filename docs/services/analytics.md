@@ -42,12 +42,12 @@ Idempotent by event `id`.
 
 | Path | Notes |
 |------|-------|
-| `GET /api/v1/analytics/utilization` | `from`, `to`, `group_by` |
-| `GET /api/v1/analytics/costs` | includes kg/hr rollups |
-| `GET /api/v1/analytics/failures` | HMS / fail rates |
-| `GET /api/v1/analytics/export` | CSV/JSON |
+| `GET /api/v1/analytics/utilization` | optional `from`/`to` (`YYYY-MM-DD`, both required together); `group_by=printer\|site\|day` |
+| `GET /api/v1/analytics/costs` | same optional `from`/`to` |
+| `GET /api/v1/analytics/failures` | same optional `from`/`to` |
+| `GET /api/v1/analytics/export` | JSON (default) or CSV via `format=` / `Accept: text/csv`; optional `kind=utilization\|costs\|failures\|all`; honors `from`/`to`/`group_by` |
 
-Stub today returns empty series.
+Without `from`/`to`, series use a short recent limit. Utilization and failures read from Postgres rollups when events have been consumed. Empty series when the database is unset.
 
 ---
 
@@ -67,7 +67,8 @@ services/analytics/
 ## 6. MVP milestones
 
 1. Health + empty utilization (done)  
-2. Consumer writing utilization intervals  
-3. Job success/fail counts  
-4. Cost rollups from finalized jobs  
-5. Basic charts via web
+2. Consumer writing utilization intervals (done)  
+3. Job success/fail counts + `print_error` → `agg_hms_daily` / failures API (done)  
+4. Cost rollups from `job.costed` → `agg_cost_daily` / costs API (done)  
+5. Basic charts via web (done)  
+6. CSV/JSON export (done)

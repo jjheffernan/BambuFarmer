@@ -15,13 +15,21 @@ import (
 func Register(mux *http.ServeMux, pool *pgxpool.Pool, bus *events.Bus, siteID string) {
 	mux.HandleFunc("GET /api/v1/printers", func(w http.ResponseWriter, r *http.Request) {
 		httpx.RequireDB(w, pool, func() {
-			items, err := db.ListPrinters(r.Context(), pool, siteID)
+			items, err := db.ListPrinterSnapshots(r.Context(), pool, siteID)
 			if err != nil {
 				httpx.WriteError(w, err)
 				return
 			}
+			q := r.URL.Query()
+			items = db.FilterPrinterSnapshots(items, db.PrinterListFilter{
+				Tag:    q.Get("tag"),
+				State:  q.Get("state"),
+				Model:  q.Get("model"),
+				Query:  q.Get("q"),
+				Online: q.Get("online"),
+			})
 			if items == nil {
-				items = []api.PrinterSummary{}
+				items = []api.PrinterSnapshot{}
 			}
 			httpx.WriteJSON(w, items)
 		})

@@ -3,6 +3,7 @@
 package spoolman
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -13,13 +14,14 @@ import (
 	"time"
 
 	"github.com/jjheffernan/BambuFarmer/packages/api"
+	"github.com/jjheffernan/BambuFarmer/packages/events"
 )
 
 // Client is a Spoolman HTTP adapter.
 type Client struct {
-	base   string
-	token  string
-	http   *http.Client
+	base  string
+	token string
+	http  *http.Client
 }
 
 // New returns a client for baseURL (e.g. http://spoolman:7912). Token is optional
@@ -115,4 +117,45 @@ func (c *Client) ListSpools(ctx context.Context, limit int) ([]api.SpoolSummary,
 		})
 	}
 	return out, nil
+}
+
+// UseWeight posts grams to PUT /api/v1/spool/{id}/use.
+// A nil client, empty base URL, empty spool, or non-positive grams does nothing.
+func (c *Client) UseWeight(ctx context.Context, spoolID string, grams float64) error {
+	if c == nil || c.base == "" || grams <= 0 || strings.TrimSpace(spoolID) == "" {
+		return nil
+	}
+	body, err := json.Marshal(map[string]float64{"use_weight": grams})
+	if err != nil {
+		return err
+	}
+	endpoint := c.base + "/api/v1/spool/" + url.PathEscape(strings.TrimSpace(spoolID)) + "/use"
+	req, err := http.NewRequestWithContext(ctx, http.MethodPut, endpoint, bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if c.token != "" {
+		req.Header.Set("X-API-Key", c.token)
+		req.Header.Set("Authorization", "Bearer "+c.token)
+	}
+	res, err := c.http.Do(req)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+	if res.StatusCode >= 300 {
+		return api.BadGateway(fmt.Sprintf("spoolman: use spool: %s", res.Status))
+	}
+	return nil
+}
+
+// Consume applies filament.consumed. Unconfigured Spoolman is a no-op.
+func Consume(ctx context.Context, c *Client, env events.Envelope) error {
+	if c == nil || c.base == "" || env.Type != events.TypeFilamentConsumed {
+		return nil
+	}
+	spoolID, _ := env.Payload["spool_id"].(string)
+	grams, _ := env.Payload["grams"].(float64)
+	return c.UseWeight(ctx, spoolID, grams)
 }

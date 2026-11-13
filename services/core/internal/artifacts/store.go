@@ -1,15 +1,20 @@
 package artifacts
 
 import (
+	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/jjheffernan/BambuFarmer/packages/objectstore"
 )
 
-// Store is a local directory for staged .gcode.3mf bytes (MVP stand-in for MinIO).
+// Store stages .gcode.3mf under Dir and optionally mirrors to OBJECT_STORE_*.
 type Store struct {
-	Dir string
+	Dir    string
+	Remote *objectstore.Client
 }
 
 // ResolveDir picks ARTIFACTS_DIR or a default under the process cwd.
@@ -42,7 +47,7 @@ func (s Store) AbsPath(objectKey string) (string, error) {
 	return abs, nil
 }
 
-// Write creates/replaces object_key with b.
+// Write creates/replaces object_key locally and mirrors to object store when configured.
 func (s Store) Write(objectKey string, b []byte) error {
 	if err := s.EnsureDir(); err != nil {
 		return err
@@ -54,14 +59,46 @@ func (s Store) Write(objectKey string, b []byte) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
-	return os.WriteFile(path, b, 0o644)
+	if err := os.WriteFile(path, b, 0o644); err != nil {
+		return err
+	}
+	if s.Remote != nil {
+		if err := s.Remote.Put(context.Background(), objectKey, b); err != nil {
+			return fmt.Errorf("artifacts: object store put: %w", err)
+		}
+	}
+	return nil
 }
 
-// Open reads object_key.
-func (s Store) Open(objectKey string) (*os.File, error) {
+// Open reads object_key from local disk, falling back to object store.
+func (s Store) Open(objectKey string) (io.ReadCloser, error) {
 	path, err := s.AbsPath(objectKey)
 	if err != nil {
 		return nil, err
 	}
-	return os.Open(path)
+	f, err := os.Open(path)
+	if err == nil {
+		return f, nil
+	}
+	if s.Remote == nil || !os.IsNotExist(err) {
+		return nil, err
+	}
+	return s.Remote.Get(context.Background(), objectKey)
+}
+
+// Remove deletes object_key locally and from object store when configured.
+func (s Store) Remove(objectKey string) error {
+	path, err := s.AbsPath(objectKey)
+	if err != nil {
+		return err
+	}
+	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	if s.Remote != nil {
+		if err := s.Remote.Delete(context.Background(), objectKey); err != nil {
+			return fmt.Errorf("artifacts: object store delete: %w", err)
+		}
+	}
+	return nil
 }

@@ -47,6 +47,18 @@ func GetArtifact(ctx context.Context, pool *pgxpool.Pool, siteID, id string) (ap
 	return a, nil
 }
 
+// DeleteArtifact removes metadata for one artifact (jobs keep a null artifact_id).
+func DeleteArtifact(ctx context.Context, pool *pgxpool.Pool, siteID, id string) error {
+	tag, err := pool.Exec(ctx, `DELETE FROM artifacts WHERE id=$1 AND site_id=$2`, id, siteID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return api.NotFound("artifact")
+	}
+	return nil
+}
+
 // ListArtifacts returns recent artifacts for a site.
 func ListArtifacts(ctx context.Context, pool *pgxpool.Pool, siteID string, limit int) ([]api.Artifact, error) {
 	if limit <= 0 {

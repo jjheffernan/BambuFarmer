@@ -27,6 +27,12 @@ func TestStoreWriteOpenRejectEscape(t *testing.T) {
 	if err != nil || string(got) != "abc" {
 		t.Fatalf("%q %v", got, err)
 	}
+	if err := s.Remove("plate.gcode.3mf"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "plate.gcode.3mf")); !os.IsNotExist(err) {
+		t.Fatalf("expected removed: %v", err)
+	}
 }
 
 func TestExtFor(t *testing.T) {

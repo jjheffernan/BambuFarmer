@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 	"os"
@@ -12,10 +13,13 @@ import (
 
 	"github.com/jjheffernan/BambuFarmer/packages/api"
 	"github.com/jjheffernan/BambuFarmer/packages/events"
+	"github.com/jjheffernan/BambuFarmer/packages/farm"
 	"github.com/jjheffernan/BambuFarmer/packages/httpserver"
 	"github.com/jjheffernan/BambuFarmer/services/edge/app/agent"
 	"github.com/jjheffernan/BambuFarmer/services/edge/app/bambu"
 	"github.com/jjheffernan/BambuFarmer/services/edge/app/config"
+	"github.com/jjheffernan/BambuFarmer/services/edge/app/farmmanager"
+	"github.com/jjheffernan/BambuFarmer/services/edge/app/mqtt"
 )
 
 func main() {
@@ -58,7 +62,15 @@ func main() {
 	}
 	defer plane.Close()
 
-	ag := agent.New(agent.Options{Config: cfg, Plane: plane, Bus: busClient, Log: log})
+	var reports farm.EventSource
+	if src, err := mqtt.Open(cfg.MQTTURL, cfg.CertDir, cfg.TLSInsecure); err == nil {
+		reports = src
+		log.Info("mqtt reports enabled", "url", cfg.MQTTURL)
+	} else if !errors.Is(err, farm.ErrNotConfigured) {
+		log.Warn("mqtt reports disabled", "err", err)
+	}
+
+	ag := agent.New(agent.Options{Config: cfg, Plane: plane, Bus: busClient, Reports: reports, Log: log})
 	if err := ag.Connect(ctx); err != nil {
 		slog.Warn("initial farm connect failed; will retry on poll", "kind", plane.Kind(), "err", err)
 	}
@@ -68,6 +80,39 @@ func main() {
 	mux.HandleFunc("GET /api/v1/edge/status", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(ag.Status())
+	})
+	mux.HandleFunc("GET /api/v1/edge/tags", func(w http.ResponseWriter, r *http.Request) {
+		type tagLister interface {
+			ListTags(context.Context) ([]farmmanager.Tag, error)
+		}
+		tags := []farmmanager.Tag{}
+		if tl, ok := ag.Plane().(tagLister); ok {
+			got, err := tl.ListTags(r.Context())
+			if err != nil {
+				httpserver.WriteError(w, api.Wrap(http.StatusBadGateway, api.CodeBadGateway, "tags failed", err))
+				return
+			}
+			if got != nil {
+				tags = got
+			}
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{"tags": tags})
+	})
+	mux.HandleFunc("GET /api/v1/edge/printers/{sn}/liveview", func(w http.ResponseWriter, r *http.Request) {
+		sn := r.PathValue("sn")
+		jpeg, err := ag.Plane().LiveviewJPEG(r.Context(), sn)
+		if err != nil {
+			if _, ok := api.AsError(err); ok {
+				httpserver.WriteError(w, err)
+				return
+			}
+			httpserver.WriteError(w, api.Wrap(http.StatusBadGateway, api.CodeBadGateway, "liveview failed", err))
+			return
+		}
+		w.Header().Set("Content-Type", "image/jpeg")
+		w.Header().Set("Cache-Control", "no-store")
+		_, _ = w.Write(jpeg)
 	})
 	mux.HandleFunc("POST /api/v1/edge/control/{sn}", func(w http.ResponseWriter, r *http.Request) {
 		sn := r.PathValue("sn")

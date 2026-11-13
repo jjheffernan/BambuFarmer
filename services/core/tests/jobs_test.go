@@ -12,18 +12,18 @@ import (
 func TestHandleJobEventIgnoresCoreTypes(t *testing.T) {
 	err := jobs.HandleJobEvent(t.Context(), nil, "default", events.NewEnvelope(events.TypeJobQueued, "core", "default", map[string]any{
 		"job_id": "x",
-	}))
+	}), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = jobs.HandleJobEvent(t.Context(), nil, "default", events.NewEnvelope(events.TypeJobAssigned, "core", "default", nil))
+	err = jobs.HandleJobEvent(t.Context(), nil, "default", events.NewEnvelope(events.TypeJobAssigned, "core", "default", nil), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 }
 
 func TestHandleJobEventMissingJobID(t *testing.T) {
-	err := jobs.HandleJobEvent(t.Context(), nil, "default", events.NewEnvelope(events.TypeJobFinished, "edge", "default", map[string]any{}))
+	err := jobs.HandleJobEvent(t.Context(), nil, "default", events.NewEnvelope(events.TypeJobFinished, "edge", "default", map[string]any{}), nil)
 	if err != nil {
 		t.Fatal(err)
 	}

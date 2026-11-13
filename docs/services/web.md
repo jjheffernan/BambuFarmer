@@ -37,7 +37,7 @@ Fleet/SSE and setup wizard are live; other panels are still light.
 ## 3. UX rules (from FM Client)
 
 - Status nav: Ready / Attention / Completed / Not in Task  
-- Detail drawer, not full-page navigation for printer detail  
+- Detail drawer, not full-page navigation for printer detail (fleet card opens drawer)
 - Bulk action bar with multi-select (Alpine)  
 - No browser polling of printers — gateway SSE only  
 
@@ -74,8 +74,8 @@ Migrate from inline `html/template` to [templ](https://templ.guide/) once pages 
 ## 6. MVP milestones
 
 1. Nav shell (done)  
-2. Presets page: list + import via HTMX → gateway  
+2. Presets page: list + import/export via gateway (done)
 3. Fleet table fed by SSE fragments  
 4. Job composer form  
-5. Analytics charts  
-6. Admin rate card editor ($/hr, $/kg, kg/hr)
+5. Analytics charts (done)
+6. Admin rate card editor ($/hr, $/kg, kg/hr) (done)

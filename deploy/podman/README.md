@@ -37,7 +37,9 @@ Uninstall: `./scripts/bf uninstall --yes` (add `--volumes` to wipe DB).
 
 See [`../../scripts/README.md`](../../scripts/README.md). Secrets: [`docs/DEPLOYMENT_MODES.md`](../../docs/DEPLOYMENT_MODES.md).
 
-Optional MinIO: `podman compose --env-file .env -f deploy/compose.yml --profile object up -d`
+Optional MinIO: set `OBJECT_STORE_ENDPOINT=http://minio:9000` (and matching keys) in `.env`, then
+`podman compose --env-file .env -f deploy/compose.yml --profile object up -d`
+(`minio-init` creates the bucket; core/edge talk S3 when the endpoint is set.)
 
 ## Build a single module
 

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"strings"
 	"sync"
 	"time"
 
@@ -54,8 +55,8 @@ func New(dir string, log *slog.Logger) (*Plane, error) {
 func (p *Plane) Kind() farm.Kind { return farm.KindFixture }
 
 func (p *Plane) Connect(context.Context) error { return nil }
-func (p *Plane) Close() error                   { return nil }
-func (p *Plane) Ready(context.Context) error    { return nil }
+func (p *Plane) Close() error                  { return nil }
+func (p *Plane) Ready(context.Context) error   { return nil }
 
 func (p *Plane) Captain(context.Context) (api.CaptainInfo, error) {
 	return api.CaptainInfo{
@@ -84,7 +85,15 @@ func (p *Plane) ListDevices(context.Context) ([]farm.DeviceReport, error) {
 		}
 		out = append(out, rep)
 	}
+	if tags, err := fixture.LoadTags(p.dir); err == nil {
+		farmmanager.ApplyDeviceTags(out, tags)
+	}
 	return out, nil
+}
+
+// ListTags returns fixture tags.json.
+func (p *Plane) ListTags(context.Context) ([]farmmanager.Tag, error) {
+	return fixture.LoadTags(p.dir)
 }
 
 func (p *Plane) Control(_ context.Context, sn string, opt api.ControlOpt) error {
@@ -142,8 +151,12 @@ func (p *Plane) StartPrint(_ context.Context, req farm.PrintRequest) (farm.Exter
 	return farm.ExternalJobRef{TaskID: taskID, Raw: req.JobID}, nil
 }
 
-func (p *Plane) LiveviewJPEG(context.Context, string) ([]byte, error) {
-	return nil, fmt.Errorf("%w: LiveviewJPEG", farm.ErrNotImplemented)
+func (p *Plane) LiveviewJPEG(_ context.Context, sn string) ([]byte, error) {
+	if strings.TrimSpace(sn) == "" {
+		return nil, fmt.Errorf("LiveviewJPEG: sn required")
+	}
+	// Minimal SOI/EOI JPEG so fleet UI and tests work offline.
+	return []byte{0xff, 0xd8, 0xff, 0xd9}, nil
 }
 
 func mapDevice(d farmmanager.Device) farm.DeviceReport {
@@ -152,6 +165,7 @@ func mapDevice(d farmmanager.Device) farm.DeviceReport {
 		Name:       d.Name,
 		Model:      d.DevModel,
 		DevIP:      d.DevIP,
+		Tags:       append([]string(nil), d.Tags...),
 		ObservedAt: time.Now().UTC(),
 	}
 	if rep.Name == "" {
@@ -179,6 +193,10 @@ func mapDevice(d farmmanager.Device) farm.DeviceReport {
 		rep.LayerNum = rs.LayerNum
 		rep.TotalLayerNum = rs.TotalLayerNum
 		rep.PrintError = rs.PrintError
+		rep.HMS = farm.ParseHMSJSON(rs.HMS)
+		rep.AMS = farm.ParseAMSJSON(rs.AMS)
+		rep.TaskID = rs.TaskID
+		rep.SubtaskName = rs.SubtaskName
 		rep.WifiSignal = rs.WifiSignal
 		rep.NozzleDiameter = rs.NozzleDiameter
 	}

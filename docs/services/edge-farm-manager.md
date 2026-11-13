@@ -135,7 +135,13 @@ Topics:
 | `device/<sn>/request` | server → printer (commands) |
 | `device/<sn>/report` | printer → server (telemetry, mostly `push_status`) |
 
-Telemetry field set aligns with OpenBambuAPI `push_status` (`gcode_state`, `mc_percent`, temps, AMS, …). `msg: 0` = full snapshot, `msg: 1` = delta.
+Telemetry field set aligns with OpenBambuAPI `push_status` (`gcode_state`, `mc_percent`, temps, AMS, `hms`, …). `msg: 0` = full snapshot, `msg: 1` = delta.
+
+`hms` entries are `{attr, code}` integers; edge formats each as `XXXX_XXXX_XXXX_XXXX` on the printer snapshot and Redis payload so analytics can roll codes into `agg_hms_daily` (alongside non-zero `print_error`).
+
+`ams` (nested `{ams:[…]}` or a bare unit array) normalizes to snapshot `ams[].trays[]` with slot/type/color/tag_uid/remain. `task_id` / `subtask_name` land on snapshot `task`. When AMS trays change, edge also publishes `printer.ams_changed` on `bf.events.printer` (first empty AMS is skipped).
+
+Attention: offline, `PAUSE`/`FAILED`, or non-empty HMS publishes `alert.raised` on `bf.events.alert` when the attention fingerprint changes (clearing attention does not emit).
 
 **Edge strategy:**
 
@@ -175,7 +181,7 @@ services/edge/
     tracker/              # per-SN packages/printerstate.Machine
     normalize/            # FM JSON → packages/api.PrinterSnapshot
     delta/                # snapshot hash filter
-    mqtt/                 # optional report subscriber (planned)
+    mqtt/                 # device/+/report when FARM_MQTT_URL and cert files are set
     bus/                  # Redis Streams publish + command consumer (planned)
 packages/printerstate/    # IDLE/PREPARE/RUNNING/PAUSE/FINISH/FAILED + attention buckets
 ```

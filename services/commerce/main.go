@@ -1,5 +1,5 @@
 // Command commerce is the optional shop-orders plugin (compose profile: commerce).
-// Stub: health + status only. Wire store webhooks → jobs → pack/ship in build-out P4.
+// Store webhook queues a core job when CORE_URL is set.
 package main
 
 import (
@@ -9,17 +9,19 @@ import (
 	"os"
 
 	"github.com/jjheffernan/BambuFarmer/packages/httpserver"
+	"github.com/jjheffernan/BambuFarmer/services/commerce/internal/shop"
 )
 
 func main() {
 	service := "commerce"
 	mux := httpserver.NewMux(service)
+	shop.Register(mux, os.Getenv("CORE_URL"))
 	mux.HandleFunc("GET /api/v1/commerce/status", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"status":  "stub",
 			"service": service,
-			"note":    "enable with compose --profile commerce; order APIs land in build-out P4",
+			"note":    "POST /api/v1/commerce/webhook queues a core job when CORE_URL is set; POST /api/v1/commerce/orders/status echoes packed or shipped",
 		})
 	})
 

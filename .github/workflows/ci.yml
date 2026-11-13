@@ -27,6 +27,7 @@ jobs:
           - packages/events
           - packages/farm
           - packages/httpserver
+          - packages/objectstore
           - packages/printerstate
           - packages/version
           - services/gateway
@@ -35,6 +36,7 @@ jobs:
           - services/integrations
           - services/analytics
           - services/commerce
+          - services/slicer
           - services/web
     defaults:
       run:
@@ -99,6 +101,7 @@ jobs:
           - integrations
           - analytics
           - commerce
+          - slicer
           - web
     steps:
       - uses: actions/checkout@v7
@@ -132,6 +135,7 @@ jobs:
           - integrations
           - analytics
           - commerce
+          - slicer
           - web
     steps:
       - uses: actions/checkout@v7

@@ -45,21 +45,26 @@ Persistence stays in [`packages/db`](../../packages/db); core packages are thin 
 ### Done / partial
 
 - `GET/POST /api/v1/presets/filament`  
+- `GET/PATCH/DELETE /api/v1/presets/filament/{id}`  
 - `GET/POST /api/v1/presets/print`  
+- `GET/PATCH/DELETE /api/v1/presets/print/{id}`  
 - `GET /api/v1/presets/export`  
 - `POST /api/v1/presets/import`  
 
 ### Next
 
-- Preset revision list/restore endpoints  
-- Object-store profile for artifacts (MinIO) when local volume is not enough  
+- (none blocking)  
 
 ### Recent
 
+- `GET /api/v1/sites` (+ `/{id}`)
+- Scheduler stagger (`SCHEDULER_STAGGER` / `SCHEDULER_MAX_STARTS_PER_TICK`)
+- Optional MinIO/S3 artifact mirror via `OBJECT_STORE_*` (compose `--profile object`)
+- Preset revision list/restore (`GET …/revisions`, `POST …/restore`)
 - `GET/PUT /api/v1/admin/rate-cards`  
 - `GET /api/v1/printers` (projection)  
 - Jobs create/list/dispatch + scheduler  
-- `POST/GET /api/v1/artifacts` (+ `/content`) — local `ARTIFACTS_DIR` staging 
+- `POST/GET /api/v1/artifacts` (+ `/content`) — local `ARTIFACTS_DIR` staging
 
 ---
 
@@ -94,5 +99,5 @@ On boot: `db.Migrate`.
 2. Rate cards CRUD  
 3. Printer projection consumer  
 4. Jobs create → command edge → track finish  
-5. Artifact upload to MinIO/S3  
+5. Artifact upload to MinIO/S3 — done when `OBJECT_STORE_ENDPOINT` is set (`--profile object`)
 6. Lan users for gateway
