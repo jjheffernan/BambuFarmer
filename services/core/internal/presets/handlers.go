@@ -76,6 +76,66 @@ func Register(mux *http.ServeMux, pool *pgxpool.Pool, siteID string) {
 			httpx.WriteJSON(w, out)
 		})
 	})
+	mux.HandleFunc("GET /api/v1/presets/filament/{id}/revisions", func(w http.ResponseWriter, r *http.Request) {
+		httpx.RequireDB(w, pool, func() {
+			items, err := db.ListFilamentPresetRevisions(r.Context(), pool, siteID, r.PathValue("id"))
+			if err != nil {
+				httpx.WriteError(w, err)
+				return
+			}
+			if items == nil {
+				items = []db.PresetRevision{}
+			}
+			httpx.WriteJSON(w, items)
+		})
+	})
+	mux.HandleFunc("POST /api/v1/presets/filament/{id}/restore", func(w http.ResponseWriter, r *http.Request) {
+		httpx.RequireDB(w, pool, func() {
+			var body struct {
+				Version int `json:"version"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				httpx.WriteError(w, api.BadRequest("invalid JSON body"))
+				return
+			}
+			out, err := db.RestoreFilamentPresetRevision(r.Context(), pool, siteID, r.PathValue("id"), body.Version)
+			if err != nil {
+				httpx.WriteError(w, err)
+				return
+			}
+			httpx.WriteJSON(w, out)
+		})
+	})
+	mux.HandleFunc("GET /api/v1/presets/print/{id}/revisions", func(w http.ResponseWriter, r *http.Request) {
+		httpx.RequireDB(w, pool, func() {
+			items, err := db.ListPrintPresetRevisions(r.Context(), pool, siteID, r.PathValue("id"))
+			if err != nil {
+				httpx.WriteError(w, err)
+				return
+			}
+			if items == nil {
+				items = []db.PresetRevision{}
+			}
+			httpx.WriteJSON(w, items)
+		})
+	})
+	mux.HandleFunc("POST /api/v1/presets/print/{id}/restore", func(w http.ResponseWriter, r *http.Request) {
+		httpx.RequireDB(w, pool, func() {
+			var body struct {
+				Version int `json:"version"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				httpx.WriteError(w, api.BadRequest("invalid JSON body"))
+				return
+			}
+			out, err := db.RestorePrintPresetRevision(r.Context(), pool, siteID, r.PathValue("id"), body.Version)
+			if err != nil {
+				httpx.WriteError(w, err)
+				return
+			}
+			httpx.WriteJSON(w, out)
+		})
+	})
 	mux.HandleFunc("GET /api/v1/presets/export", func(w http.ResponseWriter, r *http.Request) {
 		httpx.RequireDB(w, pool, func() {
 			bundle, err := db.ExportPresetBundle(r.Context(), pool, siteID)

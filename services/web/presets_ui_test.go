@@ -21,4 +21,7 @@ func TestPresetsPageHasImportExport(t *testing.T) {
 	if !strings.Contains(layoutHTML, "loadPresets") {
 		t.Fatal("expected reload after import")
 	}
+	if !strings.Contains(layoutHTML, "/revisions") || !strings.Contains(layoutHTML, "/restore") {
+		t.Fatal("expected revision history/restore UI")
+	}
 }

@@ -742,9 +742,20 @@ const layoutHTML = `<!DOCTYPE html>
             <div id="print-list" class="bf-empty">loading…</div>
           </div>
         </div>
+        <div class="bf-panel mt-4 hidden" id="presets-history">
+          <div class="flex items-center justify-between gap-2 mb-3">
+            <h2 class="font-display text-lg m-0" id="presets-history-title">History</h2>
+            <button type="button" class="bf-btn" id="presets-history-close">Close</button>
+          </div>
+          <div id="presets-history-body" class="bf-empty">loading…</div>
+          <p class="text-sm mt-2" id="presets-history-msg"></p>
+        </div>
         <script>
           const API = {{printf "%q" .APIBase}};
           document.getElementById('presets-export').href = API + '/api/v1/presets/export';
+          const historyPanel = document.getElementById('presets-history');
+          let historyKind = '';
+          let historyID = '';
           function list(el, items, map) {
             if (!items || !items.length) { el.innerHTML = '<p class="bf-empty">None yet</p>'; return; }
             el.innerHTML = '<ul class="space-y-2">' + items.map(map).join('') + '</ul>';
@@ -754,12 +765,60 @@ const layoutHTML = `<!DOCTYPE html>
               '<li class="bf-card"><div class="bf-card-name">' + (x.name||x.id) + '</div>' +
               '<div class="bf-card-meta">' + (x.material||'') + ' · ' + (x.vendor||'') +
               ' · v' + (x.version||1) +
-              (x.price_per_kg ? ' · $' + x.price_per_kg + '/kg' : '') + '</div></li>');
+              (x.price_per_kg ? ' · $' + x.price_per_kg + '/kg' : '') + '</div>' +
+              '<button type="button" class="bf-btn mt-2" data-hist-kind="filament" data-hist-id="' + x.id + '" data-hist-name="' + (x.name||x.id) + '">History</button></li>');
             list(document.getElementById('print-list'), p, x =>
               '<li class="bf-card"><div class="bf-card-name">' + (x.name||x.id) + '</div>' +
               '<div class="bf-card-meta">' + (x.layer_height_mm||'') + 'mm · ø' + (x.nozzle_diameter_mm||'') +
-              ' · v' + (x.version||1) + '</div></li>');
+              ' · v' + (x.version||1) + '</div>' +
+              '<button type="button" class="bf-btn mt-2" data-hist-kind="print" data-hist-id="' + x.id + '" data-hist-name="' + (x.name||x.id) + '">History</button></li>');
+            document.querySelectorAll('[data-hist-id]').forEach(btn => {
+              btn.onclick = () => openHistory(btn.dataset.histKind, btn.dataset.histId, btn.dataset.histName);
+            });
           }
+          async function openHistory(kind, id, name) {
+            historyKind = kind;
+            historyID = id;
+            document.getElementById('presets-history-title').textContent = 'History · ' + (name || id);
+            document.getElementById('presets-history-msg').textContent = '';
+            historyPanel.classList.remove('hidden');
+            const body = document.getElementById('presets-history-body');
+            body.textContent = 'loading…';
+            try {
+              const rows = await bfJSON(API + '/api/v1/presets/' + kind + '/' + encodeURIComponent(id) + '/revisions');
+              if (!rows || !rows.length) { body.innerHTML = '<p class="bf-empty">No revisions</p>'; return; }
+              body.innerHTML = '<ul class="space-y-2">' + rows.map(r =>
+                '<li class="bf-card flex flex-wrap items-center justify-between gap-2">' +
+                '<span class="font-mono text-xs">v' + r.version + ' · ' + (r.created_at || '') + '</span>' +
+                '<button type="button" class="bf-btn" data-restore="' + r.version + '">Restore</button></li>'
+              ).join('') + '</ul>';
+              body.querySelectorAll('[data-restore]').forEach(btn => {
+                btn.onclick = () => restoreRevision(Number(btn.dataset.restore));
+              });
+            } catch (e) {
+              body.textContent = String(e.message || e);
+            }
+          }
+          async function restoreRevision(version) {
+            const msg = document.getElementById('presets-history-msg');
+            msg.className = 'text-sm mt-2';
+            msg.textContent = '';
+            try {
+              await bfJSON(API + '/api/v1/presets/' + historyKind + '/' + encodeURIComponent(historyID) + '/restore', {
+                method: 'POST', credentials: 'include',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({version}),
+              });
+              msg.className = 'text-bf-accent text-sm mt-2';
+              msg.textContent = 'Restored v' + version + ' as a new tip';
+              await loadPresets();
+              await openHistory(historyKind, historyID, document.getElementById('presets-history-title').textContent.replace(/^History · /, ''));
+            } catch (e) {
+              msg.className = 'text-bf-danger text-sm mt-2';
+              msg.textContent = String(e.message || e);
+            }
+          }
+          document.getElementById('presets-history-close').onclick = () => historyPanel.classList.add('hidden');
           async function loadPresets() {
             const [f, p] = await Promise.all([
               bfJSON(API + '/api/v1/presets/filament'),

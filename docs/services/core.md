@@ -51,15 +51,15 @@ Persistence stays in [`packages/db`](../../packages/db); core packages are thin 
 
 ### Next
 
-- Preset revision list/restore endpoints  
 - Object-store profile for artifacts (MinIO) when local volume is not enough  
 
 ### Recent
 
+- Preset revision list/restore (`GET …/revisions`, `POST …/restore`)
 - `GET/PUT /api/v1/admin/rate-cards`  
 - `GET /api/v1/printers` (projection)  
 - Jobs create/list/dispatch + scheduler  
-- `POST/GET /api/v1/artifacts` (+ `/content`) — local `ARTIFACTS_DIR` staging 
+- `POST/GET /api/v1/artifacts` (+ `/content`) — local `ARTIFACTS_DIR` staging
 
 ---
 
