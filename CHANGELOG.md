@@ -10,6 +10,7 @@ On release: move that section to a new `## [X.Y.Z] — YYYY-MM-DD`, bump [`VERSI
 ## [Unreleased]
 
 ### Added
+- Slice lifecycle events (`slice.queued` / `slice.succeeded` / `slice.failed`) on `bf.events.slice` when the slicer has `REDIS_URL`; gateway SSE and analytics counters include the stream
 - Slice plugin invokes operator-supplied `ORCA_BIN` when set (`input_path` required; optional settings/filament JSON paths); empty `ORCA_BIN` still records the job without running a slicer
 - Printer `hms[]` from MQTT/FM push_status is formatted as `XXXX_XXXX_XXXX_XXXX` codes on snapshots and printer events; analytics failures roll up each HMS code alongside `print_error`
 - Analytics export (`GET /api/v1/analytics/export`) returns utilization, costs, and failures as JSON or CSV (`format`, `kind`); Analytics page links download both

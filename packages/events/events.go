@@ -43,6 +43,9 @@ const (
 	TypeJobCancelled        = "job.cancelled"
 	TypeFilamentConsumed    = "filament.consumed"
 	TypeAlertRaised         = "alert.raised"
+	TypeSliceQueued         = "slice.queued"
+	TypeSliceSucceeded      = "slice.succeeded"
+	TypeSliceFailed         = "slice.failed"
 
 	// Commands on bf.commands.edge.{site} (core → edge).
 	TypeCommandStartPrint = "command.start_print"

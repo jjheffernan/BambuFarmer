@@ -34,7 +34,8 @@ Preset `process_json` / `printer_json` from core feed `--load-settings`.
   - `filament_json` → `--load-filaments`
 - Empty `ORCA_BIN` returns `sliced: false` and does not invoke a slicer
 - When `ORCA_BIN` is set, runs the CLI (`--arrange 1 --slice 0 --export-3mf …`) and returns `sliced: true` only if exit 0 and the output file exists
-- `GET /api/v1/slice/status` — `orca_configured`, `work_dir`
+- When `REDIS_URL` is set, publishes `slice.queued` then `slice.succeeded` or `slice.failed` on `bf.events.slice`
+- `GET /api/v1/slice/status` — `orca_configured`, `events`, `work_dir`
 - The Orca CLI is operator-supplied and is not bundled in the image
 
 ---

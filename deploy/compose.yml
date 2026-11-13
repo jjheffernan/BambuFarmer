@@ -242,6 +242,8 @@ services:
     environment:
       HTTP_ADDR: ":8080"
       ORCA_BIN: ${ORCA_BIN:-}
+      REDIS_URL: redis://redis:6379/0
+      SITE_ID: ${SITE_ID:-default}
       ARTIFACTS_DIR: /data/artifacts
       SLICE_WORK_DIR: /data/artifacts
     volumes:

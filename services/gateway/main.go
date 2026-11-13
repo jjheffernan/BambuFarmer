@@ -350,7 +350,7 @@ func main() {
 }
 
 func fanout(ctx context.Context, bus *events.Bus, hub *sseHub) {
-	for _, stream := range []string{events.StreamPrinter, events.StreamJob, events.StreamAlert} {
+	for _, stream := range []string{events.StreamPrinter, events.StreamJob, events.StreamAlert, events.StreamSlice} {
 		s := stream
 		go func() {
 			consumer := "gateway-" + getenv("HOSTNAME", "1") + "-" + s

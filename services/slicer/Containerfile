@@ -4,6 +4,7 @@ FROM golang:1.26-bookworm AS build
 WORKDIR /src
 ENV GOWORK=off
 COPY packages/api ./packages/api
+COPY packages/events ./packages/events
 COPY packages/httpserver ./packages/httpserver
 COPY services/slicer ./services/slicer
 WORKDIR /src/services/slicer
