@@ -27,6 +27,9 @@ func TestAdminPageHasRateCardEditor(t *testing.T) {
 	if !strings.Contains(layoutHTML, `id="power-on"`) || !strings.Contains(layoutHTML, "/api/v1/power") {
 		t.Fatal("expected Admin power controls")
 	}
+	if !strings.Contains(layoutHTML, `id="notify-test"`) || !strings.Contains(layoutHTML, "/api/v1/notify/test") {
+		t.Fatal("expected Admin notify test control")
+	}
 	if !strings.Contains(layoutHTML, "bf-build-version") || !strings.Contains(layoutHTML, "/api/v1/version") {
 		t.Fatal("expected build version in shell")
 	}

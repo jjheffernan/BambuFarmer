@@ -22,6 +22,7 @@ import (
 	"github.com/jjheffernan/BambuFarmer/services/core/internal/config"
 	"github.com/jjheffernan/BambuFarmer/services/core/internal/httpx"
 	"github.com/jjheffernan/BambuFarmer/services/core/internal/jobs"
+	"github.com/jjheffernan/BambuFarmer/services/core/internal/notify"
 	"github.com/jjheffernan/BambuFarmer/services/core/internal/power"
 	"github.com/jjheffernan/BambuFarmer/services/core/internal/presets"
 	"github.com/jjheffernan/BambuFarmer/services/core/internal/printers"
@@ -109,6 +110,7 @@ func main() {
 	artifacts.Register(mux, pool, cfg.SiteID, artStore)
 	jobs.Register(mux, pool, bus, cfg.SiteID)
 	power.Register(mux, os.Getenv("POWER_URL"))
+	notify.Register(mux, os.Getenv("NOTIFY_URL"))
 	printers.Register(mux, pool, bus, cfg.SiteID)
 	setup.Register(mux, pool, cfg.SiteID)
 	sites.Register(mux, pool)

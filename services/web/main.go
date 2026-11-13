@@ -2062,6 +2062,15 @@ const layoutHTML = `<!DOCTYPE html>
           </div>
         </div>
         <div class="bf-panel mb-4">
+          <h2 class="font-display text-lg mb-2">Notify</h2>
+          <p class="text-sm text-bf-muted mb-3">Job-finished / alert webhook via <code>NOTIFY_URL</code>. Empty URL accepts the test and does not POST.</p>
+          <div id="notify-status" class="bf-status m-0 mb-3">loading…</div>
+          <div class="flex flex-wrap gap-2 items-center">
+            <button type="button" class="bf-btn bf-btn-primary" id="notify-test">Send test</button>
+            <p class="text-sm m-0" id="notify-msg"></p>
+          </div>
+        </div>
+        <div class="bf-panel mb-4">
           <h2 class="font-display text-lg mb-2">Stack &amp; plugins</h2>
           <p class="text-sm text-bf-muted mb-3">Core version plus optional compose profiles (slicer, commerce) and integration URLs.</p>
           <div id="stack-status" class="flex flex-wrap gap-2 text-sm">loading…</div>
@@ -2217,6 +2226,17 @@ const layoutHTML = `<!DOCTYPE html>
               el.classList.remove('live');
             }
           }
+          async function loadNotify() {
+            const el = document.getElementById('notify-status');
+            try {
+              const st = await bfJSON(API + '/api/v1/notify', opts);
+              el.textContent = st.configured ? 'NOTIFY_URL configured' : 'NOTIFY_URL unset (dry-run)';
+              el.classList.toggle('live', !!st.configured);
+            } catch (e) {
+              el.textContent = String(e.message || e);
+              el.classList.remove('live');
+            }
+          }
           function stackChip(label, ok, detail) {
             const cls = ok ? 'bf-chip' : 'bf-chip opacity-70';
             return '<span class="' + cls + '" title="' + String(detail || '').replace(/"/g, '&quot;') + '">' +
@@ -2232,11 +2252,12 @@ const layoutHTML = `<!DOCTYPE html>
           async function loadStack() {
             const el = document.getElementById('stack-status');
             el.textContent = 'loading…';
-            const [ver, sites, integ, power, edge, slice, commerce] = await Promise.all([
+            const [ver, sites, integ, power, notify, edge, slice, commerce] = await Promise.all([
               probe('/api/v1/version'),
               probe('/api/v1/sites'),
               probe('/api/v1/integrations/status'),
               probe('/api/v1/power'),
+              probe('/api/v1/notify'),
               probe('/api/v1/edge/status'),
               probe('/api/v1/slice/status'),
               probe('/api/v1/commerce/status'),
@@ -2266,6 +2287,7 @@ const layoutHTML = `<!DOCTYPE html>
               chips.push(stackChip('integrations', false, integ.err));
             }
             chips.push(stackChip('power', !!(power.ok && power.data && power.data.configured), power.ok ? '' : power.err));
+            chips.push(stackChip('notify', !!(notify.ok && notify.data && notify.data.configured), notify.ok ? '' : notify.err));
             if (edge.ok) {
               const e = edge.data || {};
               chips.push(stackChip('edge ' + (e.transport || e.farm_mode || ''), !!e.connected,
@@ -2302,6 +2324,21 @@ const layoutHTML = `<!DOCTYPE html>
             };
           });
           loadPower();
+          document.getElementById('notify-test').onclick = async () => {
+            const msg = document.getElementById('notify-msg');
+            msg.textContent = '';
+            try {
+              const out = await bfJSON(API + '/api/v1/notify/test', {
+                method: 'POST', credentials: 'include',
+              });
+              msg.textContent = out.sent
+                ? ('Sent test · ' + (out.job_id || 'notify-test'))
+                : (out.reason || 'not sent');
+            } catch (e) {
+              msg.textContent = String(e.message || e);
+            }
+          };
+          loadNotify();
           document.getElementById('sys-update-btn').onclick = async () => {
             const msg = document.getElementById('sys-msg');
             msg.className = 'text-sm mt-2';

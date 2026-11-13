@@ -10,6 +10,7 @@ On release: move that section to a new `## [X.Y.Z] — YYYY-MM-DD`, bump [`VERSI
 ## [Unreleased]
 
 ### Added
+- Admin notify status + Send test (`GET /api/v1/notify`, `POST /api/v1/notify/test`) for `NOTIFY_URL` wiring; stack chip includes notify
 - Presets page create/edit forms (POST/PATCH filament and print) with Edit on each list card
 - Delete staged artifacts (`DELETE /api/v1/artifacts/{id}`) from API and Artifacts page; Admin stack shows edge connection status
 - Commerce page: plugin status, test store webhook, and pack/ship status echo when the commerce profile is up
