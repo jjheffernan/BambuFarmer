@@ -344,7 +344,7 @@ func (a *Agent) Status() api.EdgeStatus {
 		Release:        a.captain.Release,
 		DeviceCount:    a.track.Count(),
 		LastError:      a.lastErr,
-		Devices:        a.track.Summaries(),
+		Devices:        a.track.Snapshots(),
 	}
 	if !a.lastPoll.IsZero() {
 		t := a.lastPoll

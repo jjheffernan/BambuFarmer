@@ -167,7 +167,7 @@ type EdgeStatus struct {
 	LastPollAt     *time.Time       `json:"last_poll_at,omitempty"`
 	LastError      string           `json:"last_error,omitempty"`
 	Note           string           `json:"note,omitempty"`
-	Devices        []PrinterSummary `json:"devices,omitempty"`
+	Devices        []PrinterSnapshot `json:"devices,omitempty"`
 }
 
 // RateCard holds org/site costing defaults ($/hr, $/kg, kg/hr).

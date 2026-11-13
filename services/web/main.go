@@ -182,8 +182,38 @@ const layoutHTML = `<!DOCTYPE html>
 
           function upsert(p) {
             if (!p || !p.external_sn) return;
-            printers.set(p.external_sn, p);
+            const prev = printers.get(p.external_sn) || {};
+            printers.set(p.external_sn, Object.assign({}, prev, p));
             render();
+          }
+
+          function esc(s) {
+            return String(s == null ? '' : s)
+              .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+          }
+
+          function taskLine(p) {
+            const t = p.task || {};
+            const name = t.subtask_name || '';
+            const id = t.external_task_id || '';
+            if (!name && !id) return '';
+            const label = name || id;
+            return '<div class="bf-card-meta mt-1 truncate" title="' + esc(label) + '">Task · ' + esc(label) + '</div>';
+          }
+
+          function amsChips(p) {
+            const units = p.ams || [];
+            const chips = [];
+            units.forEach(u => (u.trays || []).forEach(tr => {
+              const typ = tr.type || '—';
+              const rem = tr.remain ? (' ' + tr.remain + '%') : '';
+              const hex = (tr.color || '').replace(/^#/, '').slice(0, 6);
+              const style = hex.length === 6 ? (' style="border-color:#' + hex + '"') : '';
+              const title = 'AMS ' + (u.id ?? 0) + ' slot ' + (tr.slot ?? '?');
+              chips.push('<span class="bf-chip text-xs"' + style + ' title="' + esc(title) + '">' + esc(typ + rem) + '</span>');
+            }));
+            if (!chips.length) return '';
+            return '<div class="flex flex-wrap gap-1 mt-2" data-ams-chips>' + chips.join('') + '</div>';
           }
 
           function syncBulkBar() {
@@ -224,9 +254,12 @@ const layoutHTML = `<!DOCTYPE html>
               return '<article class="bf-card" id="printer-' + sn + '">' +
                 '<label class="flex items-start gap-2 mb-2 cursor-pointer">' +
                 '<input type="checkbox" class="mt-1 bulk-pick" data-sn="' + sn + '"' + on + '/>' +
-                '<span><span class="bf-card-name">' + (p.name || sn) + '</span>' +
-                '<span class="bf-card-meta block">' + (p.model || '') + ' · <span class="state-' + (p.gcode_state||'') + '">' + (p.gcode_state||'?') + '</span>' +
-                (p.mc_percent ? ' · ' + p.mc_percent + '%' : '') + '</span></span></label>' +
+                '<span><span class="bf-card-name">' + esc(p.name || sn) + '</span>' +
+                '<span class="bf-card-meta block">' + esc(p.model || '') + ' · <span class="state-' + esc(p.gcode_state||'') + '">' + esc(p.gcode_state||'?') + '</span>' +
+                (p.mc_percent ? ' · ' + p.mc_percent + '%' : '') + '</span>' +
+                taskLine(p) +
+                '</span></label>' +
+                amsChips(p) +
                 '<div class="flex flex-wrap gap-1.5 mt-3">' +
                 '<button type="button" class="bf-btn" data-sn="' + sn + '" data-opt="pause">Pause</button>' +
                 '<button type="button" class="bf-btn" data-sn="' + sn + '" data-opt="resume">Resume</button>' +
