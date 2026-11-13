@@ -51,6 +51,9 @@ func main() {
 	mux.HandleFunc("GET /slice", func(w http.ResponseWriter, _ *http.Request) {
 		render(w, "Slice", "slice")
 	})
+	mux.HandleFunc("GET /commerce", func(w http.ResponseWriter, _ *http.Request) {
+		render(w, "Commerce", "commerce")
+	})
 	mux.HandleFunc("GET /analytics", func(w http.ResponseWriter, _ *http.Request) {
 		render(w, "Analytics", "analytics")
 	})
@@ -124,6 +127,7 @@ const layoutHTML = `<!DOCTYPE html>
         <a href="/filament" {{if eq .Active "filament"}}class="active"{{end}}>Filament</a>
         <a href="/library" {{if eq .Active "library"}}class="active"{{end}}>Library</a>
         <a href="/slice" {{if eq .Active "slice"}}class="active"{{end}}>Slice</a>
+        <a href="/commerce" {{if eq .Active "commerce"}}class="active"{{end}}>Commerce</a>
         <a href="/analytics" {{if eq .Active "analytics"}}class="active"{{end}}>Analytics</a>
         <a href="/admin" {{if eq .Active "admin"}}class="active"{{end}}>Admin</a>
       </nav>
@@ -1476,6 +1480,119 @@ const layoutHTML = `<!DOCTYPE html>
             }
           };
           loadSliceStatus();
+        </script>
+      {{else if eq .Active "commerce"}}
+        <p class="bf-lede">Optional shop-orders plugin (<code>compose --profile commerce</code>). Webhook queues a core job when <code>CORE_URL</code> is set; pack/ship status is echoed (not stored yet).</p>
+        <div class="flex flex-wrap items-center gap-3 mb-3">
+          <div id="commerce-status" class="bf-status m-0">loading…</div>
+          <button type="button" class="bf-btn" id="commerce-refresh">Refresh status</button>
+        </div>
+        <div class="bf-panel mb-4">
+          <h2 class="font-display text-lg mb-3">Plugin status</h2>
+          <pre class="bf-pre text-xs m-0" id="commerce-status-out">…</pre>
+        </div>
+        <div class="bf-panel mb-4">
+          <h2 class="font-display text-lg mb-3">Test store webhook</h2>
+          <form id="commerce-webhook-form" class="grid gap-3 md:grid-cols-2">
+            <label class="text-sm">Order name
+              <input class="bf-input block mt-1 w-full" id="commerce-name" placeholder="Benchy order"/>
+            </label>
+            <label class="text-sm">External id
+              <input class="bf-input block mt-1 w-full font-mono text-xs" id="commerce-external" placeholder="shop-123"/>
+            </label>
+            <label class="text-sm">Artifact id
+              <input class="bf-input block mt-1 w-full font-mono text-xs" id="commerce-artifact" placeholder="optional"/>
+            </label>
+            <label class="text-sm">Spool id
+              <input class="bf-input block mt-1 w-full font-mono text-xs" id="commerce-spool" placeholder="optional"/>
+            </label>
+            <div class="md:col-span-2 flex flex-wrap items-center gap-3">
+              <button type="submit" class="bf-btn bf-btn-primary">Queue job</button>
+              <p class="text-sm m-0" id="commerce-webhook-msg"></p>
+            </div>
+          </form>
+        </div>
+        <div class="bf-panel">
+          <h2 class="font-display text-lg mb-3">Mark order status</h2>
+          <form id="commerce-status-form" class="flex flex-wrap items-end gap-3">
+            <label class="text-sm">Order id
+              <input class="bf-input block mt-1" id="commerce-order-id" required placeholder="order id"/>
+            </label>
+            <label class="text-sm">Status
+              <select class="bf-input block mt-1" id="commerce-order-status">
+                <option value="packed">packed</option>
+                <option value="shipped">shipped</option>
+              </select>
+            </label>
+            <button type="submit" class="bf-btn">Update</button>
+            <p class="text-sm m-0" id="commerce-status-msg"></p>
+          </form>
+          <pre class="bf-pre text-xs mt-3 hidden" id="commerce-result"></pre>
+        </div>
+        <script>
+          const API = {{printf "%q" .APIBase}};
+          const commerceStatus = document.getElementById('commerce-status');
+          const commerceOut = document.getElementById('commerce-status-out');
+          const commerceResult = document.getElementById('commerce-result');
+          async function loadCommerceStatus() {
+            commerceStatus.textContent = 'loading…';
+            commerceStatus.classList.remove('live');
+            try {
+              const st = await bfJSON(API + '/api/v1/commerce/status');
+              commerceOut.textContent = JSON.stringify(st, null, 2);
+              commerceStatus.textContent = 'plugin up';
+              commerceStatus.classList.add('live');
+            } catch (e) {
+              commerceStatus.textContent = 'commerce not reachable';
+              commerceOut.textContent = String(e.message || e) + '\n\nEnable with: podman compose --profile commerce … and COMMERCE_URL on gateway.';
+            }
+          }
+          document.getElementById('commerce-refresh').onclick = loadCommerceStatus;
+          document.getElementById('commerce-webhook-form').onsubmit = async (ev) => {
+            ev.preventDefault();
+            const msg = document.getElementById('commerce-webhook-msg');
+            msg.textContent = '';
+            commerceResult.classList.add('hidden');
+            try {
+              const out = await bfJSON(API + '/api/v1/commerce/webhook', {
+                method: 'POST', credentials: 'include',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                  name: document.getElementById('commerce-name').value.trim() || undefined,
+                  external_id: document.getElementById('commerce-external').value.trim() || undefined,
+                  artifact_id: document.getElementById('commerce-artifact').value.trim() || undefined,
+                  spool_id: document.getElementById('commerce-spool').value.trim() || undefined,
+                }),
+              });
+              msg.textContent = out.queued ? ('Queued job ' + (out.job_id || '')) : (out.reason || 'not queued');
+              commerceResult.textContent = JSON.stringify(out, null, 2);
+              commerceResult.classList.remove('hidden');
+            } catch (e) {
+              msg.textContent = String(e.message || e);
+            }
+          };
+          document.getElementById('commerce-status-form').onsubmit = async (ev) => {
+            ev.preventDefault();
+            const msg = document.getElementById('commerce-status-msg');
+            msg.textContent = '';
+            commerceResult.classList.add('hidden');
+            try {
+              const out = await bfJSON(API + '/api/v1/commerce/orders/status', {
+                method: 'POST', credentials: 'include',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                  order_id: document.getElementById('commerce-order-id').value.trim(),
+                  status: document.getElementById('commerce-order-status').value,
+                }),
+              });
+              msg.textContent = 'Updated';
+              commerceResult.textContent = JSON.stringify(out, null, 2);
+              commerceResult.classList.remove('hidden');
+            } catch (e) {
+              msg.textContent = String(e.message || e);
+            }
+          };
+          loadCommerceStatus();
         </script>
       {{else if eq .Active "analytics"}}
         <p class="bf-lede">Daily utilization, costs, and failure codes from the analytics consumer.</p>
