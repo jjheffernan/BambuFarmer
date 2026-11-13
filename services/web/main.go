@@ -1081,14 +1081,25 @@ const layoutHTML = `<!DOCTYPE html>
             if (dispatchBtn && !dispatchBtn.disabled) {
               dispatchBtn.disabled = true;
               try {
-                const body = {};
-                if (dispatchBtn.dataset.sn) body.external_sn = dispatchBtn.dataset.sn;
+                let sn = (dispatchBtn.dataset.sn || '').trim();
+                if (!sn) {
+                  const pick = document.getElementById('job-sn-pick');
+                  const hints = pick
+                    ? [...pick.options].filter(o => o.value).slice(0, 4).map(o => o.value).join(', ')
+                    : '';
+                  sn = prompt('Printer SN to dispatch' + (hints ? ' (e.g. ' + hints + ')' : ''), '');
+                  if (!sn || !String(sn).trim()) {
+                    dispatchBtn.disabled = false;
+                    return;
+                  }
+                  sn = String(sn).trim();
+                }
                 await bfJSON(API + '/api/v1/jobs/' + encodeURIComponent(dispatchBtn.dataset.dispatch) + '/dispatch', {
                   method: 'POST', credentials: 'include',
                   headers: {'Content-Type': 'application/json'},
-                  body: JSON.stringify(body),
+                  body: JSON.stringify({external_sn: sn}),
                 });
-                jobsStatus.textContent = 'Dispatched';
+                jobsStatus.textContent = 'Dispatched · ' + sn;
                 await loadJobs();
               } catch (e) {
                 jobsStatus.textContent = String(e.message || e);
