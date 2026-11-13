@@ -100,6 +100,16 @@ func Register(mux *http.ServeMux, pool *pgxpool.Pool, bus *events.Bus, siteID st
 			httpx.WriteJSON(w, job)
 		})
 	})
+	mux.HandleFunc("GET /api/v1/jobs/{id}/events", func(w http.ResponseWriter, r *http.Request) {
+		httpx.RequireDB(w, pool, func() {
+			items, err := db.ListJobEvents(r.Context(), pool, siteID, r.PathValue("id"), 100)
+			if err != nil {
+				httpx.WriteError(w, err)
+				return
+			}
+			httpx.WriteJSON(w, items)
+		})
+	})
 	mux.HandleFunc("POST /api/v1/jobs/{id}/dispatch", func(w http.ResponseWriter, r *http.Request) {
 		httpx.RequireDB(w, pool, func() {
 			var body struct {

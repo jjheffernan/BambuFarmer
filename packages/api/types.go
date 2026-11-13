@@ -319,6 +319,17 @@ type CommerceOrder struct {
 	UpdatedAt     time.Time  `json:"updated_at,omitempty"`
 }
 
+// JobEvent is one state transition recorded for a job.
+type JobEvent struct {
+	ID        int64     `json:"id"`
+	JobID     string    `json:"job_id"`
+	FromState string    `json:"from_state"`
+	ToState   string    `json:"to_state"`
+	Actor     string    `json:"actor"`
+	Reason    string    `json:"reason,omitempty"`
+	At        time.Time `json:"at"`
+}
+
 // Job is a print job record.
 type Job struct {
 	ID             string     `json:"id"`

@@ -24,6 +24,12 @@ func TestJobsPageUsesSSENotIntervalPoll(t *testing.T) {
 	if !strings.Contains(layoutHTML, "data-cancel") || !strings.Contains(layoutHTML, "/cancel") {
 		t.Fatal("jobs page missing cancel control")
 	}
+	if !strings.Contains(layoutHTML, "data-history") || !strings.Contains(layoutHTML, "/events") {
+		t.Fatal("jobs page missing history control")
+	}
+	if !strings.Contains(layoutHTML, "job-events-panel") {
+		t.Fatal("jobs page missing events panel")
+	}
 	if !strings.Contains(layoutHTML, `id="jobs-q"`) || !strings.Contains(layoutHTML, `id="jobs-state"`) {
 		t.Fatal("jobs page missing search or state filter")
 	}

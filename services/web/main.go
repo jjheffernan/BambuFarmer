@@ -543,6 +543,18 @@ const layoutHTML = `<!DOCTYPE html>
           </select>
           <button type="button" class="bf-btn" id="jobs-refresh">Refresh</button>
         </div>
+        <div id="job-events-panel" class="bf-panel mb-3 hidden">
+          <div class="flex items-center justify-between gap-2 mb-2">
+            <h2 class="font-display text-base m-0">Job history <span class="text-bf-muted font-mono text-xs" id="job-events-id"></span></h2>
+            <button type="button" class="bf-btn" id="job-events-close">Close</button>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="bf-table" id="job-events-table">
+              <thead><tr><th>When</th><th>From</th><th>To</th><th>Actor</th><th>Reason</th></tr></thead>
+              <tbody id="job-events-body"><tr><td colspan="5" class="bf-empty">—</td></tr></tbody>
+            </table>
+          </div>
+        </div>
         <div class="bf-panel overflow-x-auto">
           <table class="bf-table" id="jobs-table">
             <thead>
@@ -621,7 +633,8 @@ const layoutHTML = `<!DOCTYPE html>
                 '<td class="text-bf-muted">' + esc(fmtCost(j)) + '</td>' +
                 '<td class="' + (j.error ? 'text-bf-danger text-xs' : 'text-bf-muted') + '">' +
                   esc(j.error || '—') + '</td>' +
-                '<td><button type="button" class="bf-btn" data-reprint="' + esc(j.id) + '">Reprint</button>' +
+                '<td><button type="button" class="bf-btn" data-history="' + esc(j.id) + '">History</button> ' +
+                  '<button type="button" class="bf-btn" data-reprint="' + esc(j.id) + '">Reprint</button>' +
                   (['queued','assigned','dispatched','running','paused'].indexOf(j.state) >= 0
                     ? ' <button type="button" class="bf-btn" data-cancel="' + esc(j.id) + '">Cancel</button>'
                     : '') +
@@ -638,10 +651,43 @@ const layoutHTML = `<!DOCTYPE html>
             }
           }
 
+          const eventsPanel = document.getElementById('job-events-panel');
+          const eventsBody = document.getElementById('job-events-body');
+          const eventsId = document.getElementById('job-events-id');
+          async function loadJobEvents(id) {
+            eventsId.textContent = id;
+            eventsPanel.classList.remove('hidden');
+            eventsBody.innerHTML = '<tr><td colspan="5" class="bf-empty">loading…</td></tr>';
+            try {
+              const items = await bfJSON(API + '/api/v1/jobs/' + encodeURIComponent(id) + '/events');
+              if (!items || !items.length) {
+                eventsBody.innerHTML = '<tr><td colspan="5" class="bf-empty">No transitions yet</td></tr>';
+                return;
+              }
+              eventsBody.innerHTML = items.map(e => '<tr>' +
+                '<td class="font-mono text-xs">' + esc(e.at ? new Date(e.at).toLocaleString() : '—') + '</td>' +
+                '<td class="font-mono text-xs">' + esc(e.from_state || '—') + '</td>' +
+                '<td class="font-mono text-xs">' + esc(e.to_state || '—') + '</td>' +
+                '<td>' + esc(e.actor || '—') + '</td>' +
+                '<td class="text-bf-muted text-xs">' + esc(e.reason || '—') + '</td>' +
+                '</tr>').join('');
+            } catch (err) {
+              eventsBody.innerHTML = '<tr><td colspan="5" class="text-bf-danger">' + esc(err.message || err) + '</td></tr>';
+            }
+          }
+          document.getElementById('job-events-close').onclick = () => {
+            eventsPanel.classList.add('hidden');
+          };
+
           document.getElementById('jobs-refresh').onclick = () => { loadJobs(); };
           document.getElementById('jobs-q').oninput = () => { loadJobs(); };
           document.getElementById('jobs-state').onchange = () => { loadJobs(); };
           jobsTb.onclick = async (ev) => {
+            const hist = ev.target.closest('[data-history]');
+            if (hist) {
+              await loadJobEvents(hist.dataset.history);
+              return;
+            }
             const move = ev.target.closest('[data-queue]');
             if (move && !move.disabled) {
               move.disabled = true;

@@ -98,6 +98,33 @@ func GetJob(ctx context.Context, pool *pgxpool.Pool, siteID, id string) (api.Job
 	return j, nil
 }
 
+// ListJobEvents returns state transitions for a job (newest first).
+func ListJobEvents(ctx context.Context, pool *pgxpool.Pool, siteID, jobID string, limit int) ([]api.JobEvent, error) {
+	if _, err := GetJob(ctx, pool, siteID, jobID); err != nil {
+		return nil, err
+	}
+	if limit <= 0 {
+		limit = 100
+	}
+	rows, err := pool.Query(ctx, `
+		SELECT id, job_id, from_state, to_state, actor, reason, at
+		FROM job_events WHERE job_id=$1
+		ORDER BY at DESC, id DESC LIMIT $2`, jobID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []api.JobEvent{}
+	for rows.Next() {
+		var e api.JobEvent
+		if err := rows.Scan(&e.ID, &e.JobID, &e.FromState, &e.ToState, &e.Actor, &e.Reason, &e.At); err != nil {
+			return nil, err
+		}
+		out = append(out, e)
+	}
+	return out, rows.Err()
+}
+
 const jobSelectSQL = `
 		SELECT id, site_id, name, state, COALESCE(external_sn,''), COALESCE(artifact_id::text,''),
 		       COALESCE(external_file_id,''),
