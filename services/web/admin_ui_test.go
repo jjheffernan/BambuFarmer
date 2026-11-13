@@ -70,4 +70,7 @@ func TestAdminPageHasRateCardEditor(t *testing.T) {
 	if !strings.Contains(layoutHTML, `id="setup-reset-btn"`) || !strings.Contains(layoutHTML, "/api/v1/setup/reset") {
 		t.Fatal("expected Admin setup reset control")
 	}
+	if !strings.Contains(layoutHTML, `id="setup-out"`) || !strings.Contains(layoutHTML, "loadSetup") {
+		t.Fatal("expected Admin install readout")
+	}
 }

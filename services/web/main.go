@@ -2732,8 +2732,10 @@ const layoutHTML = `<!DOCTYPE html>
         </div>
         <div class="bf-panel mb-4">
           <h2 class="font-display text-lg mb-2">Lab · setup</h2>
-          <p class="text-sm text-bf-muted mb-3">Re-open the first-run wizard via <code>POST /api/v1/setup/reset</code>. Lab/fixture only — does not delete users or jobs.</p>
+          <p class="text-sm text-bf-muted mb-3">Install state from <code>GET /api/v1/setup</code>. Reset re-opens the wizard (does not delete users or jobs).</p>
+          <pre class="bf-pre text-xs mb-3" id="setup-out">loading…</pre>
           <div class="flex flex-wrap gap-2 items-center">
+            <button type="button" class="bf-btn" id="setup-refresh">Refresh</button>
             <button type="button" class="bf-btn" id="setup-reset-btn">Re-open setup wizard</button>
             <p class="text-sm m-0" id="setup-reset-msg"></p>
           </div>
@@ -3298,6 +3300,24 @@ const layoutHTML = `<!DOCTYPE html>
               msg.textContent = String(e.message || e);
             }
           };
+          async function loadSetup() {
+            const el = document.getElementById('setup-out');
+            try {
+              const st = await bfJSON(API + '/api/v1/setup', opts);
+              const install = st.install || {};
+              el.textContent = JSON.stringify({
+                site_id: st.site_id,
+                completed: install.completed,
+                step: install.step,
+                auth_mode: install.auth_mode,
+                version: st.version,
+              }, null, 2);
+            } catch (e) {
+              el.textContent = String(e.message || e);
+            }
+          }
+          document.getElementById('setup-refresh').onclick = loadSetup;
+          loadSetup();
           document.getElementById('setup-reset-btn').onclick = async () => {
             const msg = document.getElementById('setup-reset-msg');
             msg.className = 'text-sm m-0';
@@ -3309,6 +3329,7 @@ const layoutHTML = `<!DOCTYPE html>
               });
               msg.className = 'text-bf-accent text-sm m-0';
               msg.textContent = 'Reset — open /setup';
+              await loadSetup();
             } catch (e) {
               msg.className = 'text-bf-danger text-sm m-0';
               msg.textContent = String(e.message || e);
