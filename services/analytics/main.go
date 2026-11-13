@@ -76,6 +76,30 @@ func main() {
 		}
 		_ = json.NewEncoder(w).Encode(map[string]any{"series": series})
 	})
+	mux.HandleFunc("GET /api/v1/analytics/costs", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		series := []map[string]any{}
+		if pool != nil {
+			rows, err := pool.Query(r.Context(), `
+				SELECT day::text, site_id, material_cost, machine_cost, labor_cost, jobs
+				FROM agg_cost_daily ORDER BY day DESC LIMIT 30`)
+			if err == nil {
+				defer rows.Close()
+				for rows.Next() {
+					var day, site string
+					var material, machine, labor float64
+					var jobs int
+					if err := rows.Scan(&day, &site, &material, &machine, &labor, &jobs); err == nil {
+						series = append(series, map[string]any{
+							"day": day, "site_id": site,
+							"material_cost": material, "machine_cost": machine, "labor_cost": labor, "jobs": jobs,
+						})
+					}
+				}
+			}
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"series": series})
+	})
 	mux.HandleFunc("GET /api/v1/analytics/failures", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		series := []map[string]any{}
@@ -190,18 +214,73 @@ func bump(ctx context.Context, pool *pgxpool.Pool, env events.Envelope) error {
 				site, code)
 		}
 	}
-	if env.Type == events.TypeJobFinished {
+	if env.Type == events.TypeJobFinished || env.Type == events.TypeJobFailed {
 		jobID, _ := env.Payload["job_id"].(string)
 		site := env.SiteID
 		if site == "" {
 			site = "default"
 		}
-		_, _ = pool.Exec(ctx, `
-			INSERT INTO fact_job_completed(job_id, site_id, success, completed_at)
-			VALUES ($1,$2,true,now())
-			ON CONFLICT (job_id) DO NOTHING`, jobID, site)
+		sn, _ := env.Payload["external_sn"].(string)
+		success := env.Type == events.TypeJobFinished
+		_, err = pool.Exec(ctx, `
+			INSERT INTO fact_job_completed(job_id, site_id, external_sn, success, completed_at)
+			VALUES ($1,$2,$3,$4,now())
+			ON CONFLICT (job_id) DO NOTHING`, jobID, site, sn, success)
+	}
+	if env.Type == events.TypeJobCosted {
+		jobID, _ := env.Payload["job_id"].(string)
+		site := env.SiteID
+		if site == "" {
+			site = "default"
+		}
+		sn, _ := env.Payload["external_sn"].(string)
+		seconds := intNum(env.Payload["duration_s"])
+		grams := floatNum(env.Payload["grams"])
+		actual := floatNum(env.Payload["cost_actual"])
+		material := floatNum(env.Payload["material_cost"])
+		machine := floatNum(env.Payload["machine_cost"])
+		labor := floatNum(env.Payload["labor_cost"])
+		_, err = pool.Exec(ctx, `
+			INSERT INTO fact_job_completed(job_id, site_id, external_sn, duration_s, success, cost_actual, grams, completed_at)
+			VALUES ($1,$2,$3,$4,true,$5,$6,now())
+			ON CONFLICT (job_id) DO UPDATE SET
+				external_sn = EXCLUDED.external_sn,
+				duration_s = EXCLUDED.duration_s,
+				cost_actual = EXCLUDED.cost_actual,
+				grams = EXCLUDED.grams,
+				success = true`,
+			jobID, site, sn, seconds, actual, grams)
+		if err != nil {
+			return err
+		}
+		_, err = pool.Exec(ctx, `
+			INSERT INTO agg_cost_daily(day, site_id, material_cost, machine_cost, labor_cost, jobs)
+			VALUES (CURRENT_DATE, $1, $2, $3, $4, 1)
+			ON CONFLICT (day, site_id) DO UPDATE SET
+				material_cost = agg_cost_daily.material_cost + EXCLUDED.material_cost,
+				machine_cost = agg_cost_daily.machine_cost + EXCLUDED.machine_cost,
+				labor_cost = agg_cost_daily.labor_cost + EXCLUDED.labor_cost,
+				jobs = agg_cost_daily.jobs + 1`,
+			site, material, machine, labor)
 	}
 	return err
+}
+
+func floatNum(v any) float64 {
+	switch n := v.(type) {
+	case float64:
+		return n
+	case int:
+		return float64(n)
+	case int64:
+		return float64(n)
+	default:
+		return 0
+	}
+}
+
+func intNum(v any) int {
+	return int(floatNum(v))
 }
 
 func getenv(k, d string) string {

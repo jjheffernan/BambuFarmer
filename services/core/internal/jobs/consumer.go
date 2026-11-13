@@ -97,13 +97,19 @@ func applyFinished(ctx context.Context, pool *pgxpool.Pool, bus *events.Bus, sit
 	if grams <= 0 {
 		grams = job.EstGrams
 	}
+	parts := db.CostParts{}
+	currency := job.Currency
 	if rc, err := db.GetRateCard(ctx, pool, siteID); err == nil {
-		actual := db.EstimateJobCost(rc, seconds, grams, job.Copies)
-		_ = db.ApplyJobCost(ctx, pool, siteID, jobID, job.CostEstimate, actual, rc.Currency)
+		parts = db.SplitJobCost(rc, seconds, grams, job.Copies)
+		currency = rc.Currency
+		_ = db.ApplyJobCost(ctx, pool, siteID, jobID, job.CostEstimate, parts.Total, rc.Currency)
 	}
 	spoolID := strPayload(payload, "spool_id")
 	if spoolID == "" {
 		spoolID = job.SpoolID
+	}
+	if err := PublishJobCosted(ctx, bus, siteID, jobID, job.ExternalSN, seconds, parts, currency); err != nil {
+		return err
 	}
 	if err := PublishFilamentUsed(ctx, bus, siteID, jobID, spoolID, grams); err != nil {
 		return err
@@ -114,6 +120,29 @@ func applyFinished(ctx context.Context, pool *pgxpool.Pool, bus *events.Bus, sit
 		slog.Warn("notify webhook", "err", err, "job_id", jobID)
 	}
 	return nil
+}
+
+// PublishJobCosted emits job.costed after actual cost is written.
+// A nil bus is a no-op.
+func PublishJobCosted(ctx context.Context, bus *events.Bus, siteID, jobID, sn string, seconds int, parts db.CostParts, currency string) error {
+	if bus == nil {
+		return nil
+	}
+	env := events.NewEnvelope(events.TypeJobCosted, "core", siteID, map[string]any{
+		"job_id":        jobID,
+		"external_sn":   sn,
+		"duration_s":    seconds,
+		"grams":         parts.Grams,
+		"cost_actual":   parts.Total,
+		"material_cost": parts.Filament,
+		"machine_cost":  parts.Machine,
+		"labor_cost":    parts.Labor,
+		"currency":      currency,
+		"success":       true,
+	})
+	env.CorrelationID = jobID
+	_, err := bus.Publish(ctx, events.StreamJob, env)
+	return err
 }
 
 // PublishFilamentUsed emits filament.consumed when a spool and grams are known.

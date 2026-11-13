@@ -10,6 +10,7 @@ On release: move that section to a new `## [X.Y.Z] — YYYY-MM-DD`, bump [`VERSI
 ## [Unreleased]
 
 ### Added
+- Analytics costs (`GET /api/v1/analytics/costs`) roll up `job.costed` material, machine, and labor into `agg_cost_daily`
 - Analytics failures (`GET /api/v1/analytics/failures`) roll up non-zero `print_error` codes into `agg_hms_daily`
 - Farm tags (`GET /api/v1/edge/tags`) attach circuit/group labels onto printer snapshots; scheduler respects `CIRCUIT_MAX` when set
 - Printer liveview JPEG (`GET /api/v1/printers/{id}/liveview`) via edge; Farm Manager uses `GET /file?asset_path=liveview\{sn}\liveview.jpeg`, fixture and direct return a tiny still offline

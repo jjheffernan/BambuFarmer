@@ -25,4 +25,8 @@ func TestEstimateJobCost(t *testing.T) {
 	if got != 12.5 {
 		t.Fatalf("derived grams: got %v want 12.5", got)
 	}
+	parts := db.SplitJobCost(rc, 3600, 100, 1)
+	if parts.Machine != 10 || parts.Filament != 2.5 || parts.Total != 12.5 || parts.Grams != 100 {
+		t.Fatalf("%+v", parts)
+	}
 }

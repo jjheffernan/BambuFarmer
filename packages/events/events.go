@@ -38,6 +38,7 @@ const (
 	TypeJobDispatched       = "job.dispatched"
 	TypeJobProgress         = "job.progress"
 	TypeJobFinished         = "job.finished"
+	TypeJobCosted           = "job.costed"
 	TypeJobFailed           = "job.failed"
 	TypeJobCancelled        = "job.cancelled"
 	TypeFilamentConsumed    = "filament.consumed"
