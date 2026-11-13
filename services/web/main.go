@@ -39,6 +39,12 @@ func main() {
 	mux.HandleFunc("GET /presets", func(w http.ResponseWriter, _ *http.Request) {
 		render(w, "Presets", "presets")
 	})
+	mux.HandleFunc("GET /filament", func(w http.ResponseWriter, _ *http.Request) {
+		render(w, "Filament", "filament")
+	})
+	mux.HandleFunc("GET /library", func(w http.ResponseWriter, _ *http.Request) {
+		render(w, "Library", "library")
+	})
 	mux.HandleFunc("GET /analytics", func(w http.ResponseWriter, _ *http.Request) {
 		render(w, "Analytics", "analytics")
 	})
@@ -108,6 +114,8 @@ const layoutHTML = `<!DOCTYPE html>
         <a href="/" {{if eq .Active "fleet"}}class="active"{{end}}>Fleet</a>
         <a href="/jobs" {{if eq .Active "jobs"}}class="active"{{end}}>Jobs</a>
         <a href="/presets" {{if eq .Active "presets"}}class="active"{{end}}>Presets</a>
+        <a href="/filament" {{if eq .Active "filament"}}class="active"{{end}}>Filament</a>
+        <a href="/library" {{if eq .Active "library"}}class="active"{{end}}>Library</a>
         <a href="/analytics" {{if eq .Active "analytics"}}class="active"{{end}}>Analytics</a>
         <a href="/admin" {{if eq .Active "admin"}}class="active"{{end}}>Admin</a>
       </nav>
@@ -1035,6 +1043,219 @@ const layoutHTML = `<!DOCTYPE html>
           loadPresets().catch(e => {
             document.getElementById('filament-list').textContent = String(e.message || e);
           });
+        </script>
+      {{else if eq .Active "filament"}}
+        <p class="bf-lede">Spoolman spools and AMS tray links when <code>SPOOLMAN_URL</code> is set.</p>
+        <div class="flex flex-wrap items-center gap-3 mb-3">
+          <div id="filament-status" class="bf-status m-0">loading…</div>
+          <button type="button" class="bf-btn" id="filament-refresh">Refresh</button>
+        </div>
+        <div class="bf-panel mb-4">
+          <h2 class="font-display text-lg mb-3">Low stock</h2>
+          <div id="filament-low" class="bf-empty">loading…</div>
+        </div>
+        <div class="bf-panel mb-4">
+          <h2 class="font-display text-lg mb-3">Spools</h2>
+          <div class="overflow-x-auto">
+            <table class="bf-table">
+              <thead><tr><th>Name</th><th>Material</th><th>Vendor</th><th>Remain</th><th>Location</th><th>ID</th></tr></thead>
+              <tbody id="filament-spools-body"><tr><td colspan="6" class="bf-empty">loading…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="bf-panel">
+          <h2 class="font-display text-lg mb-3">AMS tray → spool</h2>
+          <div class="flex flex-wrap items-end gap-3">
+            <label class="text-sm">Tray index
+              <input class="bf-input block mt-1" id="filament-tray" type="number" min="0" step="1" value="0"/>
+            </label>
+            <button type="button" class="bf-btn" id="filament-tray-lookup">Lookup</button>
+            <p class="text-sm m-0" id="filament-tray-msg">Uses <code>AMS_SLOT_MAP</code>.</p>
+          </div>
+        </div>
+        <script>
+          const API = {{printf "%q" .APIBase}};
+          const filStatus = document.getElementById('filament-status');
+          const filLow = document.getElementById('filament-low');
+          const filBody = document.getElementById('filament-spools-body');
+          function esc(s) {
+            return String(s == null ? '' : s)
+              .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+          }
+          function fmtG(n) {
+            const v = Number(n);
+            if (!Number.isFinite(v)) return '—';
+            return v.toFixed(0) + ' g';
+          }
+          async function loadFilament() {
+            filStatus.textContent = 'loading…';
+            filStatus.classList.remove('live');
+            try {
+              const data = await bfJSON(API + '/api/v1/filament/spools');
+              if (!data.configured) {
+                filStatus.textContent = 'Spoolman not configured';
+                filLow.innerHTML = '<p class="bf-empty m-0">Set SPOOLMAN_URL to list spools.</p>';
+                filBody.innerHTML = '<tr><td colspan="6" class="bf-empty">Not configured</td></tr>';
+                return;
+              }
+              const low = data.low_stock || [];
+              if (!low.length) {
+                filLow.innerHTML = '<p class="bf-empty m-0">None under ' + esc(data.threshold_g ?? '?') + ' g</p>';
+              } else {
+                filLow.innerHTML = '<div class="flex flex-wrap gap-2">' + low.map(s =>
+                  '<span class="bf-chip">' + esc(s.name || s.id) + ' · ' + esc(fmtG(s.remaining_g)) + '</span>'
+                ).join('') + '</div>';
+              }
+              const spools = data.spools || [];
+              if (!spools.length) {
+                filBody.innerHTML = '<tr><td colspan="6" class="bf-empty">No spools</td></tr>';
+              } else {
+                filBody.innerHTML = spools.map(s => '<tr>' +
+                  '<td>' + esc(s.name || '—') + '</td>' +
+                  '<td>' + esc(s.material || '—') + '</td>' +
+                  '<td>' + esc(s.vendor || '—') + '</td>' +
+                  '<td class="font-mono text-xs">' + esc(fmtG(s.remaining_g)) + '</td>' +
+                  '<td class="text-bf-muted text-xs">' + esc(s.location || '—') + '</td>' +
+                  '<td class="font-mono text-xs">' + esc(s.id || s.spoolman_id || '—') + '</td>' +
+                  '</tr>').join('');
+              }
+              filStatus.textContent = 'updated · ' + spools.length + ' spools';
+              filStatus.classList.add('live');
+            } catch (e) {
+              filStatus.textContent = String(e.message || e);
+              filLow.textContent = String(e.message || e);
+              filBody.innerHTML = '<tr><td colspan="6" class="text-bf-danger">' + esc(e.message || e) + '</td></tr>';
+            }
+          }
+          document.getElementById('filament-refresh').onclick = loadFilament;
+          document.getElementById('filament-tray-lookup').onclick = async () => {
+            const msg = document.getElementById('filament-tray-msg');
+            const tray = document.getElementById('filament-tray').value;
+            try {
+              const data = await bfJSON(API + '/api/v1/filament/links?tray=' + encodeURIComponent(tray));
+              msg.textContent = data.spool_id
+                ? ('Tray ' + data.tray + ' → spool ' + data.spool_id)
+                : ('Tray ' + data.tray + ' has no mapped spool');
+            } catch (e) {
+              msg.textContent = String(e.message || e);
+            }
+          };
+          loadFilament();
+        </script>
+      {{else if eq .Active "library"}}
+        <p class="bf-lede">Manyfold models when <code>MANYFOLD_URL</code> is set. Import/export create a model by name (plate bytes stay in farm artifacts).</p>
+        <div class="flex flex-wrap items-center gap-3 mb-3">
+          <div id="library-status" class="bf-status m-0">loading…</div>
+          <button type="button" class="bf-btn" id="library-refresh">Refresh</button>
+        </div>
+        <div class="bf-panel mb-4">
+          <h2 class="font-display text-lg mb-3">Import model</h2>
+          <form id="library-import-form" class="flex flex-wrap items-end gap-3">
+            <label class="text-sm flex-1 min-w-[12rem]">Name
+              <input class="bf-input block mt-1 w-full" id="library-import-name" required placeholder="Benchy"/>
+            </label>
+            <button type="submit" class="bf-btn bf-btn-primary">Create in Manyfold</button>
+            <p class="text-sm m-0" id="library-import-msg"></p>
+          </form>
+        </div>
+        <div class="bf-panel mb-4">
+          <h2 class="font-display text-lg mb-3">Export artifact → model</h2>
+          <form id="library-export-form" class="grid gap-3 md:grid-cols-2">
+            <label class="text-sm">Artifact id
+              <input class="bf-input block mt-1 w-full" id="library-export-artifact" required placeholder="artifact uuid"/>
+            </label>
+            <label class="text-sm">Model name
+              <input class="bf-input block mt-1 w-full" id="library-export-name" required placeholder="Benchy plate"/>
+            </label>
+            <div class="md:col-span-2 flex flex-wrap items-center gap-3">
+              <button type="submit" class="bf-btn bf-btn-primary">Export</button>
+              <p class="text-sm m-0" id="library-export-msg"></p>
+            </div>
+          </form>
+        </div>
+        <div class="bf-panel">
+          <h2 class="font-display text-lg mb-3">Models</h2>
+          <div class="overflow-x-auto">
+            <table class="bf-table">
+              <thead><tr><th>Name</th><th>ID</th><th>URL</th></tr></thead>
+              <tbody id="library-models-body"><tr><td colspan="3" class="bf-empty">loading…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+        <script>
+          const API = {{printf "%q" .APIBase}};
+          const libStatus = document.getElementById('library-status');
+          const libBody = document.getElementById('library-models-body');
+          function esc(s) {
+            return String(s == null ? '' : s)
+              .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+          }
+          async function loadLibrary() {
+            libStatus.textContent = 'loading…';
+            libStatus.classList.remove('live');
+            try {
+              const data = await bfJSON(API + '/api/v1/library/models');
+              if (!data.configured) {
+                libStatus.textContent = 'Manyfold not configured';
+                libBody.innerHTML = '<tr><td colspan="3" class="bf-empty">Set MANYFOLD_URL to list models.</td></tr>';
+                return;
+              }
+              const models = data.models || [];
+              if (!models.length) {
+                libBody.innerHTML = '<tr><td colspan="3" class="bf-empty">No models</td></tr>';
+              } else {
+                libBody.innerHTML = models.map(m => '<tr>' +
+                  '<td>' + esc(m.name || '—') + '</td>' +
+                  '<td class="font-mono text-xs">' + esc(m.id || '—') + '</td>' +
+                  '<td class="text-xs">' + (m.url
+                    ? '<a class="underline" href="' + esc(m.url) + '" target="_blank" rel="noopener">' + esc(m.url) + '</a>'
+                    : '—') + '</td>' +
+                  '</tr>').join('');
+              }
+              libStatus.textContent = 'updated · ' + models.length + ' models';
+              libStatus.classList.add('live');
+            } catch (e) {
+              libStatus.textContent = String(e.message || e);
+              libBody.innerHTML = '<tr><td colspan="3" class="text-bf-danger">' + esc(e.message || e) + '</td></tr>';
+            }
+          }
+          document.getElementById('library-refresh').onclick = loadLibrary;
+          document.getElementById('library-import-form').onsubmit = async (ev) => {
+            ev.preventDefault();
+            const msg = document.getElementById('library-import-msg');
+            msg.textContent = '';
+            try {
+              const out = await bfJSON(API + '/api/v1/library/import', {
+                method: 'POST', credentials: 'include',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({name: document.getElementById('library-import-name').value.trim()}),
+              });
+              msg.textContent = out.imported ? ('Created ' + (out.id || out.name)) : (out.reason || 'not imported');
+              await loadLibrary();
+            } catch (e) {
+              msg.textContent = String(e.message || e);
+            }
+          };
+          document.getElementById('library-export-form').onsubmit = async (ev) => {
+            ev.preventDefault();
+            const msg = document.getElementById('library-export-msg');
+            msg.textContent = '';
+            try {
+              const out = await bfJSON(API + '/api/v1/library/export', {
+                method: 'POST', credentials: 'include',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                  artifact_id: document.getElementById('library-export-artifact').value.trim(),
+                  name: document.getElementById('library-export-name').value.trim(),
+                }),
+              });
+              msg.textContent = out.exported ? ('Created ' + (out.id || out.name)) : (out.reason || 'not exported');
+              await loadLibrary();
+            } catch (e) {
+              msg.textContent = String(e.message || e);
+            }
+          };
+          loadLibrary();
         </script>
       {{else if eq .Active "analytics"}}
         <p class="bf-lede">Daily utilization, costs, and failure codes from the analytics consumer.</p>
