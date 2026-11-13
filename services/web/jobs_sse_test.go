@@ -38,6 +38,9 @@ func TestJobsPageUsesSSENotIntervalPoll(t *testing.T) {
 	if !strings.Contains(layoutHTML, "data-history") || !strings.Contains(layoutHTML, "/events") {
 		t.Fatal("jobs page missing history control")
 	}
+	if !strings.Contains(layoutHTML, "data-detail") || !strings.Contains(layoutHTML, "job-detail-panel") {
+		t.Fatal("jobs page missing detail panel")
+	}
 	if !strings.Contains(layoutHTML, "job-events-panel") {
 		t.Fatal("jobs page missing events panel")
 	}

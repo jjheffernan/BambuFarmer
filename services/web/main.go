@@ -784,6 +784,14 @@ const layoutHTML = `<!DOCTYPE html>
           </select>
           <button type="button" class="bf-btn" id="jobs-refresh">Refresh</button>
         </div>
+        <div id="job-detail-panel" class="bf-panel mb-3 hidden">
+          <div class="flex items-center justify-between gap-2 mb-2">
+            <h2 class="font-display text-base m-0">Job detail <span class="text-bf-muted font-mono text-xs" id="job-detail-id"></span></h2>
+            <button type="button" class="bf-btn" id="job-detail-close">Close</button>
+          </div>
+          <dl class="grid gap-x-4 gap-y-1 md:grid-cols-2 text-sm mb-3" id="job-detail-fields"></dl>
+          <pre class="bf-pre text-xs m-0" id="job-detail-json">…</pre>
+        </div>
         <div id="job-events-panel" class="bf-panel mb-3 hidden">
           <div class="flex items-center justify-between gap-2 mb-2">
             <h2 class="font-display text-base m-0">Job history <span class="text-bf-muted font-mono text-xs" id="job-events-id"></span></h2>
@@ -874,7 +882,8 @@ const layoutHTML = `<!DOCTYPE html>
                 '<td class="text-bf-muted">' + esc(fmtCost(j)) + '</td>' +
                 '<td class="' + (j.error ? 'text-bf-danger text-xs' : 'text-bf-muted') + '">' +
                   esc(j.error || '—') + '</td>' +
-                '<td><button type="button" class="bf-btn" data-history="' + esc(j.id) + '">History</button> ' +
+                '<td><button type="button" class="bf-btn" data-detail="' + esc(j.id) + '">Detail</button> ' +
+                  '<button type="button" class="bf-btn" data-history="' + esc(j.id) + '">History</button> ' +
                   '<button type="button" class="bf-btn" data-reprint="' + esc(j.id) + '">Reprint</button>' +
                   (['queued','assigned'].indexOf(j.state) >= 0
                     ? ' <button type="button" class="bf-btn" data-dispatch="' + esc(j.id) + '" data-sn="' + esc(j.external_sn || '') + '">Dispatch</button>'
@@ -895,9 +904,52 @@ const layoutHTML = `<!DOCTYPE html>
             }
           }
 
+          const detailPanel = document.getElementById('job-detail-panel');
+          const detailFields = document.getElementById('job-detail-fields');
+          const detailJSON = document.getElementById('job-detail-json');
           const eventsPanel = document.getElementById('job-events-panel');
           const eventsBody = document.getElementById('job-events-body');
           const eventsId = document.getElementById('job-events-id');
+          function detailRow(label, value) {
+            return '<div><dt class="text-bf-muted text-xs">' + esc(label) + '</dt>' +
+              '<dd class="m-0 font-mono text-xs break-all">' + esc(value == null || value === '' ? '—' : value) + '</dd></div>';
+          }
+          async function loadJobDetail(id) {
+            document.getElementById('job-detail-id').textContent = id;
+            detailPanel.classList.remove('hidden');
+            detailFields.innerHTML = '<p class="bf-empty md:col-span-2">loading…</p>';
+            detailJSON.textContent = '…';
+            try {
+              const j = await bfJSON(API + '/api/v1/jobs/' + encodeURIComponent(id));
+              detailFields.innerHTML = [
+                detailRow('Name', j.name),
+                detailRow('State', j.state),
+                detailRow('Printer SN', j.external_sn),
+                detailRow('Artifact', j.artifact_id),
+                detailRow('File id', j.external_file_id || j.file_id),
+                detailRow('Queue pos', j.queue_pos),
+                detailRow('Target model', j.target_model),
+                detailRow('After job', j.after_job_id),
+                detailRow('Spool', j.spool_id),
+                detailRow('Copies', j.copies),
+                detailRow('Est. seconds', j.est_seconds),
+                detailRow('Est. grams', j.est_grams),
+                detailRow('Cost estimate', j.cost_estimate),
+                detailRow('Cost actual', j.cost_actual),
+                detailRow('Currency', j.currency),
+                detailRow('Error', j.error),
+                detailRow('Created', j.created_at),
+                detailRow('Updated', j.updated_at),
+              ].join('');
+              detailJSON.textContent = JSON.stringify(j, null, 2);
+            } catch (err) {
+              detailFields.innerHTML = '<p class="text-bf-danger md:col-span-2">' + esc(err.message || err) + '</p>';
+              detailJSON.textContent = String(err.message || err);
+            }
+          }
+          document.getElementById('job-detail-close').onclick = () => {
+            detailPanel.classList.add('hidden');
+          };
           async function loadJobEvents(id) {
             eventsId.textContent = id;
             eventsPanel.classList.remove('hidden');
@@ -998,6 +1050,11 @@ const layoutHTML = `<!DOCTYPE html>
           document.getElementById('jobs-q').oninput = () => { loadJobs(); };
           document.getElementById('jobs-state').onchange = () => { loadJobs(); };
           jobsTb.onclick = async (ev) => {
+            const detail = ev.target.closest('[data-detail]');
+            if (detail) {
+              await loadJobDetail(detail.dataset.detail);
+              return;
+            }
             const hist = ev.target.closest('[data-history]');
             if (hist) {
               await loadJobEvents(hist.dataset.history);

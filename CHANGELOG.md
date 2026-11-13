@@ -10,6 +10,7 @@ On release: move that section to a new `## [X.Y.Z] — YYYY-MM-DD`, bump [`VERSI
 ## [Unreleased]
 
 ### Added
+- Jobs page Detail panel loads `GET /api/v1/jobs/{id}` (queue, spool, after-job, costs, full JSON)
 - Jobs create form pickers for printer SN, after-job, Spoolman spool, and staged artifact
 - Slice page print/filament preset dropdowns from `GET /api/v1/presets/*`
 - Library export and Commerce webhook forms pick staged artifact ids from the artifact store
