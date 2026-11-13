@@ -1334,6 +1334,7 @@ const layoutHTML = `<!DOCTYPE html>
               (x.price_per_kg ? ' · $' + x.price_per_kg + '/kg' : '') + '</div>' +
               '<div class="flex flex-wrap gap-2 mt-2">' +
               '<button type="button" class="bf-btn" data-edit-kind="filament" data-edit-id="' + x.id + '">Edit</button>' +
+              '<button type="button" class="bf-btn" data-dup-kind="filament" data-dup-id="' + x.id + '">Duplicate</button>' +
               '<button type="button" class="bf-btn" data-hist-kind="filament" data-hist-id="' + x.id + '" data-hist-name="' + (x.name||x.id) + '">History</button>' +
               '<button type="button" class="bf-btn" data-del-kind="filament" data-del-id="' + x.id + '" data-del-name="' + (x.name||x.id) + '">Delete</button></div></li>');
             list(document.getElementById('print-list'), p, x =>
@@ -1342,10 +1343,14 @@ const layoutHTML = `<!DOCTYPE html>
               ' · v' + (x.version||1) + '</div>' +
               '<div class="flex flex-wrap gap-2 mt-2">' +
               '<button type="button" class="bf-btn" data-edit-kind="print" data-edit-id="' + x.id + '">Edit</button>' +
+              '<button type="button" class="bf-btn" data-dup-kind="print" data-dup-id="' + x.id + '">Duplicate</button>' +
               '<button type="button" class="bf-btn" data-hist-kind="print" data-hist-id="' + x.id + '" data-hist-name="' + (x.name||x.id) + '">History</button>' +
               '<button type="button" class="bf-btn" data-del-kind="print" data-del-id="' + x.id + '" data-del-name="' + (x.name||x.id) + '">Delete</button></div></li>');
             document.querySelectorAll('[data-edit-id]').forEach(btn => {
               btn.onclick = () => editPreset(btn.dataset.editKind, btn.dataset.editId);
+            });
+            document.querySelectorAll('[data-dup-id]').forEach(btn => {
+              btn.onclick = () => duplicatePreset(btn.dataset.dupKind, btn.dataset.dupId);
             });
             document.querySelectorAll('[data-hist-id]').forEach(btn => {
               btn.onclick = () => openHistory(btn.dataset.histKind, btn.dataset.histId, btn.dataset.histName);
@@ -1353,6 +1358,32 @@ const layoutHTML = `<!DOCTYPE html>
             document.querySelectorAll('[data-del-id]').forEach(btn => {
               btn.onclick = () => deletePreset(btn.dataset.delKind, btn.dataset.delId, btn.dataset.delName);
             });
+          }
+          async function duplicatePreset(kind, id) {
+            try {
+              const src = await bfJSON(API + '/api/v1/presets/' + kind + '/' + encodeURIComponent(id));
+              const newID = prompt('New preset id', (src.id || id) + '-copy');
+              if (!newID || !newID.trim()) return;
+              const newName = prompt('New preset name', (src.name || id) + ' copy');
+              if (!newName || !newName.trim()) return;
+              const body = Object.assign({}, src, {
+                id: newID.trim(),
+                name: newName.trim(),
+                version: 0,
+                updated_at: undefined,
+              });
+              delete body.version;
+              delete body.updated_at;
+              await bfJSON(API + '/api/v1/presets/' + kind, {
+                method: 'POST', credentials: 'include',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(body),
+              });
+              await loadPresets();
+              await editPreset(kind, newID.trim());
+            } catch (e) {
+              alert(String(e.message || e));
+            }
           }
           async function deletePreset(kind, id, name) {
             if (!confirm('Delete preset ' + (name || id) + '? Revisions are removed too.')) return;

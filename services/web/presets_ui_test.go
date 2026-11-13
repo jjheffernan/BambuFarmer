@@ -33,4 +33,7 @@ func TestPresetsPageHasImportExport(t *testing.T) {
 	if !strings.Contains(layoutHTML, "method: mode === 'edit' ? 'PATCH' : 'POST'") {
 		t.Fatal("expected POST create and PATCH edit")
 	}
+	if !strings.Contains(layoutHTML, "data-dup-id") || !strings.Contains(layoutHTML, "duplicatePreset") {
+		t.Fatal("expected preset duplicate control")
+	}
 }
