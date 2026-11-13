@@ -10,6 +10,7 @@ On release: move that section to a new `## [X.Y.Z] — YYYY-MM-DD`, bump [`VERSI
 ## [Unreleased]
 
 ### Added
+- Slice page: plugin status and submit form for `POST /api/v1/slice/jobs` when the slicer profile is up
 - Artifacts page: list, upload, download, and copy id for staged plates
 - Sites API (`GET /api/v1/sites`, `GET /api/v1/sites/{id}`); Admin stack panel shows the site name
 - Admin stack/plugin status chips (version, Spoolman, Manyfold, power, slicer, commerce) and build version in the shell footer

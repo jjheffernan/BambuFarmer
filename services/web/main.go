@@ -48,6 +48,9 @@ func main() {
 	mux.HandleFunc("GET /library", func(w http.ResponseWriter, _ *http.Request) {
 		render(w, "Library", "library")
 	})
+	mux.HandleFunc("GET /slice", func(w http.ResponseWriter, _ *http.Request) {
+		render(w, "Slice", "slice")
+	})
 	mux.HandleFunc("GET /analytics", func(w http.ResponseWriter, _ *http.Request) {
 		render(w, "Analytics", "analytics")
 	})
@@ -120,6 +123,7 @@ const layoutHTML = `<!DOCTYPE html>
         <a href="/presets" {{if eq .Active "presets"}}class="active"{{end}}>Presets</a>
         <a href="/filament" {{if eq .Active "filament"}}class="active"{{end}}>Filament</a>
         <a href="/library" {{if eq .Active "library"}}class="active"{{end}}>Library</a>
+        <a href="/slice" {{if eq .Active "slice"}}class="active"{{end}}>Slice</a>
         <a href="/analytics" {{if eq .Active "analytics"}}class="active"{{end}}>Analytics</a>
         <a href="/admin" {{if eq .Active "admin"}}class="active"{{end}}>Admin</a>
       </nav>
@@ -1391,6 +1395,87 @@ const layoutHTML = `<!DOCTYPE html>
             }
           };
           loadLibrary();
+        </script>
+      {{else if eq .Active "slice"}}
+        <p class="bf-lede">Optional slicer plugin (<code>compose --profile slicer</code>). Orca is operator-supplied via <code>ORCA_BIN</code> and is not bundled.</p>
+        <div class="flex flex-wrap items-center gap-3 mb-3">
+          <div id="slice-status" class="bf-status m-0">loading…</div>
+          <button type="button" class="bf-btn" id="slice-refresh">Refresh status</button>
+        </div>
+        <div class="bf-panel mb-4">
+          <h2 class="font-display text-lg mb-3">Plugin status</h2>
+          <pre class="bf-pre text-xs m-0" id="slice-status-out">…</pre>
+        </div>
+        <div class="bf-panel">
+          <h2 class="font-display text-lg mb-3">Submit slice job</h2>
+          <form id="slice-form" class="grid gap-3 md:grid-cols-2">
+            <label class="text-sm md:col-span-2">Name
+              <input class="bf-input block mt-1 w-full" id="slice-name" required placeholder="Benchy"/>
+            </label>
+            <label class="text-sm md:col-span-2">Input path
+              <input class="bf-input block mt-1 w-full font-mono text-xs" id="slice-input" placeholder="relative to SLICE_WORK_DIR / ARTIFACTS_DIR"/>
+            </label>
+            <label class="text-sm">Print preset id
+              <input class="bf-input block mt-1 w-full font-mono text-xs" id="slice-print-preset" placeholder="optional"/>
+            </label>
+            <label class="text-sm">Filament preset id
+              <input class="bf-input block mt-1 w-full font-mono text-xs" id="slice-filament-preset" placeholder="optional"/>
+            </label>
+            <label class="text-sm">Output path
+              <input class="bf-input block mt-1 w-full font-mono text-xs" id="slice-output" placeholder="optional"/>
+            </label>
+            <div class="md:col-span-2 flex flex-wrap items-center gap-3">
+              <button type="submit" class="bf-btn bf-btn-primary">Slice</button>
+              <p class="text-sm m-0" id="slice-form-msg"></p>
+            </div>
+          </form>
+          <pre class="bf-pre text-xs mt-3 hidden" id="slice-result"></pre>
+        </div>
+        <script>
+          const API = {{printf "%q" .APIBase}};
+          const sliceStatus = document.getElementById('slice-status');
+          const sliceOut = document.getElementById('slice-status-out');
+          const sliceResult = document.getElementById('slice-result');
+          async function loadSliceStatus() {
+            sliceStatus.textContent = 'loading…';
+            sliceStatus.classList.remove('live');
+            try {
+              const st = await bfJSON(API + '/api/v1/slice/status');
+              sliceOut.textContent = JSON.stringify(st, null, 2);
+              sliceStatus.textContent = st.orca_configured ? 'Orca configured' : 'plugin up · ORCA_BIN unset';
+              sliceStatus.classList.add('live');
+            } catch (e) {
+              sliceStatus.textContent = 'slicer not reachable';
+              sliceOut.textContent = String(e.message || e) + '\n\nEnable with: podman compose --profile slicer … and SLICER_URL on gateway.';
+            }
+          }
+          document.getElementById('slice-refresh').onclick = loadSliceStatus;
+          document.getElementById('slice-form').onsubmit = async (ev) => {
+            ev.preventDefault();
+            const msg = document.getElementById('slice-form-msg');
+            msg.textContent = '';
+            sliceResult.classList.add('hidden');
+            const body = {
+              name: document.getElementById('slice-name').value.trim(),
+              input_path: document.getElementById('slice-input').value.trim() || undefined,
+              output_path: document.getElementById('slice-output').value.trim() || undefined,
+              print_preset_id: document.getElementById('slice-print-preset').value.trim() || undefined,
+              filament_preset_id: document.getElementById('slice-filament-preset').value.trim() || undefined,
+            };
+            try {
+              const out = await bfJSON(API + '/api/v1/slice/jobs', {
+                method: 'POST', credentials: 'include',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(body),
+              });
+              msg.textContent = out.sliced ? ('Sliced → ' + (out.output_path || 'ok')) : (out.reason || 'not sliced');
+              sliceResult.textContent = JSON.stringify(out, null, 2);
+              sliceResult.classList.remove('hidden');
+            } catch (e) {
+              msg.textContent = String(e.message || e);
+            }
+          };
+          loadSliceStatus();
         </script>
       {{else if eq .Active "analytics"}}
         <p class="bf-lede">Daily utilization, costs, and failure codes from the analytics consumer.</p>
