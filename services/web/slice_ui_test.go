@@ -23,4 +23,10 @@ func TestSlicePage(t *testing.T) {
 		!strings.Contains(layoutHTML, "/api/v1/presets/filament") {
 		t.Fatal("expected slice preset dropdowns")
 	}
+	if !strings.Contains(layoutHTML, `id="slice-printer-json"`) ||
+		!strings.Contains(layoutHTML, "printer_json") ||
+		!strings.Contains(layoutHTML, "process_json") ||
+		!strings.Contains(layoutHTML, "filament_json") {
+		t.Fatal("expected slice advanced Orca JSON path fields")
+	}
 }

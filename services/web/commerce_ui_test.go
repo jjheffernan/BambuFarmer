@@ -20,4 +20,7 @@ func TestCommercePage(t *testing.T) {
 	if !strings.Contains(layoutHTML, `id="commerce-artifact-pick"`) {
 		t.Fatal("expected commerce artifact picker")
 	}
+	if !strings.Contains(layoutHTML, `id="commerce-spool-pick"`) || !strings.Contains(layoutHTML, "/api/v1/filament/spools") {
+		t.Fatal("expected commerce spool picker")
+	}
 }

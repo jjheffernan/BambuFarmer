@@ -1974,6 +1974,20 @@ const layoutHTML = `<!DOCTYPE html>
             <label class="text-sm">Output path
               <input class="bf-input block mt-1 w-full font-mono text-xs" id="slice-output" placeholder="optional"/>
             </label>
+            <details class="md:col-span-2">
+              <summary class="text-sm cursor-pointer">Advanced Orca JSON paths</summary>
+              <div class="grid gap-3 md:grid-cols-3 mt-2">
+                <label class="text-sm">printer_json
+                  <input class="bf-input block mt-1 w-full font-mono text-xs" id="slice-printer-json" placeholder="optional path"/>
+                </label>
+                <label class="text-sm">process_json
+                  <input class="bf-input block mt-1 w-full font-mono text-xs" id="slice-process-json" placeholder="optional path"/>
+                </label>
+                <label class="text-sm">filament_json
+                  <input class="bf-input block mt-1 w-full font-mono text-xs" id="slice-filament-json" placeholder="optional path"/>
+                </label>
+              </div>
+            </details>
             <div class="md:col-span-2 flex flex-wrap items-center gap-3">
               <button type="submit" class="bf-btn bf-btn-primary">Slice</button>
               <p class="text-sm m-0" id="slice-form-msg"></p>
@@ -2064,6 +2078,9 @@ const layoutHTML = `<!DOCTYPE html>
               output_path: document.getElementById('slice-output').value.trim() || undefined,
               print_preset_id: document.getElementById('slice-print-preset').value.trim() || undefined,
               filament_preset_id: document.getElementById('slice-filament-preset').value.trim() || undefined,
+              printer_json: document.getElementById('slice-printer-json').value.trim() || undefined,
+              process_json: document.getElementById('slice-process-json').value.trim() || undefined,
+              filament_json: document.getElementById('slice-filament-json').value.trim() || undefined,
             };
             try {
               const out = await bfJSON(API + '/api/v1/slice/jobs', {
@@ -2108,6 +2125,11 @@ const layoutHTML = `<!DOCTYPE html>
             </label>
             <label class="text-sm">Artifact id
               <input class="bf-input block mt-1 w-full font-mono text-xs" id="commerce-artifact" placeholder="optional"/>
+            </label>
+            <label class="text-sm">Spoolman spool
+              <select class="bf-input block mt-1 w-full" id="commerce-spool-pick">
+                <option value="">— optional pick —</option>
+              </select>
             </label>
             <label class="text-sm">Spool id
               <input class="bf-input block mt-1 w-full font-mono text-xs" id="commerce-spool" placeholder="optional"/>
@@ -2167,13 +2189,33 @@ const layoutHTML = `<!DOCTYPE html>
               sel.innerHTML = opts.join('');
             } catch (_) {}
           }
+          async function loadCommerceSpools() {
+            const sel = document.getElementById('commerce-spool-pick');
+            try {
+              const data = await bfJSON(API + '/api/v1/filament/spools');
+              const opts = ['<option value="">— optional pick —</option>'];
+              ((data && data.spools) || []).forEach(s => {
+                const id = s.id || s.spoolman_id;
+                if (!id) return;
+                const label = (s.name || id) + (s.material ? ' · ' + s.material : '') + ' · ' + id;
+                opts.push('<option value="' + String(id).replace(/"/g, '&quot;') + '">' +
+                  String(label).replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</option>');
+              });
+              sel.innerHTML = opts.join('');
+            } catch (_) {}
+          }
           document.getElementById('commerce-artifact-pick').onchange = () => {
             const sel = document.getElementById('commerce-artifact-pick');
             if (sel.value) document.getElementById('commerce-artifact').value = sel.value;
           };
+          document.getElementById('commerce-spool-pick').onchange = () => {
+            const sel = document.getElementById('commerce-spool-pick');
+            if (sel.value) document.getElementById('commerce-spool').value = sel.value;
+          };
           document.getElementById('commerce-refresh').onclick = () => {
             loadCommerceStatus();
             loadCommerceArtifacts();
+            loadCommerceSpools();
           };
           document.getElementById('commerce-webhook-form').onsubmit = async (ev) => {
             ev.preventDefault();
@@ -2221,6 +2263,7 @@ const layoutHTML = `<!DOCTYPE html>
           };
           loadCommerceStatus();
           loadCommerceArtifacts();
+          loadCommerceSpools();
         </script>
       {{else if eq .Active "analytics"}}
         <p class="bf-lede">Daily utilization, costs, and failure codes from the analytics consumer.</p>
