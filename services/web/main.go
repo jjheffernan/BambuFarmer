@@ -126,10 +126,13 @@ const layoutHTML = `<!DOCTYPE html>
 </head>
 <body>
   <div id="bf-flash" class="bf-flash" hidden role="status" aria-live="polite"></div>
-  <div class="bf-shell">
-    <aside class="bf-aside">
-      <div class="bf-brand">BambuFarmer<span id="bf-site-label">LAN farm ops</span></div>
-      <nav class="bf-nav">
+  <div class="bf-shell" id="bf-shell">
+    <aside class="bf-aside" id="bf-aside">
+      <div class="bf-aside-top">
+        <div class="bf-brand">BambuFarmer<span id="bf-site-label">LAN farm ops</span></div>
+        <button type="button" class="bf-btn bf-nav-toggle" id="bf-nav-toggle" aria-controls="bf-nav" aria-expanded="true" title="Collapse menu">☰</button>
+      </div>
+      <nav class="bf-nav" id="bf-nav">
         <a href="/" {{if eq .Active "fleet"}}class="active"{{end}}>Fleet</a>
         <a href="/jobs" {{if eq .Active "jobs"}}class="active"{{end}}>Jobs</a>
         <a href="/artifacts" {{if eq .Active "artifacts"}}class="active"{{end}}>Artifacts</a>
@@ -141,7 +144,7 @@ const layoutHTML = `<!DOCTYPE html>
         <a href="/analytics" {{if eq .Active "analytics"}}class="active"{{end}}>Analytics</a>
         <a href="/admin" {{if eq .Active "admin"}}class="active"{{end}}>Admin</a>
       </nav>
-      <div class="mt-auto text-xs text-bf-muted space-y-2">
+      <div class="mt-auto text-xs text-bf-muted space-y-2 bf-aside-foot">
         <p id="bf-user-label" class="hidden"></p>
         <button type="button" id="bf-logout" class="bf-btn hidden w-full">Log out</button>
         <details class="hidden" id="shell-pw">
@@ -159,6 +162,26 @@ const layoutHTML = `<!DOCTYPE html>
       </div>
     </aside>
     <script>
+      (function () {
+        const shell = document.getElementById('bf-shell');
+        const btn = document.getElementById('bf-nav-toggle');
+        const KEY = 'bf-nav-collapsed';
+        function apply(collapsed) {
+          shell.classList.toggle('bf-nav-collapsed', collapsed);
+          btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+          btn.title = collapsed ? 'Expand menu' : 'Collapse menu';
+          btn.setAttribute('aria-label', collapsed ? 'Expand menu' : 'Collapse menu');
+          try { localStorage.setItem(KEY, collapsed ? '1' : '0'); } catch (_) {}
+        }
+        let collapsed = false;
+        try { collapsed = localStorage.getItem(KEY) === '1'; } catch (_) {}
+        // Prefer collapsed on narrow viewports for first visit.
+        if (!localStorage.getItem(KEY) && window.matchMedia('(max-width: 767px)').matches) {
+          collapsed = true;
+        }
+        apply(collapsed);
+        btn.onclick = () => apply(!shell.classList.contains('bf-nav-collapsed'));
+      })();
       (async () => {
         const API = {{printf "%q" .APIBase}};
         try {

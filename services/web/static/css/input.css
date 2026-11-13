@@ -38,14 +38,42 @@
 
 @layer components {
   .bf-shell {
-    @apply min-h-screen grid grid-cols-1 md:grid-cols-[15rem_1fr];
+    @apply min-h-screen grid grid-cols-1 md:grid-cols-[15rem_1fr]
+      transition-[grid-template-columns] duration-200;
+  }
+  .bf-shell.bf-nav-collapsed {
+    @apply md:grid-cols-[3.25rem_1fr];
   }
   .bf-aside {
     @apply bg-bf-1/95 border-b md:border-b-0 md:border-r border-bf-border
-      px-4 py-5 flex flex-col gap-6 backdrop-blur-sm;
+      px-4 py-5 flex flex-col gap-6 backdrop-blur-sm
+      transition-[padding] duration-200;
+  }
+  .bf-aside-top {
+    @apply flex items-start justify-between gap-2;
+  }
+  .bf-nav-toggle {
+    @apply shrink-0 px-2 py-1.5 min-w-[2.25rem];
+  }
+  .bf-shell.bf-nav-collapsed .bf-aside {
+    @apply md:px-2 md:items-center;
+  }
+  .bf-shell.bf-nav-collapsed .bf-aside-top {
+    @apply md:flex-col md:items-center;
+  }
+  .bf-shell.bf-nav-collapsed .bf-brand {
+    @apply md:sr-only;
+  }
+  .bf-shell.bf-nav-collapsed .bf-nav,
+  .bf-shell.bf-nav-collapsed .bf-aside-foot {
+    @apply hidden;
+  }
+  /* Mobile: collapse hides links; keep brand + toggle in one row */
+  .bf-shell.bf-nav-collapsed .bf-aside {
+    @apply max-md:py-3 max-md:gap-0;
   }
   .bf-brand {
-    @apply font-display text-bf-accent font-bold tracking-wide text-lg;
+    @apply font-display text-bf-accent font-bold tracking-wide text-lg min-w-0;
   }
   .bf-brand span {
     @apply block font-ui font-medium text-bf-muted text-xs mt-1 tracking-normal;

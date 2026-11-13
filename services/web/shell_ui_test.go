@@ -15,4 +15,7 @@ func TestShellFlashAndNoHTMX(t *testing.T) {
 	if !strings.Contains(layoutHTML, "bf-btn-danger") {
 		t.Fatal("expected bf-btn-danger in layout")
 	}
+	if !strings.Contains(layoutHTML, `id="bf-nav-toggle"`) || !strings.Contains(layoutHTML, "bf-nav-collapsed") {
+		t.Fatal("expected collapsible nav toggle")
+	}
 }

@@ -10,6 +10,7 @@ On release: move that section to a new `## [X.Y.Z] — YYYY-MM-DD`, bump [`VERSI
 ## [Unreleased]
 
 ### Added
+- Collapsible shell nav (toggle + `localStorage`; defaults collapsed on narrow screens)
 - Shared `bfFlash` toast for copy/control feedback; Jobs row primary actions + More menu; `bf-btn-danger` + Stop confirm
 - Fleet `/?sn=` deep-link; Artifacts `?artifact=`; Jobs honor `?q=`/`?state=`; job detail Fleet/Artifacts links; drawer Copy SN; commerce Open job; Jobs Copy link
 - Jobs deep-link `?job=` opens Detail (optional `history=1`); human-readable job timestamps; Fleet alert Open → drawer
