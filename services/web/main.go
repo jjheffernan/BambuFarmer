@@ -2146,6 +2146,14 @@ const layoutHTML = `<!DOCTYPE html>
               <option value="day">Day</option>
             </select>
           </label>
+          <label class="text-sm">Export kind
+            <select class="bf-input block mt-1" id="analytics-kind">
+              <option value="all">All</option>
+              <option value="utilization">Utilization</option>
+              <option value="costs">Costs</option>
+              <option value="failures">Failures</option>
+            </select>
+          </label>
           <button type="button" class="bf-btn bf-btn-primary" id="analytics-apply">Apply</button>
           <div id="analytics-status" class="bf-status m-0">loading…</div>
           <div class="flex flex-wrap gap-2 ml-auto">
@@ -2380,10 +2388,11 @@ const layoutHTML = `<!DOCTYPE html>
             return s ? ('?' + s) : '';
           }
           function syncExportLinks() {
+            const kind = document.getElementById('analytics-kind').value || 'all';
             document.getElementById('analytics-export-json').href =
-              API + '/api/v1/analytics/export' + analyticsQS({format: 'json'});
+              API + '/api/v1/analytics/export' + analyticsQS({format: 'json', kind});
             document.getElementById('analytics-export-csv').href =
-              API + '/api/v1/analytics/export' + analyticsQS({format: 'csv'});
+              API + '/api/v1/analytics/export' + analyticsQS({format: 'csv', kind});
           }
           async function loadAnalytics() {
             statusEl.textContent = 'loading…';
@@ -2416,6 +2425,7 @@ const layoutHTML = `<!DOCTYPE html>
           }
           document.getElementById('analytics-refresh').onclick = loadAnalytics;
           document.getElementById('analytics-apply').onclick = loadAnalytics;
+          document.getElementById('analytics-kind').onchange = syncExportLinks;
           syncExportLinks();
           loadAnalytics();
         </script>
