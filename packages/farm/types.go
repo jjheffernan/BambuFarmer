@@ -21,6 +21,9 @@ type DeviceReport struct {
 	TotalLayerNum      int
 	PrintError         int
 	HMS                []string // formatted XXXX_XXXX_XXXX_XXXX codes from push_status hms[]
+	AMS                []AMSUnit
+	TaskID             string
+	SubtaskName        string
 	WifiSignal         string
 	NozzleDiameter     string
 	Tags               []string

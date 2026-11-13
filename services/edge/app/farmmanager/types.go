@@ -57,6 +57,9 @@ type ReportStatus struct {
 	WifiSignal         string  `json:"wifi_signal"`
 	PrintError         int             `json:"print_error"`
 	HMS                json.RawMessage `json:"hms,omitempty"`
+	AMS                json.RawMessage `json:"ams,omitempty"`
+	TaskID             string          `json:"task_id,omitempty"`
+	SubtaskName        string          `json:"subtask_name,omitempty"`
 	LayerNum           int             `json:"layer_num"`
 	TotalLayerNum      int             `json:"total_layer_num"`
 	NozzleDiameter     string          `json:"nozzle_diameter"`

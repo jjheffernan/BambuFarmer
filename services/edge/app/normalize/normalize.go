@@ -37,7 +37,7 @@ func Report(siteID string, d farm.DeviceReport, from, to printerstate.GcodeState
 	if obs.IsZero() {
 		obs = time.Now().UTC()
 	}
-	return api.PrinterSnapshot{
+	snap := api.PrinterSnapshot{
 		PrinterSummary: sum,
 		DevIP:          d.DevIP,
 		NozzleTemper:   d.NozzleTemper,
@@ -49,9 +49,31 @@ func Report(siteID string, d farm.DeviceReport, from, to printerstate.GcodeState
 		TotalLayerNum:  d.TotalLayerNum,
 		PrintError:     d.PrintError,
 		HMS:            append([]string(nil), d.HMS...),
+		AMS:            copyAMS(d.AMS),
 		WifiSignal:     d.WifiSignal,
 		NozzleDiameter: d.NozzleDiameter,
 		StateForced:    forced,
 		ObservedAt:     obs,
 	}
+	if d.TaskID != "" || d.SubtaskName != "" {
+		snap.Task = &api.PrinterTask{ExternalTaskID: d.TaskID, SubtaskName: d.SubtaskName}
+	}
+	return snap
+}
+
+func copyAMS(in []farm.AMSUnit) []api.PrinterAMS {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make([]api.PrinterAMS, len(in))
+	for i, u := range in {
+		trays := make([]api.PrinterAMSTray, len(u.Trays))
+		for j, t := range u.Trays {
+			trays[j] = api.PrinterAMSTray{
+				Slot: t.Slot, Type: t.Type, Color: t.Color, TagUID: t.TagUID, Remain: t.Remain,
+			}
+		}
+		out[i] = api.PrinterAMS{ID: u.ID, Trays: trays}
+	}
+	return out
 }

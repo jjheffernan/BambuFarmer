@@ -79,12 +79,35 @@ type PrinterSnapshot struct {
 	ChamberTemper  float64   `json:"chamber_temper,omitempty"`
 	LayerNum       int       `json:"layer_num,omitempty"`
 	TotalLayerNum  int       `json:"total_layer_num,omitempty"`
-	PrintError     int       `json:"print_error,omitempty"`
-	HMS            []string  `json:"hms,omitempty"` // formatted HMS codes from device push_status
-	WifiSignal     string    `json:"wifi_signal,omitempty"`
-	NozzleDiameter string    `json:"nozzle_diameter,omitempty"`
-	StateForced    bool      `json:"state_forced,omitempty"` // true if FM jumped an illegal soft transition
-	ObservedAt     time.Time `json:"observed_at,omitempty"`
+	PrintError     int            `json:"print_error,omitempty"`
+	HMS            []string       `json:"hms,omitempty"` // formatted HMS codes from device push_status
+	AMS            []PrinterAMS   `json:"ams,omitempty"`
+	Task           *PrinterTask   `json:"task,omitempty"`
+	WifiSignal     string         `json:"wifi_signal,omitempty"`
+	NozzleDiameter string         `json:"nozzle_diameter,omitempty"`
+	StateForced    bool           `json:"state_forced,omitempty"` // true if FM jumped an illegal soft transition
+	ObservedAt     time.Time      `json:"observed_at,omitempty"`
+}
+
+// PrinterAMS is one AMS unit on a printer snapshot.
+type PrinterAMS struct {
+	ID    int               `json:"id"`
+	Trays []PrinterAMSTray  `json:"trays"`
+}
+
+// PrinterAMSTray is one AMS slot.
+type PrinterAMSTray struct {
+	Slot   int    `json:"slot"`
+	Type   string `json:"type,omitempty"`
+	Color  string `json:"color,omitempty"`
+	TagUID string `json:"tag_uid,omitempty"`
+	Remain int    `json:"remain,omitempty"`
+}
+
+// PrinterTask is the active farm/device task metadata when known.
+type PrinterTask struct {
+	ExternalTaskID string `json:"external_task_id,omitempty"`
+	SubtaskName    string `json:"subtask_name,omitempty"`
 }
 
 // ControlOpt is a Farm Manager /device/{sn}/opt value.

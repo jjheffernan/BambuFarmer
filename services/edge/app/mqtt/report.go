@@ -96,6 +96,17 @@ func fill(rep *farm.DeviceReport, fields map[string]json.RawMessage) {
 	if raw, ok := fields["hms"]; ok {
 		rep.HMS = farm.ParseHMSJSON(raw)
 	}
+	if raw, ok := fields["ams"]; ok {
+		rep.AMS = farm.ParseAMSJSON(raw)
+	}
+	take(fields, "task_id", &rep.TaskID)
+	if rep.TaskID == "" {
+		take(fields, "project_id", &rep.TaskID)
+	}
+	take(fields, "subtask_name", &rep.SubtaskName)
+	if rep.SubtaskName == "" {
+		take(fields, "subtask_id", &rep.SubtaskName)
+	}
 }
 
 func take(fields map[string]json.RawMessage, key string, dest any) {

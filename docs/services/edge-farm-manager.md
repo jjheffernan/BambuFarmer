@@ -139,6 +139,8 @@ Telemetry field set aligns with OpenBambuAPI `push_status` (`gcode_state`, `mc_p
 
 `hms` entries are `{attr, code}` integers; edge formats each as `XXXX_XXXX_XXXX_XXXX` on the printer snapshot and Redis payload so analytics can roll codes into `agg_hms_daily` (alongside non-zero `print_error`).
 
+`ams` (nested `{ams:[…]}` or a bare unit array) normalizes to snapshot `ams[].trays[]` with slot/type/color/tag_uid/remain. `task_id` / `subtask_name` land on snapshot `task`.
+
 **Edge strategy:**
 
 1. Prefer MQTT report subscription **if** we can authenticate to the farm broker as a privileged observer (research: may require farm TLS material — validate on lab server).  

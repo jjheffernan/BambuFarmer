@@ -43,21 +43,23 @@ func (f *Filter) Reset() {
 func fingerprint(s api.PrinterSnapshot) string {
 	// Stable subset: state + progress + online + temps rounded lightly via JSON.
 	type fp struct {
-		SN     string   `json:"sn"`
-		Online bool     `json:"online"`
-		State  string   `json:"state"`
-		Pct    int      `json:"pct"`
-		Remain int      `json:"remain"`
-		Err    int      `json:"err"`
-		HMS    []string `json:"hms"`
-		Nozzle float64  `json:"nz"`
-		Bed    float64  `json:"bed"`
-		Layer  int      `json:"layer"`
-		Forced bool     `json:"forced"`
+		SN     string          `json:"sn"`
+		Online bool            `json:"online"`
+		State  string          `json:"state"`
+		Pct    int             `json:"pct"`
+		Remain int             `json:"remain"`
+		Err    int             `json:"err"`
+		HMS    []string        `json:"hms"`
+		AMS    []api.PrinterAMS `json:"ams"`
+		Task   *api.PrinterTask `json:"task"`
+		Nozzle float64         `json:"nz"`
+		Bed    float64         `json:"bed"`
+		Layer  int             `json:"layer"`
+		Forced bool            `json:"forced"`
 	}
 	b, _ := json.Marshal(fp{
 		SN: s.ExternalSN, Online: s.Online, State: s.GcodeState,
-		Pct: s.MCPercent, Remain: s.RemainingS, Err: s.PrintError, HMS: s.HMS,
+		Pct: s.MCPercent, Remain: s.RemainingS, Err: s.PrintError, HMS: s.HMS, AMS: s.AMS, Task: s.Task,
 		Nozzle: s.NozzleTemper, Bed: s.BedTemper, Layer: s.LayerNum, Forced: s.StateForced,
 	})
 	sum := sha256.Sum256(b)
