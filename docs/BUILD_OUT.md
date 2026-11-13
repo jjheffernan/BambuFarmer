@@ -74,8 +74,8 @@ Reject: shared plugin SDK frameworks, frontend stack rewrites, fat all-in-one im
 
 | Field | Value |
 |-------|--------|
-| **Done** | P0–P4 on `after-hours/build-out`. Library export: `POST /api/v1/library/export` creates a Manyfold model from an artifact id and name; empty URL does not call Manyfold |
-| **Next** | Live FM smoke when the operator opts in. P5 direct-printer and P6 slicer stay out until then. Stay on `after-hours/build-out` |
+| **Done** | P0–P5 on `after-hours/build-out`. P5 direct printer: in-process `ControlPlane` when `FARM_MANAGER_TRANSPORT=direct_printer`. P6 slicer profile records a job and does not bundle Orca |
+| **Next** | Operator-supplied Orca CLI if a real slice is required. Live FM smoke stays skipped. Stay on `after-hours/build-out` |
 | **Blocked** | — |
-| **Deferred** | Live FM upload→print→cost smoke — **no LAN / local-network permission**; use fixture mode + mocked FM paths until daytime explicitly enables live FM |
-| **Do not** | Commit third-party product source trees; migrate off Go; prompt for local-network / LAN FM reachability |
+| **Deferred** | Live FM upload→print→cost smoke — skipped for now. Use fixture mode or `direct_printer` |
+| **Do not** | Commit third-party product source trees; migrate off Go; bundle the Orca binary into the image |

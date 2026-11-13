@@ -24,11 +24,11 @@ Preset `process_json` / `printer_json` from core feed `--load-settings`.
 
 ---
 
-## 2. API (future)
+## 2. API
 
-- `POST /api/v1/slice/jobs`  
-- `GET /api/v1/slice/jobs/{id}`  
-- Events: `bf.events.slice`  
+- `POST /api/v1/slice/jobs` with `{"name":"..."}` — empty `ORCA_BIN` returns `sliced: false` and does not invoke a slicer
+- `GET /api/v1/slice/status`
+- The Orca CLI is operator-supplied and is not bundled in the image  
 
 ---
 

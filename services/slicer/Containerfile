@@ -1,0 +1,16 @@
+# bambufarmer-slicer — optional slice plugin (compose --profile slicer)
+# podman build -t localhost/bambufarmer-slicer:dev -f services/slicer/Containerfile .
+FROM golang:1.26-bookworm AS build
+WORKDIR /src
+ENV GOWORK=off
+COPY packages/api ./packages/api
+COPY packages/httpserver ./packages/httpserver
+COPY services/slicer ./services/slicer
+WORKDIR /src/services/slicer
+RUN go mod tidy && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/service .
+
+FROM gcr.io/distroless/static-debian12:nonroot
+COPY --from=build /out/service /service
+USER nonroot:nonroot
+EXPOSE 8080
+ENTRYPOINT ["/service"]

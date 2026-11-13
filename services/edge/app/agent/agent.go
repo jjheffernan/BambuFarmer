@@ -20,11 +20,11 @@ import (
 
 // activeJob correlates an in-flight BambuFarmer job with a printer SN.
 type activeJob struct {
-	JobID      string
-	TaskID     string
-	SubtaskID  string
-	LastState  string
-	LastPct    int
+	JobID     string
+	TaskID    string
+	SubtaskID string
+	LastState string
+	LastPct   int
 }
 
 // Agent owns the farm control plane and Redis workers for one site.
@@ -250,16 +250,16 @@ func (a *Agent) emitJobLifecycle(ctx context.Context, snap api.PrinterSnapshot) 
 	a.mu.Unlock()
 
 	payload := map[string]any{
-		"job_id":           jobCopy.JobID,
-		"external_sn":      snap.ExternalSN,
-		"external_task":    jobCopy.TaskID,
-		"task_id":          jobCopy.TaskID,
-		"subtask_id":       jobCopy.SubtaskID,
-		"gcode_state":      snap.GcodeState,
-		"mc_percent":       snap.MCPercent,
+		"job_id":            jobCopy.JobID,
+		"external_sn":       snap.ExternalSN,
+		"external_task":     jobCopy.TaskID,
+		"task_id":           jobCopy.TaskID,
+		"subtask_id":        jobCopy.SubtaskID,
+		"gcode_state":       snap.GcodeState,
+		"mc_percent":        snap.MCPercent,
 		"mc_remaining_time": snap.RemainingS,
-		"layer_num":        snap.LayerNum,
-		"total_layer_num":  snap.TotalLayerNum,
+		"layer_num":         snap.LayerNum,
+		"total_layer_num":   snap.TotalLayerNum,
 	}
 
 	switch printerstate.GcodeState(snap.GcodeState) {
@@ -323,6 +323,9 @@ func (a *Agent) Status() api.EdgeStatus {
 		st.Note = "no farm backend — set FARM_MANAGER_URL or EDGE_FIXTURE_DIR"
 	case farm.KindCDP:
 		st.Note = "CDP backend stub — not connected"
+	case farm.KindDirect:
+		st.FarmMode = "direct_printer"
+		st.Note = "direct printer adapter — no farm manager connection"
 	case farm.KindNative:
 		if !connected {
 			st.Note = "fm_native awaiting session"

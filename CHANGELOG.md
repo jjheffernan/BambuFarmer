@@ -10,6 +10,8 @@ On release: move that section to a new `## [X.Y.Z] — YYYY-MM-DD`, bump [`VERSI
 ## [Unreleased]
 
 ### Added
+- Direct printer control plane (`FARM_MANAGER_TRANSPORT=direct_printer`) lists printers from `DIRECT_PRINTERS` and runs upload, start, and pause in process; it does not open a network connection
+- Slice plugin (`compose --profile slicer`, `POST /api/v1/slice/jobs`) records a slice job; empty `ORCA_BIN` does not invoke a slicer, and the Orca binary is not bundled
 - Library export (`POST /api/v1/library/export`) creates a Manyfold model from an artifact id and name when `MANYFOLD_URL` is set; an empty URL does not call Manyfold
 - Library import (`POST /api/v1/library/import`) creates a Manyfold model by name when `MANYFOLD_URL` is set; an empty URL does not call Manyfold
 - Commerce pack/ship status (`POST /api/v1/commerce/orders/status`) echoes `packed` or `shipped` for an order id; nothing is stored

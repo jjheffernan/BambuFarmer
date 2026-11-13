@@ -154,6 +154,16 @@ updates:
         patterns: ["*"]
 
   - package-ecosystem: gomod
+    directory: /services/slicer
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    labels: [dependencies, go]
+    groups:
+      go-services:
+        patterns: ["*"]
+
+  - package-ecosystem: gomod
     directory: /services/web
     schedule:
       interval: weekly

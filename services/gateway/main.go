@@ -41,6 +41,7 @@ func main() {
 	integrationsURL := mustURL(getenv("INTEGRATIONS_URL", "http://integrations:8080"))
 	edgeURL := mustURL(getenv("EDGE_URL", "http://edge:8080"))
 	commerceURLRaw := os.Getenv("COMMERCE_URL") // optional plugin; empty = not proxied
+	slicerURLRaw := os.Getenv("SLICER_URL")     // optional plugin; empty = not proxied
 	redisURL := os.Getenv("REDIS_URL")
 	databaseURL := os.Getenv("DATABASE_URL")
 	oidcIssuer := os.Getenv("OIDC_ISSUER")
@@ -72,6 +73,10 @@ func main() {
 	var commerceProxy *httputil.ReverseProxy
 	if commerceURLRaw != "" {
 		commerceProxy = httputil.NewSingleHostReverseProxy(mustURL(commerceURLRaw))
+	}
+	var slicerProxy *httputil.ReverseProxy
+	if slicerURLRaw != "" {
+		slicerProxy = httputil.NewSingleHostReverseProxy(mustURL(slicerURLRaw))
 	}
 
 	hub := newSSEHub()
@@ -278,6 +283,10 @@ func main() {
 	if commerceProxy != nil {
 		mux.Handle("/api/v1/commerce", commerceProxy)
 		mux.Handle("/api/v1/commerce/", commerceProxy)
+	}
+	if slicerProxy != nil {
+		mux.Handle("/api/v1/slice", slicerProxy)
+		mux.Handle("/api/v1/slice/", slicerProxy)
 	}
 
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {

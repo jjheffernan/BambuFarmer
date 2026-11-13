@@ -15,5 +15,6 @@ use (
 	./services/edge
 	./services/gateway
 	./services/integrations
+	./services/slicer
 	./services/web
 )

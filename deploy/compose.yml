@@ -74,8 +74,9 @@ services:
       INTEGRATIONS_URL: http://integrations:8080
       EDGE_URL: http://edge:8080
       EDGE_TOKEN: ${EDGE_TOKEN:-}
-      # Optional: set when running --profile commerce
+      # Optional: set when running --profile commerce / slicer
       COMMERCE_URL: ${COMMERCE_URL:-}
+      SLICER_URL: ${SLICER_URL:-}
       DATABASE_URL: ${DATABASE_URL:-postgres://bambufarmer:bambufarmer@postgres:5432/bambufarmer?sslmode=disable}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
       # Host updater drops/reads files here (./scripts/bf update --watch).
@@ -135,6 +136,8 @@ services:
       SITE_ID: ${SITE_ID:-default}
       FARM_MODE: ${FARM_MODE:-farm_manager}
       FARM_MANAGER_TRANSPORT: ${FARM_MANAGER_TRANSPORT:-fm_native}
+      # Used only when FARM_MANAGER_TRANSPORT=direct_printer. Example: SN1=Alpha
+      DIRECT_PRINTERS: ${DIRECT_PRINTERS:-}
       # Empty URL → fixture mode (image embeds /fixtures/fm). Set URL for live FM.
       FARM_MANAGER_URL: ${FARM_MANAGER_URL:-}
       FARM_MANAGER_USER: ${FARM_MANAGER_USER:-}
@@ -221,6 +224,21 @@ services:
       CORE_URL: http://core:8080
     ports:
       - "18085:8080"
+
+  # Optional slice plugin: compose --profile slicer up -d
+  # Does not bundle Orca. ORCA_BIN empty accepts the job and does not invoke a slicer.
+  slicer:
+    profiles: ["slicer"]
+    image: localhost/bambufarmer-slicer:dev
+    build:
+      context: ..
+      dockerfile: services/slicer/Containerfile
+    env_file: *env_file
+    environment:
+      HTTP_ADDR: ":8080"
+      ORCA_BIN: ${ORCA_BIN:-}
+    ports:
+      - "18086:8080"
 
 volumes:
   pgdata:

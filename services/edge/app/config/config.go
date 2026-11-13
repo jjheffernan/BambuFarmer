@@ -11,19 +11,20 @@ import (
 type Config struct {
 	SiteID string
 
-	FarmManagerURL      string
+	FarmManagerURL       string
 	FarmManagerTransport string // fm_native | cdp
-	FarmManagerUser     string
-	FarmManagerPassword string
-	TLSInsecure         bool // lab only: skip verify when using https:// FM URL
-	CertDir             string
-	CDPURL              string
+	FarmManagerUser      string
+	FarmManagerPassword  string
+	TLSInsecure          bool // lab only: skip verify when using https:// FM URL
+	CertDir              string
+	CDPURL               string
 
-	PollInterval time.Duration
-	HTTPAddr     string
-	RedisURL     string
-	FixtureDir   string // when set (or URL empty), poll redacted FM JSON fixtures
-	ArtifactsDir string // shared with core; object_key relative paths for Upload3MF
+	PollInterval   time.Duration
+	HTTPAddr       string
+	RedisURL       string
+	FixtureDir     string // when set (or URL empty), poll redacted FM JSON fixtures
+	ArtifactsDir   string // shared with core; object_key relative paths for Upload3MF
+	DirectPrinters string // sn=name pairs when transport is direct_printer
 }
 
 // Load reads env with defaults suitable for local compose.
@@ -42,6 +43,7 @@ func Load() Config {
 		RedisURL:             os.Getenv("REDIS_URL"),
 		FixtureDir:           os.Getenv("EDGE_FIXTURE_DIR"),
 		ArtifactsDir:         getenv("ARTIFACTS_DIR", "/data/artifacts"),
+		DirectPrinters:       os.Getenv("DIRECT_PRINTERS"),
 	}
 }
 

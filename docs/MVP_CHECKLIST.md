@@ -131,10 +131,10 @@ MinIO optional (`--profile object`) until a live S3 endpoint is set.
 
 Track detail in [`BUILD_OUT.md`](./BUILD_OUT.md).
 
-- [x] P0 — FM `StartPrint` + job dispatch path (fixture/unit covered; live FM smoke still blocked)
-- [ ] P1 — Job archive + richer queue
-- [ ] P2 — Filament consumption / AMS depth
-- [ ] P3 — Notify + power plugins
-- [ ] P4 — Commerce plugin (beyond stub)
-- [ ] P5 — Direct-printer `ControlPlane`
-- [ ] P6 — Slicer + FM parity depth
+- [x] P0 — FM `StartPrint` + job dispatch path (fixture/unit covered; live FM smoke skipped)
+- [x] P1 — Job archive + richer queue
+- [x] P2 — Filament consumption / AMS depth
+- [x] P3 — Notify + power plugins
+- [x] P4 — Commerce plugin (beyond stub)
+- [x] P5 — Direct-printer `ControlPlane` (in-process; no LAN)
+- [ ] P6 — Slicer profile records a job; Orca CLI is not bundled and is not invoked
