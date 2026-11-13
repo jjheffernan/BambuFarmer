@@ -2071,6 +2071,25 @@ const layoutHTML = `<!DOCTYPE html>
           </div>
         </div>
         <div class="bf-panel mb-4">
+          <h2 class="font-display text-lg mb-2">Site</h2>
+          <p class="text-sm text-bf-muted mb-3">Display name and timezone for the farm site (single-site MVP).</p>
+          <form id="site-form" class="grid gap-x-4 gap-y-1 md:grid-cols-2 max-w-xl">
+            <input type="hidden" id="site-id"/>
+            <div>
+              <label class="bf-field" for="site-name">Name</label>
+              <input class="bf-input" id="site-name" required/>
+            </div>
+            <div>
+              <label class="bf-field" for="site-tz">Timezone</label>
+              <input class="bf-input" id="site-tz" placeholder="UTC" required/>
+            </div>
+            <div class="md:col-span-2 flex flex-wrap gap-2 items-center mt-2">
+              <button type="submit" class="bf-btn bf-btn-primary">Save site</button>
+              <p class="text-sm self-center" id="site-msg"></p>
+            </div>
+          </form>
+        </div>
+        <div class="bf-panel mb-4">
           <h2 class="font-display text-lg mb-2">Stack &amp; plugins</h2>
           <p class="text-sm text-bf-muted mb-3">Core version plus optional compose profiles (slicer, commerce) and integration URLs.</p>
           <div id="stack-status" class="flex flex-wrap gap-2 text-sm">loading…</div>
@@ -2303,8 +2322,56 @@ const layoutHTML = `<!DOCTYPE html>
               : (commerce.err || 'profile off')));
             el.innerHTML = chips.join('');
           }
+          async function loadSite() {
+            const msg = document.getElementById('site-msg');
+            msg.textContent = '';
+            try {
+              const list = await bfJSON(API + '/api/v1/sites', opts);
+              const site = Array.isArray(list) && list.length ? list[0] : null;
+              if (!site) {
+                msg.className = 'text-bf-muted text-sm self-center';
+                msg.textContent = 'No site row yet';
+                return;
+              }
+              document.getElementById('site-id').value = site.id || '';
+              document.getElementById('site-name').value = site.name || '';
+              document.getElementById('site-tz').value = site.timezone || 'UTC';
+            } catch (e) {
+              msg.className = 'text-bf-danger text-sm self-center';
+              msg.textContent = String(e.message || e);
+            }
+          }
+          document.getElementById('site-form').onsubmit = async (ev) => {
+            ev.preventDefault();
+            const msg = document.getElementById('site-msg');
+            msg.className = 'text-sm self-center';
+            msg.textContent = '';
+            const id = document.getElementById('site-id').value.trim();
+            if (!id) {
+              msg.className = 'text-bf-danger text-sm self-center';
+              msg.textContent = 'No site id';
+              return;
+            }
+            try {
+              await bfJSON(API + '/api/v1/sites/' + encodeURIComponent(id), {
+                method: 'PATCH', credentials: 'include',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                  name: document.getElementById('site-name').value.trim(),
+                  timezone: document.getElementById('site-tz').value.trim() || 'UTC',
+                }),
+              });
+              msg.className = 'text-bf-accent text-sm self-center';
+              msg.textContent = 'Saved';
+              await loadStack();
+            } catch (e) {
+              msg.className = 'text-bf-danger text-sm self-center';
+              msg.textContent = String(e.message || e);
+            }
+          };
           document.getElementById('stack-refresh').onclick = loadStack;
           loadStack();
+          loadSite();
           document.querySelectorAll('[data-power]').forEach(btn => {
             btn.onclick = async () => {
               const msg = document.getElementById('power-msg');

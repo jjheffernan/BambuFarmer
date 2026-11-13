@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -39,4 +40,29 @@ func GetSite(ctx context.Context, pool *pgxpool.Pool, id string) (api.Site, erro
 		return s, MapQueryError(err)
 	}
 	return s, nil
+}
+
+// UpdateSite sets name and timezone for an existing site.
+func UpdateSite(ctx context.Context, pool *pgxpool.Pool, id, name, timezone string) (api.Site, error) {
+	id = strings.TrimSpace(id)
+	name = strings.TrimSpace(name)
+	timezone = strings.TrimSpace(timezone)
+	if id == "" {
+		return api.Site{}, Validation("id required")
+	}
+	if name == "" {
+		return api.Site{}, Validation("name required")
+	}
+	if timezone == "" {
+		timezone = "UTC"
+	}
+	tag, err := pool.Exec(ctx, `
+		UPDATE sites SET name=$1, timezone=$2 WHERE id=$3`, name, timezone, id)
+	if err != nil {
+		return api.Site{}, err
+	}
+	if tag.RowsAffected() == 0 {
+		return api.Site{}, ErrNotFound
+	}
+	return GetSite(ctx, pool, id)
 }

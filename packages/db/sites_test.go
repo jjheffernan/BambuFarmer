@@ -12,3 +12,14 @@ func TestSiteDTOFields(t *testing.T) {
 		t.Fatal(s)
 	}
 }
+
+func TestUpdateSiteValidation(t *testing.T) {
+	_, err := UpdateSite(t.Context(), nil, "", "Lab", "UTC")
+	if err == nil {
+		t.Fatal("expected id required")
+	}
+	_, err = UpdateSite(t.Context(), nil, "default", "  ", "UTC")
+	if err == nil {
+		t.Fatal("expected name required")
+	}
+}

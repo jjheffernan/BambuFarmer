@@ -42,6 +42,9 @@ func TestAdminPageHasRateCardEditor(t *testing.T) {
 	if !strings.Contains(layoutHTML, "/api/v1/sites") {
 		t.Fatal("expected sites status probe")
 	}
+	if !strings.Contains(layoutHTML, `id="site-form"`) || !strings.Contains(layoutHTML, "method: 'PATCH'") {
+		t.Fatal("expected Admin site edit form")
+	}
 	if !strings.Contains(layoutHTML, "/api/v1/edge/status") {
 		t.Fatal("expected edge status probe")
 	}
