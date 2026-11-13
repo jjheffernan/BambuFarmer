@@ -10,6 +10,7 @@ On release: move that section to a new `## [X.Y.Z] — YYYY-MM-DD`, bump [`VERSI
 ## [Unreleased]
 
 ### Added
+- Admin Scheduler readout (`GET /api/v1/admin/scheduler`) shows `CIRCUIT_MAX` / stagger / max starts per tick
 - Admin Job transition form (`POST /api/v1/jobs/{id}/transition`) for fixture/lab recovery of stuck jobs
 - Jobs page Detail panel loads `GET /api/v1/jobs/{id}` (queue, spool, after-job, costs, full JSON)
 - Jobs create form pickers for printer SN, after-job, Spoolman spool, and staged artifact

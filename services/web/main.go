@@ -2398,6 +2398,12 @@ const layoutHTML = `<!DOCTYPE html>
           <button type="button" class="bf-btn mt-3" id="edge-tags-refresh">Refresh tags</button>
         </div>
         <div class="bf-panel mb-4">
+          <h2 class="font-display text-lg mb-2">Scheduler</h2>
+          <p class="text-sm text-bf-muted mb-3">Dispatch pacing from env (<code>CIRCUIT_MAX</code>, <code>SCHEDULER_STAGGER</code>, <code>SCHEDULER_MAX_STARTS_PER_TICK</code>).</p>
+          <pre class="bf-pre text-xs m-0" id="scheduler-out">loading…</pre>
+          <button type="button" class="bf-btn mt-3" id="scheduler-refresh">Refresh</button>
+        </div>
+        <div class="bf-panel mb-4">
           <h2 class="font-display text-lg mb-2">Job transition</h2>
           <p class="text-sm text-bf-muted mb-3">Lab/fixture recovery via <code>POST /api/v1/jobs/{id}/transition</code>. Illegal moves return <code>invalid_transition</code>.</p>
           <form id="job-transition-form" class="grid gap-x-4 gap-y-1 md:grid-cols-3 max-w-3xl">
@@ -2763,6 +2769,17 @@ const layoutHTML = `<!DOCTYPE html>
           loadStack();
           loadSite();
           loadEdgeTags();
+          async function loadScheduler() {
+            const el = document.getElementById('scheduler-out');
+            try {
+              const st = await bfJSON(API + '/api/v1/admin/scheduler', opts);
+              el.textContent = JSON.stringify(st, null, 2);
+            } catch (e) {
+              el.textContent = String(e.message || e);
+            }
+          }
+          document.getElementById('scheduler-refresh').onclick = loadScheduler;
+          loadScheduler();
           document.getElementById('job-transition-form').onsubmit = async (ev) => {
             ev.preventDefault();
             const msg = document.getElementById('jt-msg');

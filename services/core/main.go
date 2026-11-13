@@ -118,6 +118,16 @@ func main() {
 	mux.HandleFunc("GET /api/v1/version", func(w http.ResponseWriter, _ *http.Request) {
 		httpx.WriteJSON(w, version.Get())
 	})
+	mux.HandleFunc("GET /api/v1/admin/scheduler", func(w http.ResponseWriter, _ *http.Request) {
+		stagger := schedulerStagger()
+		httpx.WriteJSON(w, map[string]any{
+			"circuit_max":               circuitMax(),
+			"scheduler_stagger":         stagger.String(),
+			"scheduler_stagger_ms":      stagger.Milliseconds(),
+			"scheduler_max_starts_tick": schedulerMaxStarts(),
+			"note":                      "Empty CIRCUIT_MAX / SCHEDULER_* means unlimited (no circuit cap / no stagger)",
+		})
+	})
 
 	addr := cfg.HTTPAddr
 	if addr == "" {
