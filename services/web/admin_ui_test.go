@@ -55,4 +55,7 @@ func TestAdminPageHasRateCardEditor(t *testing.T) {
 	if !strings.Contains(layoutHTML, "/api/v1/edge/status") {
 		t.Fatal("expected edge status probe")
 	}
+	if !strings.Contains(layoutHTML, "/api/v1/edge/tags") || !strings.Contains(layoutHTML, `id="edge-tags"`) {
+		t.Fatal("expected Admin farm tags panel")
+	}
 }

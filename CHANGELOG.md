@@ -10,6 +10,7 @@ On release: move that section to a new `## [X.Y.Z] — YYYY-MM-DD`, bump [`VERSI
 ## [Unreleased]
 
 ### Added
+- Admin Farm tags panel lists circuit/group tags from `GET /api/v1/edge/tags`
 - Slice page staged-artifact picker fills `input_path` (and name) from `GET /api/v1/artifacts`
 - Admin Users: change role and Enable/Disable via existing `PATCH /api/v1/admin/users/{id}`
 - Jobs page Dispatch button for queued/assigned jobs (`POST /api/v1/jobs/{id}/dispatch`) so operators can start without waiting on the scheduler tick

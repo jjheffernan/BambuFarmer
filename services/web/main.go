@@ -2158,6 +2158,12 @@ const layoutHTML = `<!DOCTYPE html>
           <div id="stack-status" class="flex flex-wrap gap-2 text-sm">loading…</div>
           <button type="button" class="bf-btn mt-3" id="stack-refresh">Refresh</button>
         </div>
+        <div class="bf-panel mb-4">
+          <h2 class="font-display text-lg mb-2">Farm tags</h2>
+          <p class="text-sm text-bf-muted mb-3">Circuit/group labels from edge (<code>GET /api/v1/edge/tags</code>). Empty when the plane has no tag source.</p>
+          <div id="edge-tags" class="bf-empty">loading…</div>
+          <button type="button" class="bf-btn mt-3" id="edge-tags-refresh">Refresh tags</button>
+        </div>
         <div class="grid gap-4 md:grid-cols-2">
           <div class="bf-panel">
             <h2 class="font-display text-lg mb-3">Users</h2>
@@ -2464,9 +2470,35 @@ const layoutHTML = `<!DOCTYPE html>
               msg.textContent = String(e.message || e);
             }
           };
+          async function loadEdgeTags() {
+            const el = document.getElementById('edge-tags');
+            el.className = 'bf-empty';
+            el.textContent = 'loading…';
+            try {
+              const data = await bfJSON(API + '/api/v1/edge/tags', opts);
+              const tags = (data && data.tags) || [];
+              if (!tags.length) {
+                el.textContent = 'No tags';
+                return;
+              }
+              el.className = 'overflow-x-auto';
+              el.innerHTML = '<table class="bf-table"><thead><tr><th>Name</th><th>ID</th><th>Devices</th></tr></thead><tbody>' +
+                tags.map(t => {
+                  const members = (t.devices && t.devices.length) ? t.devices : (t.dev_ids || []);
+                  return '<tr><td>' + String(t.name || '—') + '</td>' +
+                    '<td class="font-mono text-xs">' + String(t.id || '—') + '</td>' +
+                    '<td class="font-mono text-xs">' + (members.length ? members.join(', ') : '—') + '</td></tr>';
+                }).join('') + '</tbody></table>';
+            } catch (e) {
+              el.className = 'text-bf-danger text-sm';
+              el.textContent = String(e.message || e);
+            }
+          }
           document.getElementById('stack-refresh').onclick = loadStack;
+          document.getElementById('edge-tags-refresh').onclick = loadEdgeTags;
           loadStack();
           loadSite();
+          loadEdgeTags();
           document.querySelectorAll('[data-power]').forEach(btn => {
             btn.onclick = async () => {
               const msg = document.getElementById('power-msg');
