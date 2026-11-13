@@ -10,9 +10,14 @@ On release: move that section to a new `## [X.Y.Z] — YYYY-MM-DD`, bump [`VERSI
 ## [Unreleased]
 
 ### Added
+- Jobs deep-link `?job=` opens Detail (optional `history=1`); human-readable job timestamps; Fleet alert Open → drawer
+- Filament Copy spool id / tray lookup copy; Admin setup readout includes `rate_card`
 - Shell Change password for LAN users (including viewers); Jobs live % from `job.progress`; job detail started/finished + artifact download
 - Fleet offline / layer / print_error on cards; Commerce webhook Copy job id; Artifacts Copy object_key
 - Admin install readout (`GET /api/v1/setup`) beside setup reset
+
+### Fixed
+- Preset edit PATCH merges the loaded tip so JSON/models/notes are not wiped by the form fields
 - Fleet card control errors via bfJSON, HMS chips, and dismissible alert banner; shell shows site name
 - Jobs Copy id; Slice `slice.*` SSE toasts; OIDC SSO button on `/login` when `AUTH_MODE=oidc`; Filament low-stock row highlight
 - Jobs Cancel prompts for a reason (defaults to operator cancel)

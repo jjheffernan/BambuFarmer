@@ -66,4 +66,7 @@ func TestFleetPageShowsAMSAndTaskHelpers(t *testing.T) {
 	if !strings.Contains(layoutHTML, "offline") {
 		t.Fatal("expected fleet offline badge")
 	}
+	if !strings.Contains(layoutHTML, "data-alert-sn") || !strings.Contains(layoutHTML, "renderAlertBanner") {
+		t.Fatal("expected alert banner Open → drawer")
+	}
 }

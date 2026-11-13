@@ -74,6 +74,12 @@ func TestJobsPageUsesSSENotIntervalPoll(t *testing.T) {
 	if !strings.Contains(layoutHTML, "started_at") || !strings.Contains(layoutHTML, "/content") {
 		t.Fatal("job detail missing started/finished or artifact download")
 	}
+	if !strings.Contains(layoutHTML, "fmtWhen") {
+		t.Fatal("job detail missing human-readable timestamps")
+	}
+	if !strings.Contains(layoutHTML, `params.get('job')`) {
+		t.Fatal("jobs page missing ?job= deep-link")
+	}
 	for _, ev := range []string{
 		"job.queued",
 		"job.assigned",

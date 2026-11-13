@@ -29,4 +29,7 @@ func TestFilamentAndLibraryPages(t *testing.T) {
 	if !strings.Contains(layoutHTML, "lowIDs") || !strings.Contains(layoutHTML, "text-bf-danger") {
 		t.Fatal("expected filament low-stock row highlight")
 	}
+	if !strings.Contains(layoutHTML, "data-copy-spool") || !strings.Contains(layoutHTML, "filament-copy-tray") {
+		t.Fatal("expected filament spool/tray copy controls")
+	}
 }

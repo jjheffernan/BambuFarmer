@@ -73,4 +73,7 @@ func TestAdminPageHasRateCardEditor(t *testing.T) {
 	if !strings.Contains(layoutHTML, `id="setup-out"`) || !strings.Contains(layoutHTML, "loadSetup") {
 		t.Fatal("expected Admin install readout")
 	}
+	if !strings.Contains(layoutHTML, "rate_card") {
+		t.Fatal("expected Admin setup readout to include rate_card")
+	}
 }

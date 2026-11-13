@@ -708,12 +708,14 @@ const layoutHTML = `<!DOCTYPE html>
               try {
                 const env = JSON.parse(msg.data);
                 const p = env.payload || {};
-                const sn = p.external_sn || '?';
+                const sn = p.external_sn || '';
                 const why = (p.reasons && p.reasons.length) ? p.reasons.join(', ') : (p.gcode_state || 'attention');
-                recentAlerts.unshift(esc(p.name || sn) + ' · ' + esc(why));
+                recentAlerts.unshift({
+                  sn,
+                  html: esc(p.name || sn || '?') + ' · ' + esc(why),
+                });
                 if (recentAlerts.length > 5) recentAlerts.pop();
-                document.getElementById('alert-banner-body').innerHTML =
-                  recentAlerts.map(x => '<div>' + x + '</div>').join('');
+                renderAlertBanner();
                 alertBanner.classList.remove('hidden');
                 if (p.external_sn) upsert(p);
               } catch (_) {}
@@ -724,6 +726,24 @@ const layoutHTML = `<!DOCTYPE html>
             };
           }
 
+          function renderAlertBanner() {
+            const body = document.getElementById('alert-banner-body');
+            body.innerHTML = recentAlerts.map((a, i) =>
+              '<div class="flex flex-wrap items-center gap-2">' +
+              '<span>' + a.html + '</span>' +
+              (a.sn
+                ? '<button type="button" class="bf-btn" data-alert-sn="' + esc(a.sn) + '">Open</button>'
+                : '') +
+              '</div>'
+            ).join('');
+            body.querySelectorAll('[data-alert-sn]').forEach(btn => {
+              btn.onclick = () => {
+                openDrawer(btn.dataset.alertSn);
+                const card = document.getElementById('printer-' + btn.dataset.alertSn);
+                if (card) card.scrollIntoView({behavior: 'smooth', block: 'nearest'});
+              };
+            });
+          }
           document.getElementById('alert-banner-dismiss').onclick = () => {
             recentAlerts.length = 0;
             document.getElementById('alert-banner-body').innerHTML = '';
@@ -1188,6 +1208,11 @@ const layoutHTML = `<!DOCTYPE html>
           const eventsPanel = document.getElementById('job-events-panel');
           const eventsBody = document.getElementById('job-events-body');
           const eventsId = document.getElementById('job-events-id');
+          function fmtWhen(v) {
+            if (v == null || v === '') return '—';
+            const d = new Date(v);
+            return Number.isNaN(d.getTime()) ? String(v) : d.toLocaleString();
+          }
           function detailRow(label, value) {
             return '<div><dt class="text-bf-muted text-xs">' + esc(label) + '</dt>' +
               '<dd class="m-0 font-mono text-xs break-all">' + esc(value == null || value === '' ? '—' : value) + '</dd></div>';
@@ -1221,10 +1246,10 @@ const layoutHTML = `<!DOCTYPE html>
                 detailRow('Cost actual', j.cost_actual),
                 detailRow('Currency', j.currency),
                 detailRow('Error', j.error),
-                detailRow('Started', j.started_at),
-                detailRow('Finished', j.finished_at),
-                detailRow('Created', j.created_at),
-                detailRow('Updated', j.updated_at),
+                detailRow('Started', fmtWhen(j.started_at)),
+                detailRow('Finished', fmtWhen(j.finished_at)),
+                detailRow('Created', fmtWhen(j.created_at)),
+                detailRow('Updated', fmtWhen(j.updated_at)),
               ].join('');
               detailJSON.textContent = JSON.stringify(j, null, 2);
             } catch (err) {
@@ -1556,6 +1581,14 @@ const layoutHTML = `<!DOCTYPE html>
           loadJobs();
           loadJobCreatePickers();
           connectJobsSSE();
+          (async () => {
+            const params = new URLSearchParams(location.search);
+            const job = (params.get('job') || '').trim();
+            if (!job) return;
+            await loadJobDetail(job);
+            if (params.get('history') === '1') await loadJobEvents(job);
+            detailPanel.scrollIntoView({behavior: 'smooth', block: 'nearest'});
+          })();
         </script>
       {{else if eq .Active "presets"}}
         <p class="bf-lede">Versioned filament and print presets stored in Postgres.</p>
@@ -1656,14 +1689,17 @@ const layoutHTML = `<!DOCTYPE html>
             document.querySelectorAll('[data-filament-only]').forEach(el => el.classList.toggle('hidden', kind !== 'filament'));
             document.querySelectorAll('[data-print-only]').forEach(el => el.classList.toggle('hidden', kind !== 'print'));
           }
+          let presetDraft = null;
           function resetEditor(kind) {
             document.getElementById('preset-editor').reset();
             document.getElementById('preset-editor-msg').textContent = '';
+            presetDraft = null;
             setEditorKind(kind || 'filament', 'create');
           }
           async function editPreset(kind, id) {
             try {
               const x = await bfJSON(API + '/api/v1/presets/' + kind + '/' + encodeURIComponent(id));
+              presetDraft = Object.assign({}, x);
               setEditorKind(kind, 'edit');
               document.getElementById('preset-id').value = x.id || id;
               document.getElementById('preset-name').value = x.name || '';
@@ -1812,16 +1848,16 @@ const layoutHTML = `<!DOCTYPE html>
               msg.textContent = 'id and name required';
               return;
             }
-            let body;
+            let patch;
             if (kind === 'print') {
-              body = {
+              patch = {
                 id, name,
                 layer_height_mm: Number(document.getElementById('preset-layer').value) || 0,
                 nozzle_diameter_mm: Number(document.getElementById('preset-nozzle').value) || 0,
                 active: true,
               };
             } else {
-              body = {
+              patch = {
                 id, name,
                 material: document.getElementById('preset-material').value.trim(),
                 vendor: document.getElementById('preset-vendor').value.trim(),
@@ -1829,6 +1865,12 @@ const layoutHTML = `<!DOCTYPE html>
                 active: true,
               };
             }
+            // Merge loaded tip so PATCH upsert does not wipe JSON / models / notes.
+            const body = mode === 'edit' && presetDraft
+              ? Object.assign({}, presetDraft, patch, { version: undefined, updated_at: undefined })
+              : patch;
+            delete body.version;
+            delete body.updated_at;
             const url = mode === 'edit'
               ? API + '/api/v1/presets/' + kind + '/' + encodeURIComponent(id)
               : API + '/api/v1/presets/' + kind;
@@ -1985,9 +2027,22 @@ const layoutHTML = `<!DOCTYPE html>
                   '<td class="font-mono text-xs' + (low ? ' text-bf-danger' : '') + '">' + esc(fmtG(s.remaining_g)) +
                     (low ? ' · low' : '') + '</td>' +
                   '<td class="text-bf-muted text-xs">' + esc(s.location || '—') + '</td>' +
-                  '<td class="font-mono text-xs">' + esc(id || '—') + '</td>' +
+                  '<td class="font-mono text-xs">' + esc(id || '—') +
+                    (id ? ' <button type="button" class="bf-btn" data-copy-spool="' + esc(id) + '">Copy</button>' : '') +
+                  '</td>' +
                   '</tr>';
                 }).join('');
+                filBody.querySelectorAll('[data-copy-spool]').forEach(btn => {
+                  btn.onclick = async () => {
+                    try {
+                      await navigator.clipboard.writeText(btn.dataset.copySpool);
+                      filStatus.textContent = 'Copied ' + btn.dataset.copySpool;
+                      filStatus.classList.add('live');
+                    } catch (_) {
+                      filStatus.textContent = btn.dataset.copySpool;
+                    }
+                  };
+                });
               }
               filStatus.textContent = (integNote || 'Spoolman') + ' · ' + spools.length + ' spools';
               filStatus.classList.add('live');
@@ -2003,9 +2058,20 @@ const layoutHTML = `<!DOCTYPE html>
             const tray = document.getElementById('filament-tray').value;
             try {
               const data = await bfJSON(API + '/api/v1/filament/links?tray=' + encodeURIComponent(tray));
-              msg.textContent = data.spool_id
-                ? ('Tray ' + data.tray + ' → spool ' + data.spool_id)
-                : ('Tray ' + data.tray + ' has no mapped spool');
+              if (data.spool_id) {
+                msg.innerHTML = 'Tray ' + esc(data.tray) + ' → spool <code class="font-mono text-xs">' +
+                  esc(data.spool_id) + '</code> <button type="button" class="bf-btn" id="filament-copy-tray">Copy</button>';
+                document.getElementById('filament-copy-tray').onclick = async () => {
+                  try {
+                    await navigator.clipboard.writeText(String(data.spool_id));
+                    msg.append(' · copied');
+                  } catch (_) {
+                    msg.append(' · ' + data.spool_id);
+                  }
+                };
+              } else {
+                msg.textContent = 'Tray ' + data.tray + ' has no mapped spool';
+              }
             } catch (e) {
               msg.textContent = String(e.message || e);
             }
@@ -3430,12 +3496,18 @@ const layoutHTML = `<!DOCTYPE html>
             try {
               const st = await bfJSON(API + '/api/v1/setup', opts);
               const install = st.install || {};
+              const rc = st.rate_card || {};
               el.textContent = JSON.stringify({
                 site_id: st.site_id,
                 completed: install.completed,
                 step: install.step,
                 auth_mode: install.auth_mode,
                 version: st.version,
+                rate_card: {
+                  currency: rc.currency,
+                  machine_rate_per_hour: rc.machine_rate_per_hour,
+                  filament_price_per_kg: rc.filament_price_per_kg,
+                },
               }, null, 2);
             } catch (e) {
               el.textContent = String(e.message || e);

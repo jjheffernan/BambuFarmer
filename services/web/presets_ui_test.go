@@ -36,4 +36,7 @@ func TestPresetsPageHasImportExport(t *testing.T) {
 	if !strings.Contains(layoutHTML, "data-dup-id") || !strings.Contains(layoutHTML, "duplicatePreset") {
 		t.Fatal("expected preset duplicate control")
 	}
+	if !strings.Contains(layoutHTML, "presetDraft") || !strings.Contains(layoutHTML, "Object.assign({}, presetDraft") {
+		t.Fatal("expected preset edit to merge loaded tip on PATCH")
+	}
 }
