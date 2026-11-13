@@ -71,6 +71,41 @@ func (p *Publisher) PublishPrinterDelta(ctx context.Context, snap api.PrinterSna
 	p.Log.Debug("published", "stream", events.StreamPrinter, "id", id, "sn", snap.ExternalSN, "state", snap.GcodeState)
 }
 
+// PublishAlertRaised emits alert.raised for operator attention (PAUSE/FAILED/offline/HMS).
+func (p *Publisher) PublishAlertRaised(ctx context.Context, snap api.PrinterSnapshot) {
+	if p == nil || p.Bus == nil {
+		return
+	}
+	reasons := make([]string, 0, 3)
+	if !snap.Online {
+		reasons = append(reasons, "offline")
+	}
+	switch snap.GcodeState {
+	case "PAUSE", "FAILED":
+		reasons = append(reasons, snap.GcodeState)
+	}
+	if len(snap.HMS) > 0 {
+		reasons = append(reasons, "hms")
+	}
+	payload := map[string]any{
+		"external_sn": snap.ExternalSN,
+		"name":        snap.Name,
+		"model":       snap.Model,
+		"online":      snap.Online,
+		"gcode_state": snap.GcodeState,
+		"hms":         snap.HMS,
+		"reasons":     reasons,
+		"bucket":      snap.Bucket,
+	}
+	env := events.NewEnvelope(events.TypeAlertRaised, "edge", p.SiteID, payload)
+	id, err := p.Bus.Publish(ctx, events.StreamAlert, env)
+	if err != nil {
+		p.Log.Warn("publish alert.raised", "err", err)
+		return
+	}
+	p.Log.Debug("published", "stream", events.StreamAlert, "id", id, "sn", snap.ExternalSN, "type", events.TypeAlertRaised)
+}
+
 // PublishAMSChanged emits printer.ams_changed with the current AMS tray map.
 func (p *Publisher) PublishAMSChanged(ctx context.Context, snap api.PrinterSnapshot) {
 	if p == nil || p.Bus == nil {

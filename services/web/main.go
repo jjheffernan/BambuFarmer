@@ -144,6 +144,7 @@ const layoutHTML = `<!DOCTYPE html>
       {{if eq .Active "fleet"}}
         <p class="bf-lede">Live fleet via gateway SSE — no browser polling of Farm Manager.</p>
         <div id="sse-status" class="bf-status">connecting…</div>
+        <div id="alert-banner" class="hidden mb-3 border border-bf-danger/40 bg-bf-danger/10 rounded-bf px-3 py-2 text-sm" role="status"></div>
         <div class="flex flex-wrap gap-2 mb-4" id="bucket-chips">
           <span class="bf-chip on" data-bucket="all">All</span>
           <span class="bf-chip" data-bucket="ready_to_start">Ready to Start</span>
@@ -187,6 +188,8 @@ const layoutHTML = `<!DOCTYPE html>
           const drawerBody = document.getElementById('drawer-body');
           const drawerTitle = document.getElementById('drawer-title');
           const drawerSn = document.getElementById('drawer-sn');
+          const alertBanner = document.getElementById('alert-banner');
+          const recentAlerts = [];
 
           document.querySelectorAll('#bucket-chips .bf-chip').forEach(chip => {
             chip.addEventListener('click', () => {
@@ -416,6 +419,19 @@ const layoutHTML = `<!DOCTYPE html>
                   upsert(env.payload || {});
                 } catch (_) {}
               });
+            });
+            es.addEventListener('alert.raised', (msg) => {
+              try {
+                const env = JSON.parse(msg.data);
+                const p = env.payload || {};
+                const sn = p.external_sn || '?';
+                const why = (p.reasons && p.reasons.length) ? p.reasons.join(', ') : (p.gcode_state || 'attention');
+                recentAlerts.unshift(esc(p.name || sn) + ' · ' + esc(why));
+                if (recentAlerts.length > 5) recentAlerts.pop();
+                alertBanner.innerHTML = recentAlerts.map(x => '<div>' + x + '</div>').join('');
+                alertBanner.classList.remove('hidden');
+                if (p.external_sn) upsert(p);
+              } catch (_) {}
             });
             es.onerror = () => {
               statusEl.textContent = 'SSE reconnecting…';

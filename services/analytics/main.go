@@ -131,7 +131,7 @@ func main() {
 }
 
 func consume(ctx context.Context, bus *events.Bus, pool *pgxpool.Pool) {
-	for _, stream := range []string{events.StreamPrinter, events.StreamJob, events.StreamSlice} {
+	for _, stream := range []string{events.StreamPrinter, events.StreamJob, events.StreamSlice, events.StreamAlert} {
 		s := stream
 		go func() {
 			consumer := "analytics-" + getenv("HOSTNAME", "1")

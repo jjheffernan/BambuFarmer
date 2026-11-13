@@ -141,6 +141,8 @@ Telemetry field set aligns with OpenBambuAPI `push_status` (`gcode_state`, `mc_p
 
 `ams` (nested `{ams:[…]}` or a bare unit array) normalizes to snapshot `ams[].trays[]` with slot/type/color/tag_uid/remain. `task_id` / `subtask_name` land on snapshot `task`. When AMS trays change, edge also publishes `printer.ams_changed` on `bf.events.printer` (first empty AMS is skipped).
 
+Attention: offline, `PAUSE`/`FAILED`, or non-empty HMS publishes `alert.raised` on `bf.events.alert` when the attention fingerprint changes (clearing attention does not emit).
+
 **Edge strategy:**
 
 1. Prefer MQTT report subscription **if** we can authenticate to the farm broker as a privileged observer (research: may require farm TLS material — validate on lab server).  

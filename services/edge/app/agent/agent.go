@@ -188,6 +188,9 @@ func (a *Agent) noteSnaps(ctx context.Context, snaps []api.PrinterSnapshot) {
 		if a.delta.AMSChanged(s) && a.pub != nil {
 			a.pub.PublishAMSChanged(ctx, s)
 		}
+		if a.delta.AlertRaised(s) && a.pub != nil {
+			a.pub.PublishAlertRaised(ctx, s)
+		}
 		a.emitJobLifecycle(ctx, s)
 	}
 	a.mu.Lock()

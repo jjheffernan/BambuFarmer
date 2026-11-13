@@ -24,4 +24,7 @@ func TestFleetPageShowsAMSAndTaskHelpers(t *testing.T) {
 	if !strings.Contains(layoutHTML, "printer.ams_changed") {
 		t.Fatal("expected ams_changed SSE listener")
 	}
+	if !strings.Contains(layoutHTML, "alert.raised") || !strings.Contains(layoutHTML, "alert-banner") {
+		t.Fatal("expected alert.raised banner")
+	}
 }

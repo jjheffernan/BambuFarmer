@@ -35,6 +35,29 @@ func TestFilterReset(t *testing.T) {
 	}
 }
 
+func TestAlertRaised(t *testing.T) {
+	f := delta.New()
+	idle := api.PrinterSnapshot{PrinterSummary: api.PrinterSummary{ExternalSN: "sn1", Online: true, GcodeState: "IDLE"}}
+	if f.AlertRaised(idle) {
+		t.Fatal("idle should not alert")
+	}
+	paused := idle
+	paused.GcodeState = "PAUSE"
+	if !f.AlertRaised(paused) {
+		t.Fatal("PAUSE should alert")
+	}
+	if f.AlertRaised(paused) {
+		t.Fatal("identical attention should not re-alert")
+	}
+	paused.HMS = []string{"0700_8001_0001_0002"}
+	if !f.AlertRaised(paused) {
+		t.Fatal("new HMS should alert")
+	}
+	if f.AlertRaised(idle) {
+		t.Fatal("return to idle should not raise")
+	}
+}
+
 func TestAMSChanged(t *testing.T) {
 	f := delta.New()
 	empty := api.PrinterSnapshot{PrinterSummary: api.PrinterSummary{ExternalSN: "sn1"}}
