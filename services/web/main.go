@@ -625,7 +625,8 @@ const layoutHTML = `<!DOCTYPE html>
                   '<td class="font-mono text-xs">' + esc(a.created_at ? new Date(a.created_at).toLocaleString() : '—') + '</td>' +
                   '<td class="whitespace-nowrap">' +
                   '<a class="bf-btn" href="' + API + '/api/v1/artifacts/' + encodeURIComponent(a.id) + '/content">Download</a> ' +
-                  '<button type="button" class="bf-btn" data-copy="' + esc(a.id) + '">Copy id</button>' +
+                  '<button type="button" class="bf-btn" data-copy="' + esc(a.id) + '">Copy id</button> ' +
+                  '<button type="button" class="bf-btn" data-del="' + esc(a.id) + '" data-del-name="' + esc(a.filename || a.id) + '">Delete</button>' +
                   '</td></tr>';
               }).join('');
               artBody.querySelectorAll('[data-copy]').forEach(btn => {
@@ -636,6 +637,24 @@ const layoutHTML = `<!DOCTYPE html>
                     artStatus.classList.add('live');
                   } catch (_) {
                     artStatus.textContent = btn.dataset.copy;
+                  }
+                };
+              });
+              artBody.querySelectorAll('[data-del]').forEach(btn => {
+                btn.onclick = async () => {
+                  if (!confirm('Delete artifact ' + (btn.dataset.delName || btn.dataset.del) + '?')) return;
+                  try {
+                    const r = await fetch(API + '/api/v1/artifacts/' + encodeURIComponent(btn.dataset.del), {
+                      method: 'DELETE', credentials: 'include',
+                    });
+                    if (!r.ok) {
+                      const t = await r.text();
+                      throw new Error(t || r.statusText);
+                    }
+                    await loadArtifacts();
+                  } catch (e) {
+                    artStatus.textContent = String(e.message || e);
+                    artStatus.classList.remove('live');
                   }
                 };
               });
@@ -2078,11 +2097,12 @@ const layoutHTML = `<!DOCTYPE html>
           async function loadStack() {
             const el = document.getElementById('stack-status');
             el.textContent = 'loading…';
-            const [ver, sites, integ, power, slice, commerce] = await Promise.all([
+            const [ver, sites, integ, power, edge, slice, commerce] = await Promise.all([
               probe('/api/v1/version'),
               probe('/api/v1/sites'),
               probe('/api/v1/integrations/status'),
               probe('/api/v1/power'),
+              probe('/api/v1/edge/status'),
               probe('/api/v1/slice/status'),
               probe('/api/v1/commerce/status'),
             ]);
@@ -2111,6 +2131,13 @@ const layoutHTML = `<!DOCTYPE html>
               chips.push(stackChip('integrations', false, integ.err));
             }
             chips.push(stackChip('power', !!(power.ok && power.data && power.data.configured), power.ok ? '' : power.err));
+            if (edge.ok) {
+              const e = edge.data || {};
+              chips.push(stackChip('edge ' + (e.transport || e.farm_mode || ''), !!e.connected,
+                [e.note, e.last_error, 'devices=' + (e.device_count ?? '?')].filter(Boolean).join(' · ')));
+            } else {
+              chips.push(stackChip('edge', false, edge.err));
+            }
             chips.push(stackChip('slicer', !!(slice.ok && slice.data), slice.ok
               ? ('orca=' + !!(slice.data && slice.data.orca_configured))
               : (slice.err || 'profile off')));

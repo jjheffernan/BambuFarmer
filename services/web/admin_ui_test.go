@@ -39,4 +39,7 @@ func TestAdminPageHasRateCardEditor(t *testing.T) {
 	if !strings.Contains(layoutHTML, "/api/v1/sites") {
 		t.Fatal("expected sites status probe")
 	}
+	if !strings.Contains(layoutHTML, "/api/v1/edge/status") {
+		t.Fatal("expected edge status probe")
+	}
 }

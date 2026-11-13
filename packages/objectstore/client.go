@@ -71,6 +71,18 @@ func (c *Client) Put(ctx context.Context, key string, body []byte) error {
 	return err
 }
 
+// Delete removes object_key from the bucket. Missing keys are ignored.
+func (c *Client) Delete(ctx context.Context, key string) error {
+	if c == nil {
+		return fmt.Errorf("objectstore: nil client")
+	}
+	key, err := sanitizeKey(key)
+	if err != nil {
+		return err
+	}
+	return c.mc.RemoveObject(ctx, c.bucket, key, minio.RemoveObjectOptions{})
+}
+
 // Get opens object_key for reading.
 func (c *Client) Get(ctx context.Context, key string) (io.ReadCloser, error) {
 	if c == nil {

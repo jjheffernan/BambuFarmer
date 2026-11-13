@@ -100,6 +100,24 @@ func Register(mux *http.ServeMux, pool *pgxpool.Pool, siteID string, store Store
 			_, _ = io.Copy(w, f)
 		})
 	})
+	mux.HandleFunc("DELETE /api/v1/artifacts/{id}", func(w http.ResponseWriter, r *http.Request) {
+		httpx.RequireDB(w, pool, func() {
+			art, err := db.GetArtifact(r.Context(), pool, siteID, r.PathValue("id"))
+			if err != nil {
+				httpx.WriteError(w, err)
+				return
+			}
+			if err := store.Remove(art.ObjectKey); err != nil {
+				httpx.WriteError(w, api.Wrap(http.StatusInternalServerError, api.CodeInternal, "remove artifact bytes", err))
+				return
+			}
+			if err := db.DeleteArtifact(r.Context(), pool, siteID, art.ID); err != nil {
+				httpx.WriteError(w, err)
+				return
+			}
+			w.WriteHeader(http.StatusNoContent)
+		})
+	})
 }
 
 func extFor(name string) string {

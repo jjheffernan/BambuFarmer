@@ -85,3 +85,20 @@ func (s Store) Open(objectKey string) (io.ReadCloser, error) {
 	}
 	return s.Remote.Get(context.Background(), objectKey)
 }
+
+// Remove deletes object_key locally and from object store when configured.
+func (s Store) Remove(objectKey string) error {
+	path, err := s.AbsPath(objectKey)
+	if err != nil {
+		return err
+	}
+	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	if s.Remote != nil {
+		if err := s.Remote.Delete(context.Background(), objectKey); err != nil {
+			return fmt.Errorf("artifacts: object store delete: %w", err)
+		}
+	}
+	return nil
+}

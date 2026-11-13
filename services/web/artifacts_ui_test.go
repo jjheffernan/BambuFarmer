@@ -15,4 +15,7 @@ func TestArtifactsPage(t *testing.T) {
 	if !strings.Contains(layoutHTML, "artifact-form") || !strings.Contains(layoutHTML, "loadArtifacts") {
 		t.Fatal("expected upload form and loader")
 	}
+	if !strings.Contains(layoutHTML, `data-del=`) || !strings.Contains(layoutHTML, "DELETE") {
+		t.Fatal("expected artifact delete control")
+	}
 }

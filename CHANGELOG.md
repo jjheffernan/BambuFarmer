@@ -10,6 +10,7 @@ On release: move that section to a new `## [X.Y.Z] — YYYY-MM-DD`, bump [`VERSI
 ## [Unreleased]
 
 ### Added
+- Delete staged artifacts (`DELETE /api/v1/artifacts/{id}`) from API and Artifacts page; Admin stack shows edge connection status
 - Commerce page: plugin status, test store webhook, and pack/ship status echo when the commerce profile is up
 - Slice page: plugin status and submit form for `POST /api/v1/slice/jobs` when the slicer profile is up
 - Artifacts page: list, upload, download, and copy id for staged plates
