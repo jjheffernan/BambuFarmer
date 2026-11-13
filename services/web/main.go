@@ -703,6 +703,12 @@ const layoutHTML = `<!DOCTYPE html>
               <input class="bf-input" id="job-file" name="file" type="file" accept=".3mf,.gcode.3mf,application/octet-stream"/>
             </div>
             <div>
+              <label class="bf-field" for="job-artifact-pick">Staged artifact</label>
+              <select class="bf-input" id="job-artifact-pick">
+                <option value="">— pick or type id below —</option>
+              </select>
+            </div>
+            <div>
               <label class="bf-field" for="job-artifact">Artifact ID <span class="text-bf-muted">(or upload above)</span></label>
               <input class="bf-input" id="job-artifact" name="artifact_id" placeholder="from prior upload"/>
             </div>
@@ -899,7 +905,24 @@ const layoutHTML = `<!DOCTYPE html>
             eventsPanel.classList.add('hidden');
           };
 
-          document.getElementById('jobs-refresh').onclick = () => { loadJobs(); };
+          async function loadJobArtifacts() {
+            const sel = document.getElementById('job-artifact-pick');
+            try {
+              const items = await bfJSON(API + '/api/v1/artifacts');
+              const opts = ['<option value="">— pick or type id below —</option>'];
+              (items || []).forEach(a => {
+                if (!a.id) return;
+                const label = (a.filename || a.id) + ' · ' + String(a.id).slice(0, 8);
+                opts.push('<option value="' + esc(a.id) + '">' + esc(label) + '</option>');
+              });
+              sel.innerHTML = opts.join('');
+            } catch (_) {}
+          }
+          document.getElementById('job-artifact-pick').onchange = () => {
+            const sel = document.getElementById('job-artifact-pick');
+            if (sel.value) document.getElementById('job-artifact').value = sel.value;
+          };
+          document.getElementById('jobs-refresh').onclick = () => { loadJobs(); loadJobArtifacts(); };
           document.getElementById('jobs-q').oninput = () => { loadJobs(); };
           document.getElementById('jobs-state').onchange = () => { loadJobs(); };
           jobsTb.onclick = async (ev) => {
@@ -1050,6 +1073,7 @@ const layoutHTML = `<!DOCTYPE html>
           }
 
           loadJobs();
+          loadJobArtifacts();
           connectJobsSSE();
         </script>
       {{else if eq .Active "presets"}}

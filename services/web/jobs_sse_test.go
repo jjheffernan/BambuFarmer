@@ -27,6 +27,9 @@ func TestJobsPageUsesSSENotIntervalPoll(t *testing.T) {
 	if !strings.Contains(layoutHTML, "data-dispatch") || !strings.Contains(layoutHTML, "/dispatch") {
 		t.Fatal("jobs page missing dispatch control")
 	}
+	if !strings.Contains(layoutHTML, `id="job-artifact-pick"`) || !strings.Contains(layoutHTML, "loadJobArtifacts") {
+		t.Fatal("jobs page missing artifact picker")
+	}
 	if !strings.Contains(layoutHTML, "data-history") || !strings.Contains(layoutHTML, "/events") {
 		t.Fatal("jobs page missing history control")
 	}
