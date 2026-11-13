@@ -51,6 +51,7 @@ func (p *Publisher) PublishPrinterDelta(ctx context.Context, snap api.PrinterSna
 		"nozzle_temper":     snap.NozzleTemper,
 		"bed_temper":        snap.BedTemper,
 		"print_error":       snap.PrintError,
+		"hms":               snap.HMS,
 		"tags":              snap.Tags,
 	}
 	typ := events.TypePrinterStateChanged

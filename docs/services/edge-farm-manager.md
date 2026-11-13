@@ -135,7 +135,9 @@ Topics:
 | `device/<sn>/request` | server → printer (commands) |
 | `device/<sn>/report` | printer → server (telemetry, mostly `push_status`) |
 
-Telemetry field set aligns with OpenBambuAPI `push_status` (`gcode_state`, `mc_percent`, temps, AMS, …). `msg: 0` = full snapshot, `msg: 1` = delta.
+Telemetry field set aligns with OpenBambuAPI `push_status` (`gcode_state`, `mc_percent`, temps, AMS, `hms`, …). `msg: 0` = full snapshot, `msg: 1` = delta.
+
+`hms` entries are `{attr, code}` integers; edge formats each as `XXXX_XXXX_XXXX_XXXX` on the printer snapshot and Redis payload so analytics can roll codes into `agg_hms_daily` (alongside non-zero `print_error`).
 
 **Edge strategy:**
 

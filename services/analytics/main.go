@@ -176,13 +176,16 @@ func bump(ctx context.Context, pool *pgxpool.Pool, env events.Envelope) error {
 				fail_s = agg_utilization_daily.fail_s + EXCLUDED.fail_s,
 				samples = agg_utilization_daily.samples + 1`,
 			site, sn, idle, run, failSec)
-		if code := fail.Code(env.Payload); code != "" {
+		for _, code := range fail.Codes(env.Payload) {
 			_, err = pool.Exec(ctx, `
 				INSERT INTO agg_hms_daily(day, site_id, code, count)
 				VALUES (CURRENT_DATE, $1, $2, 1)
 				ON CONFLICT (day, site_id, code) DO UPDATE SET
 					count = agg_hms_daily.count + 1`,
 				site, code)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	if env.Type == events.TypeJobFinished || env.Type == events.TypeJobFailed {

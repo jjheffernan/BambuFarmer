@@ -38,6 +38,7 @@ func Apply(base farm.DeviceReport, topic string, payload []byte) (farm.DeviceRep
 			Name:       base.Name,
 			Model:      base.Model,
 			DevIP:      base.DevIP,
+			Tags:       append([]string(nil), base.Tags...),
 		}
 	}
 	out.ExternalSN = sn
@@ -92,6 +93,9 @@ func fill(rep *farm.DeviceReport, fields map[string]json.RawMessage) {
 	take(fields, "print_error", &rep.PrintError)
 	take(fields, "wifi_signal", &rep.WifiSignal)
 	take(fields, "nozzle_diameter", &rep.NozzleDiameter)
+	if raw, ok := fields["hms"]; ok {
+		rep.HMS = farm.ParseHMSJSON(raw)
+	}
 }
 
 func take(fields map[string]json.RawMessage, key string, dest any) {

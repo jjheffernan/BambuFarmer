@@ -80,6 +80,7 @@ type PrinterSnapshot struct {
 	LayerNum       int       `json:"layer_num,omitempty"`
 	TotalLayerNum  int       `json:"total_layer_num,omitempty"`
 	PrintError     int       `json:"print_error,omitempty"`
+	HMS            []string  `json:"hms,omitempty"` // formatted HMS codes from device push_status
 	WifiSignal     string    `json:"wifi_signal,omitempty"`
 	NozzleDiameter string    `json:"nozzle_diameter,omitempty"`
 	StateForced    bool      `json:"state_forced,omitempty"` // true if FM jumped an illegal soft transition

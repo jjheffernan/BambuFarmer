@@ -28,6 +28,24 @@ func TestApplyDeltaKeepsMissingFields(t *testing.T) {
 	}
 }
 
+func TestApplyParsesHMS(t *testing.T) {
+	got, err := Apply(farm.DeviceReport{}, "device/ABC/report", []byte(
+		`{"print":{"command":"push_status","msg":0,"gcode_state":"FAILED","hms":[{"attr":117473281,"code":65538}]}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got.HMS) != 1 || got.HMS[0] != farm.FormatHMS(0x07008001, 0x00010002) {
+		t.Fatalf("%+v", got.HMS)
+	}
+	got, err = Apply(got, "device/ABC/report", []byte(`{"print":{"command":"push_status","msg":1,"hms":[]}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got.HMS) != 0 {
+		t.Fatalf("expected clear, got %+v", got.HMS)
+	}
+}
+
 func TestSkipOtherCommands(t *testing.T) {
 	_, err := Apply(farm.DeviceReport{}, "device/ABC/report", []byte(`{"print":{"command":"push_status","msg":0}}`))
 	if err != nil {

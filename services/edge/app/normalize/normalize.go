@@ -48,6 +48,7 @@ func Report(siteID string, d farm.DeviceReport, from, to printerstate.GcodeState
 		LayerNum:       d.LayerNum,
 		TotalLayerNum:  d.TotalLayerNum,
 		PrintError:     d.PrintError,
+		HMS:            append([]string(nil), d.HMS...),
 		WifiSignal:     d.WifiSignal,
 		NozzleDiameter: d.NozzleDiameter,
 		StateForced:    forced,

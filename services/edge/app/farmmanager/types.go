@@ -1,6 +1,10 @@
 package farmmanager
 
-import "github.com/jjheffernan/BambuFarmer/packages/api"
+import (
+	"encoding/json"
+
+	"github.com/jjheffernan/BambuFarmer/packages/api"
+)
 
 // Captain is the FM GET /captain payload (fields we care about).
 type Captain struct {
@@ -51,11 +55,12 @@ type ReportStatus struct {
 	MCPercent          int     `json:"mc_percent"`
 	MCRemainingTime    int     `json:"mc_remaining_time"`
 	WifiSignal         string  `json:"wifi_signal"`
-	PrintError         int     `json:"print_error"`
-	LayerNum           int     `json:"layer_num"`
-	TotalLayerNum      int     `json:"total_layer_num"`
-	NozzleDiameter     string  `json:"nozzle_diameter"`
-	NozzleType         string  `json:"nozzle_type"`
+	PrintError         int             `json:"print_error"`
+	HMS                json.RawMessage `json:"hms,omitempty"`
+	LayerNum           int             `json:"layer_num"`
+	TotalLayerNum      int             `json:"total_layer_num"`
+	NozzleDiameter     string          `json:"nozzle_diameter"`
+	NozzleType         string          `json:"nozzle_type"`
 }
 
 // TicketResponse is POST /login/local/tickets.

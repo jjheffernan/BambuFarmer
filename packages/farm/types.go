@@ -20,6 +20,7 @@ type DeviceReport struct {
 	LayerNum           int
 	TotalLayerNum      int
 	PrintError         int
+	HMS                []string // formatted XXXX_XXXX_XXXX_XXXX codes from push_status hms[]
 	WifiSignal         string
 	NozzleDiameter     string
 	Tags               []string

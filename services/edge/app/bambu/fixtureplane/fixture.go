@@ -193,6 +193,7 @@ func mapDevice(d farmmanager.Device) farm.DeviceReport {
 		rep.LayerNum = rs.LayerNum
 		rep.TotalLayerNum = rs.TotalLayerNum
 		rep.PrintError = rs.PrintError
+		rep.HMS = farm.ParseHMSJSON(rs.HMS)
 		rep.WifiSignal = rs.WifiSignal
 		rep.NozzleDiameter = rs.NozzleDiameter
 	}
