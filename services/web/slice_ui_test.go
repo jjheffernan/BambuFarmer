@@ -18,4 +18,9 @@ func TestSlicePage(t *testing.T) {
 	if !strings.Contains(layoutHTML, `id="slice-artifact"`) || !strings.Contains(layoutHTML, "/api/v1/artifacts") {
 		t.Fatal("expected staged artifact picker on Slice page")
 	}
+	if !strings.Contains(layoutHTML, "loadSlicePresets") ||
+		!strings.Contains(layoutHTML, "/api/v1/presets/print") ||
+		!strings.Contains(layoutHTML, "/api/v1/presets/filament") {
+		t.Fatal("expected slice preset dropdowns")
+	}
 }

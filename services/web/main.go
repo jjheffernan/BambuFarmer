@@ -1630,11 +1630,15 @@ const layoutHTML = `<!DOCTYPE html>
             <label class="text-sm md:col-span-2">Input path
               <input class="bf-input block mt-1 w-full font-mono text-xs" id="slice-input" placeholder="relative to SLICE_WORK_DIR / ARTIFACTS_DIR"/>
             </label>
-            <label class="text-sm">Print preset id
-              <input class="bf-input block mt-1 w-full font-mono text-xs" id="slice-print-preset" placeholder="optional"/>
+            <label class="text-sm">Print preset
+              <select class="bf-input block mt-1 w-full" id="slice-print-preset">
+                <option value="">— optional —</option>
+              </select>
             </label>
-            <label class="text-sm">Filament preset id
-              <input class="bf-input block mt-1 w-full font-mono text-xs" id="slice-filament-preset" placeholder="optional"/>
+            <label class="text-sm">Filament preset
+              <select class="bf-input block mt-1 w-full" id="slice-filament-preset">
+                <option value="">— optional —</option>
+              </select>
             </label>
             <label class="text-sm">Output path
               <input class="bf-input block mt-1 w-full font-mono text-xs" id="slice-output" placeholder="optional"/>
@@ -1695,9 +1699,28 @@ const layoutHTML = `<!DOCTYPE html>
               nameEl.value = opt.dataset.name.replace(/\.(gcode\.)?3mf$/i, '') || opt.dataset.name;
             }
           };
+          async function loadSlicePresets() {
+            const fill = (sel, items) => {
+              const opts = ['<option value="">— optional —</option>'];
+              (items || []).forEach(p => {
+                if (!p.id) return;
+                opts.push('<option value="' + escOpt(p.id) + '">' + escOpt((p.name || p.id) + ' · ' + p.id) + '</option>');
+              });
+              sel.innerHTML = opts.join('');
+            };
+            try {
+              const [print, filament] = await Promise.all([
+                bfJSON(API + '/api/v1/presets/print'),
+                bfJSON(API + '/api/v1/presets/filament'),
+              ]);
+              fill(document.getElementById('slice-print-preset'), print);
+              fill(document.getElementById('slice-filament-preset'), filament);
+            } catch (_) {}
+          }
           document.getElementById('slice-refresh').onclick = () => {
             loadSliceStatus();
             loadSliceArtifacts();
+            loadSlicePresets();
           };
           document.getElementById('slice-form').onsubmit = async (ev) => {
             ev.preventDefault();
@@ -1726,6 +1749,7 @@ const layoutHTML = `<!DOCTYPE html>
           };
           loadSliceStatus();
           loadSliceArtifacts();
+          loadSlicePresets();
         </script>
       {{else if eq .Active "commerce"}}
         <p class="bf-lede">Optional shop-orders plugin (<code>compose --profile commerce</code>). Webhook queues a core job when <code>CORE_URL</code> is set; pack/ship status is echoed (not stored yet).</p>
