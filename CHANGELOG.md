@@ -10,6 +10,7 @@ On release: move that section to a new `## [X.Y.Z] — YYYY-MM-DD`, bump [`VERSI
 ## [Unreleased]
 
 ### Added
+- Fleet drawer liveview JPEG refreshes every 3s while open (cache-busted fetch); stops on close
 - Preset revision history and restore (`GET …/presets/{filament|print}/{id}/revisions`, `POST …/restore`); Presets page History opens the list
 - `GET /api/v1/printers` returns full snapshots hydrated from `last_snapshot` (AMS, HMS, task, temps) so fleet bootstrap matches edge status
 - Core forwards `alert.raised` to `NOTIFY_URL` when set (same webhook as job-finished; empty URL does nothing)

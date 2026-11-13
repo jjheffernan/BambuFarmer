@@ -179,6 +179,7 @@ const layoutHTML = `<!DOCTYPE html>
           const selected = new Set();
           let filter = 'all';
           let openSn = '';
+          let liveviewTimer = null;
           const statusEl = document.getElementById('sse-status');
           const grid = document.getElementById('printer-grid');
           const bulkBar = document.getElementById('bulk-bar');
@@ -190,6 +191,7 @@ const layoutHTML = `<!DOCTYPE html>
           const drawerSn = document.getElementById('drawer-sn');
           const alertBanner = document.getElementById('alert-banner');
           const recentAlerts = [];
+          const LIVEVIEW_MS = 3000;
 
           document.querySelectorAll('#bucket-chips .bf-chip').forEach(chip => {
             chip.addEventListener('click', () => {
@@ -237,6 +239,29 @@ const layoutHTML = `<!DOCTYPE html>
             return '<div class="flex flex-wrap gap-1 mt-2" data-ams-chips>' + chips.join('') + '</div>';
           }
 
+          function liveviewURL(sn) {
+            return API + '/api/v1/printers/' + encodeURIComponent(sn) + '/liveview?t=' + Date.now();
+          }
+
+          function stopLiveview() {
+            if (liveviewTimer) {
+              clearInterval(liveviewTimer);
+              liveviewTimer = null;
+            }
+          }
+
+          function startLiveview(sn) {
+            stopLiveview();
+            const bump = () => {
+              if (openSn !== sn) return;
+              const img = document.getElementById('drawer-liveview');
+              if (!img) return;
+              img.src = liveviewURL(sn);
+            };
+            bump();
+            liveviewTimer = setInterval(bump, LIVEVIEW_MS);
+          }
+
           function openDrawer(sn) {
             openSn = sn;
             const p = printers.get(sn);
@@ -246,10 +271,12 @@ const layoutHTML = `<!DOCTYPE html>
             drawerBackdrop.hidden = false;
             drawer.setAttribute('aria-hidden', 'false');
             fillDrawer(p);
+            startLiveview(sn);
           }
 
           function closeDrawer() {
             openSn = '';
+            stopLiveview();
             drawer.classList.remove('open');
             drawerBackdrop.classList.remove('open');
             drawerBackdrop.hidden = true;
@@ -281,6 +308,8 @@ const layoutHTML = `<!DOCTYPE html>
               '<span class="bf-empty">None</span>';
             const tags = (p.tags || []).map(c => '<span class="bf-chip text-xs">' + esc(c) + '</span>').join('') ||
               '<span class="bf-empty">None</span>';
+            const prevImg = document.getElementById('drawer-liveview');
+            const keepSrc = prevImg && prevImg.dataset.sn === p.external_sn ? prevImg.src : liveviewURL(p.external_sn);
             drawerBody.innerHTML =
               '<div class="bf-panel p-3">' +
               '<div class="bf-card-meta m-0 mb-2">' + esc(p.model || '') + ' · <span class="state-' +
@@ -305,9 +334,10 @@ const layoutHTML = `<!DOCTYPE html>
               '<div><h3 class="font-display text-base mb-2">HMS</h3><div class="flex flex-wrap gap-1">' + hms + '</div></div>' +
               '<div><h3 class="font-display text-base mb-2">Tags</h3><div class="flex flex-wrap gap-1">' + tags + '</div></div>' +
               '<div><h3 class="font-display text-base mb-2">Liveview</h3>' +
-              '<img class="w-full rounded-bf border border-bf-border bg-bf-0" alt="liveview" ' +
-              'src="' + API + '/api/v1/printers/' + encodeURIComponent(p.external_sn) + '/liveview" ' +
-              'onerror="this.replaceWith(Object.assign(document.createElement(\'p\'),{className:\'bf-empty m-0\',textContent:\'No still\'}))"/>' +
+              '<p class="bf-card-meta text-xs mb-2">Refreshes every ' + (LIVEVIEW_MS/1000) + 's while open</p>' +
+              '<img id="drawer-liveview" data-sn="' + esc(p.external_sn) + '" class="w-full rounded-bf border border-bf-border bg-bf-0" alt="liveview" ' +
+              'src="' + keepSrc + '" ' +
+              'onerror="this.onerror=null;this.replaceWith(Object.assign(document.createElement(\'p\'),{className:\'bf-empty m-0\',textContent:\'No still\'}))"/>' +
               '</div>';
           }
 
