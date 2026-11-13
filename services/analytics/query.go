@@ -6,11 +6,10 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func queryUtilization(ctx context.Context, pool *pgxpool.Pool) []map[string]any {
+func queryUtilization(ctx context.Context, pool *pgxpool.Pool, win dayWindow, gb string) []map[string]any {
 	series := []map[string]any{}
-	rows, err := pool.Query(ctx, `
-		SELECT day::text, site_id, external_sn, idle_s, run_s, fail_s, samples
-		FROM agg_utilization_daily ORDER BY day DESC LIMIT 30`)
+	sql, args := utilizationSQL(win, gb)
+	rows, err := pool.Query(ctx, sql, args...)
 	if err != nil {
 		return series
 	}
@@ -28,11 +27,46 @@ func queryUtilization(ctx context.Context, pool *pgxpool.Pool) []map[string]any 
 	return series
 }
 
-func queryCosts(ctx context.Context, pool *pgxpool.Pool) []map[string]any {
+func utilizationSQL(win dayWindow, gb string) (string, []any) {
+	switch gb {
+	case "site":
+		base := `
+			SELECT MAX(day)::text AS day, site_id, '' AS external_sn,
+				SUM(idle_s)::int, SUM(run_s)::int, SUM(fail_s)::int, SUM(samples)::int
+			FROM agg_utilization_daily`
+		where, args := dayWhere(win)
+		return base + where + ` GROUP BY site_id ORDER BY day DESC LIMIT 100`, args
+	case "day":
+		base := `
+			SELECT day::text, '' AS site_id, '' AS external_sn,
+				SUM(idle_s)::int, SUM(run_s)::int, SUM(fail_s)::int, SUM(samples)::int
+			FROM agg_utilization_daily`
+		where, args := dayWhere(win)
+		return base + where + ` GROUP BY day ORDER BY day DESC LIMIT 100`, args
+	default: // printer
+		base := `
+			SELECT day::text, site_id, external_sn, idle_s, run_s, fail_s, samples
+			FROM agg_utilization_daily`
+		where, args := dayWhere(win)
+		limit := " LIMIT 30"
+		if win.Set {
+			limit = " LIMIT 500"
+		}
+		return base + where + ` ORDER BY day DESC` + limit, args
+	}
+}
+
+func queryCosts(ctx context.Context, pool *pgxpool.Pool, win dayWindow) []map[string]any {
 	series := []map[string]any{}
-	rows, err := pool.Query(ctx, `
+	base := `
 		SELECT day::text, site_id, material_cost, machine_cost, labor_cost, jobs
-		FROM agg_cost_daily ORDER BY day DESC LIMIT 30`)
+		FROM agg_cost_daily`
+	where, args := dayWhere(win)
+	limit := " LIMIT 30"
+	if win.Set {
+		limit = " LIMIT 500"
+	}
+	rows, err := pool.Query(ctx, base+where+` ORDER BY day DESC`+limit, args...)
 	if err != nil {
 		return series
 	}
@@ -51,11 +85,17 @@ func queryCosts(ctx context.Context, pool *pgxpool.Pool) []map[string]any {
 	return series
 }
 
-func queryFailures(ctx context.Context, pool *pgxpool.Pool) []map[string]any {
+func queryFailures(ctx context.Context, pool *pgxpool.Pool, win dayWindow) []map[string]any {
 	series := []map[string]any{}
-	rows, err := pool.Query(ctx, `
+	base := `
 		SELECT day::text, site_id, code, count
-		FROM agg_hms_daily ORDER BY day DESC, count DESC LIMIT 100`)
+		FROM agg_hms_daily`
+	where, args := dayWhere(win)
+	limit := " LIMIT 100"
+	if win.Set {
+		limit = " LIMIT 500"
+	}
+	rows, err := pool.Query(ctx, base+where+` ORDER BY day DESC, count DESC`+limit, args...)
 	if err != nil {
 		return series
 	}
@@ -70,4 +110,14 @@ func queryFailures(ctx context.Context, pool *pgxpool.Pool) []map[string]any {
 		}
 	}
 	return series
+}
+
+func dayWhere(win dayWindow) (string, []any) {
+	if !win.Set {
+		return "", nil
+	}
+	return " WHERE day >= $1::date AND day <= $2::date", []any{
+		win.From.Format("2006-01-02"),
+		win.To.Format("2006-01-02"),
+	}
 }

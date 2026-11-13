@@ -902,9 +902,23 @@ const layoutHTML = `<!DOCTYPE html>
         </script>
       {{else if eq .Active "analytics"}}
         <p class="bf-lede">Daily utilization, costs, and failure codes from the analytics consumer.</p>
-        <div class="flex items-center justify-between gap-3 mb-3">
+        <div class="flex flex-wrap items-end gap-3 mb-3">
+          <label class="text-sm">From
+            <input type="date" class="bf-input block mt-1" id="analytics-from"/>
+          </label>
+          <label class="text-sm">To
+            <input type="date" class="bf-input block mt-1" id="analytics-to"/>
+          </label>
+          <label class="text-sm">Group utilization
+            <select class="bf-input block mt-1" id="analytics-group">
+              <option value="printer">Printer</option>
+              <option value="site">Site</option>
+              <option value="day">Day</option>
+            </select>
+          </label>
+          <button type="button" class="bf-btn bf-btn-primary" id="analytics-apply">Apply</button>
           <div id="analytics-status" class="bf-status m-0">loading…</div>
-          <div class="flex flex-wrap gap-2">
+          <div class="flex flex-wrap gap-2 ml-auto">
             <a class="bf-btn" id="analytics-export-json" href="#">Export JSON</a>
             <a class="bf-btn" id="analytics-export-csv" href="#">Export CSV</a>
             <button type="button" class="bf-btn" id="analytics-refresh">Refresh</button>
@@ -1122,15 +1136,36 @@ const layoutHTML = `<!DOCTYPE html>
               ]);
             }).join('');
           }
+          function analyticsQS(extra) {
+            const q = new URLSearchParams(extra || {});
+            const from = document.getElementById('analytics-from').value;
+            const to = document.getElementById('analytics-to').value;
+            const gb = document.getElementById('analytics-group').value;
+            if (from && to) {
+              q.set('from', from);
+              q.set('to', to);
+            }
+            if (gb) q.set('group_by', gb);
+            const s = q.toString();
+            return s ? ('?' + s) : '';
+          }
+          function syncExportLinks() {
+            document.getElementById('analytics-export-json').href =
+              API + '/api/v1/analytics/export' + analyticsQS({format: 'json'});
+            document.getElementById('analytics-export-csv').href =
+              API + '/api/v1/analytics/export' + analyticsQS({format: 'csv'});
+          }
           async function loadAnalytics() {
             statusEl.textContent = 'loading…';
             statusEl.classList.remove('live');
+            syncExportLinks();
+            const qs = analyticsQS();
             try {
               const [u, c, costs, fails] = await Promise.all([
-                bfJSON(API + '/api/v1/analytics/utilization'),
+                bfJSON(API + '/api/v1/analytics/utilization' + qs),
                 bfJSON(API + '/api/v1/analytics/counters'),
-                bfJSON(API + '/api/v1/analytics/costs'),
-                bfJSON(API + '/api/v1/analytics/failures')
+                bfJSON(API + '/api/v1/analytics/costs' + qs),
+                bfJSON(API + '/api/v1/analytics/failures' + qs)
               ]);
               renderCounters(c);
               renderUtilization(u);
@@ -1150,8 +1185,8 @@ const layoutHTML = `<!DOCTYPE html>
             }
           }
           document.getElementById('analytics-refresh').onclick = loadAnalytics;
-          document.getElementById('analytics-export-json').href = API + '/api/v1/analytics/export?format=json';
-          document.getElementById('analytics-export-csv').href = API + '/api/v1/analytics/export?format=csv';
+          document.getElementById('analytics-apply').onclick = loadAnalytics;
+          syncExportLinks();
           loadAnalytics();
         </script>
       {{else}}

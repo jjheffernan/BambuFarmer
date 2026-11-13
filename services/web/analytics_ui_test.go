@@ -47,4 +47,10 @@ func TestAnalyticsPageRendersRollupTableNotRawJSON(t *testing.T) {
 	if !strings.Contains(layoutHTML, "analytics-export-csv") {
 		t.Fatal("expected CSV export link")
 	}
+	if !strings.Contains(layoutHTML, "analytics-from") || !strings.Contains(layoutHTML, "analytics-group") {
+		t.Fatal("expected analytics date window and group_by controls")
+	}
+	if !strings.Contains(layoutHTML, "analyticsQS") {
+		t.Fatal("expected analytics query-string helper for from/to/group_by")
+	}
 }

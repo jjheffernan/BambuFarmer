@@ -42,12 +42,12 @@ Idempotent by event `id`.
 
 | Path | Notes |
 |------|-------|
-| `GET /api/v1/analytics/utilization` | `from`, `to`, `group_by` |
-| `GET /api/v1/analytics/costs` | includes kg/hr rollups |
-| `GET /api/v1/analytics/failures` | HMS / fail rates |
-| `GET /api/v1/analytics/export` | JSON (default) or CSV via `format=` / `Accept: text/csv`; optional `kind=utilization\|costs\|failures\|all` |
+| `GET /api/v1/analytics/utilization` | optional `from`/`to` (`YYYY-MM-DD`, both required together); `group_by=printer\|site\|day` |
+| `GET /api/v1/analytics/costs` | same optional `from`/`to` |
+| `GET /api/v1/analytics/failures` | same optional `from`/`to` |
+| `GET /api/v1/analytics/export` | JSON (default) or CSV via `format=` / `Accept: text/csv`; optional `kind=utilization\|costs\|failures\|all`; honors `from`/`to`/`group_by` |
 
-Utilization and failures read from Postgres rollups when events have been consumed. Empty series when the database is unset.
+Without `from`/`to`, series use a short recent limit. Utilization and failures read from Postgres rollups when events have been consumed. Empty series when the database is unset.
 
 ---
 

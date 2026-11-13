@@ -55,26 +55,41 @@ func main() {
 
 	mux := httpserver.NewMux(service)
 	mux.HandleFunc("GET /api/v1/analytics/utilization", func(w http.ResponseWriter, r *http.Request) {
+		win, err := parseDayWindow(r)
+		if err != nil {
+			httpserver.WriteError(w, api.BadRequest(err.Error()))
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		series := []map[string]any{}
 		if pool != nil {
-			series = queryUtilization(r.Context(), pool)
+			series = queryUtilization(r.Context(), pool, win, groupBy(r))
 		}
-		_ = json.NewEncoder(w).Encode(map[string]any{"series": series})
+		_ = json.NewEncoder(w).Encode(map[string]any{"series": series, "group_by": groupBy(r)})
 	})
 	mux.HandleFunc("GET /api/v1/analytics/costs", func(w http.ResponseWriter, r *http.Request) {
+		win, err := parseDayWindow(r)
+		if err != nil {
+			httpserver.WriteError(w, api.BadRequest(err.Error()))
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		series := []map[string]any{}
 		if pool != nil {
-			series = queryCosts(r.Context(), pool)
+			series = queryCosts(r.Context(), pool, win)
 		}
 		_ = json.NewEncoder(w).Encode(map[string]any{"series": series})
 	})
 	mux.HandleFunc("GET /api/v1/analytics/failures", func(w http.ResponseWriter, r *http.Request) {
+		win, err := parseDayWindow(r)
+		if err != nil {
+			httpserver.WriteError(w, api.BadRequest(err.Error()))
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		series := []map[string]any{}
 		if pool != nil {
-			series = queryFailures(r.Context(), pool)
+			series = queryFailures(r.Context(), pool, win)
 		}
 		_ = json.NewEncoder(w).Encode(map[string]any{"series": series})
 	})
@@ -97,15 +112,20 @@ func main() {
 		_ = json.NewEncoder(w).Encode(out)
 	})
 	mux.HandleFunc("GET /api/v1/analytics/export", func(w http.ResponseWriter, r *http.Request) {
+		win, err := parseDayWindow(r)
+		if err != nil {
+			httpserver.WriteError(w, api.BadRequest(err.Error()))
+			return
+		}
 		bundle := exportBundle{
 			Utilization: []map[string]any{},
 			Costs:       []map[string]any{},
 			Failures:    []map[string]any{},
 		}
 		if pool != nil {
-			bundle.Utilization = queryUtilization(r.Context(), pool)
-			bundle.Costs = queryCosts(r.Context(), pool)
-			bundle.Failures = queryFailures(r.Context(), pool)
+			bundle.Utilization = queryUtilization(r.Context(), pool, win, groupBy(r))
+			bundle.Costs = queryCosts(r.Context(), pool, win)
+			bundle.Failures = queryFailures(r.Context(), pool, win)
 		}
 		if err := writeExport(w, exportFormat(r), exportKind(r), bundle); err != nil {
 			httpserver.WriteError(w, api.Internal("export failed: "+err.Error()))
