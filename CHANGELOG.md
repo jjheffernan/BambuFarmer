@@ -10,6 +10,7 @@ On release: move that section to a new `## [X.Y.Z] — YYYY-MM-DD`, bump [`VERSI
 ## [Unreleased]
 
 ### Added
+- Admin Users: change role and Enable/Disable via existing `PATCH /api/v1/admin/users/{id}`
 - Jobs page Dispatch button for queued/assigned jobs (`POST /api/v1/jobs/{id}/dispatch`) so operators can start without waiting on the scheduler tick
 - Site name/timezone edit (`PATCH /api/v1/sites/{id}`) and Admin Site form for the farm display name
 - Admin notify status + Send test (`GET /api/v1/notify`, `POST /api/v1/notify/test`) for `NOTIFY_URL` wiring; stack chip includes notify

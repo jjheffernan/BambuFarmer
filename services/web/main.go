@@ -2177,19 +2177,51 @@ const layoutHTML = `<!DOCTYPE html>
         <script>
           const API = {{printf "%q" .APIBase}};
           const opts = { credentials: 'include' };
+          async function patchUser(id, body) {
+            await bfJSON(API + '/api/v1/admin/users/' + encodeURIComponent(id), {
+              method: 'PATCH', credentials: 'include',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify(body),
+            });
+            await loadUsers();
+          }
           async function loadUsers() {
             const users = await bfJSON(API + '/api/v1/admin/users', opts);
             const el = document.getElementById('users-list');
             if (!users || !users.length) { el.innerHTML = '<p class="bf-empty">No users</p>'; return; }
-            el.innerHTML = '<ul class="space-y-2">' + users.map(u =>
-              '<li class="bf-card">' +
+            el.innerHTML = '<ul class="space-y-2">' + users.map(u => {
+              const role = (u.roles && u.roles[0]) || 'operator';
+              return '<li class="bf-card">' +
               '<div class="bf-card-name">' + u.username + (u.active ? '' : ' (disabled)') + '</div>' +
               '<div class="bf-card-meta">' + (u.roles||[]).join(', ') + '</div>' +
               '<div class="flex flex-wrap gap-1.5 mt-2 items-center">' +
+              '<select class="bf-input !w-auto text-xs" data-role="' + u.id + '">' +
+              '<option value="operator"' + (role === 'operator' ? ' selected' : '') + '>operator</option>' +
+              '<option value="admin"' + (role === 'admin' ? ' selected' : '') + '>admin</option>' +
+              '</select>' +
+              '<button type="button" class="bf-btn" data-save-role="' + u.id + '">Save role</button>' +
+              '<button type="button" class="bf-btn" data-active="' + u.id + '" data-next="' + (u.active ? '0' : '1') + '">' +
+                (u.active ? 'Disable' : 'Enable') + '</button>' +
               '<input class="bf-input !w-auto min-w-[8rem] text-xs" type="password" placeholder="new password" data-reset-pw="' + u.id + '" minlength="8"/>' +
               '<button type="button" class="bf-btn" data-reset="' + u.id + '">Reset password</button>' +
-              '</div></li>'
-            ).join('') + '</ul>';
+              '</div></li>';
+            }).join('') + '</ul>';
+            el.querySelectorAll('button[data-save-role]').forEach(btn => {
+              btn.onclick = async () => {
+                const id = btn.dataset.saveRole;
+                const sel = el.querySelector('select[data-role="' + id + '"]');
+                try {
+                  await patchUser(id, {roles: [sel.value]});
+                } catch (e) { alert(String(e.message || e)); }
+              };
+            });
+            el.querySelectorAll('button[data-active]').forEach(btn => {
+              btn.onclick = async () => {
+                try {
+                  await patchUser(btn.dataset.active, {active: btn.dataset.next === '1'});
+                } catch (e) { alert(String(e.message || e)); }
+              };
+            });
             el.querySelectorAll('button[data-reset]').forEach(btn => {
               btn.onclick = async () => {
                 const id = btn.dataset.reset;
