@@ -74,8 +74,8 @@ Reject: shared plugin SDK frameworks, frontend stack rewrites, fat all-in-one im
 
 | Field | Value |
 |-------|--------|
-| **Done** | P0–P5 on `after-hours/build-out`. P5 direct printer: in-process `ControlPlane` when `FARM_MANAGER_TRANSPORT=direct_printer`. P6 slicer profile records a job and does not bundle Orca |
-| **Next** | Operator-supplied Orca CLI if a real slice is required. Live FM smoke stays skipped. Stay on `after-hours/build-out` |
+| **Done** | P0–P5 on `after-hours/build-out`. MQTT `device/<sn>/report` folds into the printer snapshot (`msg` 0 full, `msg` 1 delta). Broker dial is not wired |
+| **Next** | Broker subscribe when farm TLS material is available. Live FM smoke stays skipped. Stay on `after-hours/build-out` |
 | **Blocked** | — |
 | **Deferred** | Live FM upload→print→cost smoke — skipped for now. Use fixture mode or `direct_printer` |
 | **Do not** | Commit third-party product source trees; migrate off Go; bundle the Orca binary into the image |
