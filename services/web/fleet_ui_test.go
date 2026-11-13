@@ -39,4 +39,13 @@ func TestFleetPageShowsAMSAndTaskHelpers(t *testing.T) {
 	if !strings.Contains(layoutHTML, "fleet-q") || !strings.Contains(layoutHTML, "fleetQ") {
 		t.Fatal("expected fleet search filter")
 	}
+	if !strings.Contains(layoutHTML, `id="edge-status"`) || !strings.Contains(layoutHTML, "showEdgeStatus") {
+		t.Fatal("expected fleet edge status strip")
+	}
+	if !strings.Contains(layoutHTML, `id="bulk-msg"`) || !strings.Contains(layoutHTML, "accepted") {
+		t.Fatal("expected bulk action accepted/skipped feedback")
+	}
+	if !strings.Contains(layoutHTML, `id="fleet-online"`) || !strings.Contains(layoutHTML, `id="fleet-model"`) {
+		t.Fatal("expected fleet online/model filters")
+	}
 }

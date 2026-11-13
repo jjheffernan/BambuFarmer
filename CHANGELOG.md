@@ -10,6 +10,7 @@ On release: move that section to a new `## [X.Y.Z] — YYYY-MM-DD`, bump [`VERSI
 ## [Unreleased]
 
 ### Added
+- Fleet edge status strip, online/model filters, and bulk action accepted/skipped feedback
 - Jobs create form optional `queue_pos` for initial queue ordering
 - Filament and Library pages show Spoolman/Manyfold URL status from `GET /api/v1/integrations/status`
 - Analytics export kind picker (`utilization` / `costs` / `failures` / `all`) on JSON and CSV download links

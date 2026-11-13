@@ -176,7 +176,10 @@ const layoutHTML = `<!DOCTYPE html>
       <h1 class="bf-title">{{.Title}}</h1>
       {{if eq .Active "fleet"}}
         <p class="bf-lede">Live fleet via gateway SSE — no browser polling of Farm Manager.</p>
-        <div id="sse-status" class="bf-status">connecting…</div>
+        <div class="flex flex-wrap items-center gap-2 mb-3">
+          <div id="sse-status" class="bf-status m-0">connecting…</div>
+          <div id="edge-status" class="bf-status m-0">edge…</div>
+        </div>
         <div id="alert-banner" class="hidden mb-3 border border-bf-danger/40 bg-bf-danger/10 rounded-bf px-3 py-2 text-sm" role="status"></div>
         <div class="flex flex-wrap gap-2 mb-3" id="bucket-chips">
           <span class="bf-chip on" data-bucket="all">All</span>
@@ -188,6 +191,14 @@ const layoutHTML = `<!DOCTYPE html>
         </div>
         <div class="flex flex-wrap items-center gap-2 mb-4">
           <input class="bf-input max-w-xs" id="fleet-q" type="search" placeholder="Search name, SN, model"/>
+          <select class="bf-input max-w-[10rem]" id="fleet-online">
+            <option value="">Online/offline</option>
+            <option value="true">Online only</option>
+            <option value="false">Offline only</option>
+          </select>
+          <select class="bf-input max-w-[10rem]" id="fleet-model">
+            <option value="">All models</option>
+          </select>
           <div class="flex flex-wrap gap-2" id="tag-chips">
             <span class="bf-chip on" data-tag="">All tags</span>
           </div>
@@ -199,6 +210,7 @@ const layoutHTML = `<!DOCTYPE html>
           <button type="button" class="bf-btn" data-bulk="stop">Stop</button>
           <button type="button" class="bf-btn" data-bulk="bed_clean">Bed clean</button>
           <button type="button" class="bf-btn" id="bulk-clear">Clear</button>
+          <span id="bulk-msg" class="text-sm text-bf-muted"></span>
         </div>
         <div id="printer-grid" class="grid gap-3 grid-cols-[repeat(auto-fill,minmax(220px,1fr))]"></div>
         <div id="drawer-backdrop" class="bf-drawer-backdrop" hidden></div>
@@ -219,12 +231,16 @@ const layoutHTML = `<!DOCTYPE html>
           let filter = 'all';
           let tagFilter = '';
           let fleetQ = '';
+          let fleetOnline = '';
+          let fleetModel = '';
           let openSn = '';
           let liveviewTimer = null;
           const statusEl = document.getElementById('sse-status');
+          const edgeStatusEl = document.getElementById('edge-status');
           const grid = document.getElementById('printer-grid');
           const bulkBar = document.getElementById('bulk-bar');
           const bulkCount = document.getElementById('bulk-count');
+          const bulkMsg = document.getElementById('bulk-msg');
           const drawer = document.getElementById('printer-drawer');
           const drawerBackdrop = document.getElementById('drawer-backdrop');
           const drawerBody = document.getElementById('drawer-body');
@@ -244,6 +260,14 @@ const layoutHTML = `<!DOCTYPE html>
           });
           document.getElementById('fleet-q').oninput = (ev) => {
             fleetQ = String(ev.target.value || '').trim().toLowerCase();
+            render();
+          };
+          document.getElementById('fleet-online').onchange = (ev) => {
+            fleetOnline = String(ev.target.value || '');
+            render();
+          };
+          document.getElementById('fleet-model').onchange = (ev) => {
+            fleetModel = String(ev.target.value || '');
             render();
           };
           const tagChips = document.getElementById('tag-chips');
@@ -273,6 +297,7 @@ const layoutHTML = `<!DOCTYPE html>
             const prev = printers.get(p.external_sn) || {};
             printers.set(p.external_sn, Object.assign({}, prev, p));
             rebuildTagChips();
+            rebuildModelSelect();
             render();
             if (openSn === p.external_sn) fillDrawer(printers.get(p.external_sn));
           }
@@ -423,12 +448,20 @@ const layoutHTML = `<!DOCTYPE html>
           async function postBulk(action) {
             const serials = [...selected];
             if (!serials.length) return;
-            await fetch(API + '/api/v1/printers/actions', {
-              method: 'POST',
-              credentials: 'include',
-              headers: {'Content-Type': 'application/json'},
-              body: JSON.stringify({action, serials})
-            });
+            bulkMsg.textContent = 'Sending…';
+            try {
+              const out = await bfJSON(API + '/api/v1/printers/actions', {
+                method: 'POST',
+                credentials: 'include',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({action, serials})
+              });
+              const ok = (out.accepted || []).length;
+              const skip = (out.skipped || []).length;
+              bulkMsg.textContent = action + ': ' + ok + ' accepted' + (skip ? (', ' + skip + ' skipped') : '');
+            } catch (e) {
+              bulkMsg.textContent = String(e.message || e);
+            }
           }
 
           document.querySelectorAll('#bulk-bar [data-bulk]').forEach(btn => {
@@ -439,6 +472,15 @@ const layoutHTML = `<!DOCTYPE html>
             render();
           });
 
+          function rebuildModelSelect() {
+            const sel = document.getElementById('fleet-model');
+            const models = new Set();
+            printers.forEach(p => { if (p.model) models.add(String(p.model)); });
+            const sorted = [...models].sort((a, b) => a.localeCompare(b));
+            const cur = fleetModel;
+            sel.innerHTML = '<option value="">All models</option>' +
+              sorted.map(m => '<option value="' + esc(m) + '"' + (cur === m ? ' selected' : '') + '>' + esc(m) + '</option>').join('');
+          }
           function render() {
             const items = [...printers.values()].filter(p => {
               if (filter !== 'all' && p.bucket !== filter) return false;
@@ -446,6 +488,9 @@ const layoutHTML = `<!DOCTYPE html>
                 const tags = (p.tags || []).map(t => String(t));
                 if (tags.indexOf(tagFilter) < 0) return false;
               }
+              if (fleetOnline === 'true' && !p.online) return false;
+              if (fleetOnline === 'false' && p.online) return false;
+              if (fleetModel && String(p.model || '') !== fleetModel) return false;
               if (fleetQ) {
                 const hay = ((p.name || '') + ' ' + (p.external_sn || '') + ' ' + (p.model || '')).toLowerCase();
                 if (hay.indexOf(fleetQ) < 0) return false;
@@ -501,6 +546,23 @@ const layoutHTML = `<!DOCTYPE html>
             syncBulkBar();
           }
 
+          function showEdgeStatus(st) {
+            if (!st) {
+              edgeStatusEl.textContent = 'edge unknown';
+              edgeStatusEl.classList.remove('live');
+              return;
+            }
+            const parts = [
+              st.transport || st.farm_mode || 'edge',
+              st.connected ? 'connected' : 'disconnected',
+              'devices=' + (st.device_count ?? (st.devices || []).length),
+            ];
+            if (st.last_error) parts.push(st.last_error);
+            else if (st.note) parts.push(st.note);
+            edgeStatusEl.textContent = parts.join(' · ');
+            edgeStatusEl.classList.toggle('live', !!st.connected);
+            edgeStatusEl.title = [st.farm_manager_url, st.server_id, st.release].filter(Boolean).join(' · ');
+          }
           async function bootstrap() {
             try {
               const r = await fetch(API + '/api/v1/printers', { credentials: 'include' });
@@ -511,9 +573,15 @@ const layoutHTML = `<!DOCTYPE html>
               const e = await fetch(API + '/api/v1/edge/status', { credentials: 'include' });
               if (e.ok) {
                 const st = await e.json();
+                showEdgeStatus(st);
                 (st.devices || []).forEach(upsert);
+              } else {
+                showEdgeStatus(null);
               }
-            } catch (_) {}
+              rebuildModelSelect();
+            } catch (_) {
+              showEdgeStatus(null);
+            }
           }
 
           function connectSSE() {
