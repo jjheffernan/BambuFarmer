@@ -1754,8 +1754,9 @@ const layoutHTML = `<!DOCTYPE html>
           async function loadStack() {
             const el = document.getElementById('stack-status');
             el.textContent = 'loading…';
-            const [ver, integ, power, slice, commerce] = await Promise.all([
+            const [ver, sites, integ, power, slice, commerce] = await Promise.all([
               probe('/api/v1/version'),
+              probe('/api/v1/sites'),
               probe('/api/v1/integrations/status'),
               probe('/api/v1/power'),
               probe('/api/v1/slice/status'),
@@ -1768,6 +1769,15 @@ const layoutHTML = `<!DOCTYPE html>
                 [v.commit || v.Commit, v.built_at || v.BuiltAt].filter(Boolean).join(' · ')));
             } else {
               chips.push(stackChip('core', false, ver.err));
+            }
+            if (sites.ok) {
+              const list = Array.isArray(sites.data) ? sites.data : [];
+              const label = list.length === 1
+                ? ('site ' + (list[0].name || list[0].id))
+                : ('sites ×' + list.length);
+              chips.push(stackChip(label, list.length > 0, list.map(s => s.id).join(', ')));
+            } else {
+              chips.push(stackChip('sites', false, sites.err));
             }
             if (integ.ok) {
               const s = integ.data || {};

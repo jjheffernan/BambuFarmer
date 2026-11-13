@@ -281,6 +281,8 @@ func main() {
 	mux.Handle("/api/v1/setup", coreProxy)
 	mux.Handle("/api/v1/setup/", coreProxy)
 	mux.Handle("/api/v1/version", coreProxy)
+	mux.Handle("/api/v1/sites", coreProxy)
+	mux.Handle("/api/v1/sites/", coreProxy)
 	mux.Handle("/api/v1/analytics/", analyticsProxy)
 	mux.Handle("/api/v1/integrations/", integrationsProxy)
 	mux.Handle("/api/v1/filament/", integrationsProxy)

@@ -8,6 +8,14 @@ type HealthResponse struct {
 	Service string `json:"service"`
 }
 
+// Site is a farm site (single-site MVP typically has one row).
+type Site struct {
+	ID        string    `json:"id"`
+	Name      string    `json:"name"`
+	Timezone  string    `json:"timezone"`
+	CreatedAt time.Time `json:"created_at,omitempty"`
+}
+
 // FilamentPreset is a per-install filament definition (see DESIGN_SPEC §8.4).
 type FilamentPreset struct {
 	ID                 string    `json:"id"`

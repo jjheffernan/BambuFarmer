@@ -27,6 +27,7 @@ import (
 	"github.com/jjheffernan/BambuFarmer/services/core/internal/printers"
 	"github.com/jjheffernan/BambuFarmer/services/core/internal/rates"
 	"github.com/jjheffernan/BambuFarmer/services/core/internal/setup"
+	"github.com/jjheffernan/BambuFarmer/services/core/internal/sites"
 	"github.com/jjheffernan/BambuFarmer/services/core/internal/users"
 )
 
@@ -76,8 +77,12 @@ func main() {
 			Stagger:          schedulerStagger(),
 			MaxStartsPerTick: schedulerMaxStarts(),
 		}
-		if sched.Stagger > 0 {
-			slog.Info("scheduler stagger", "stagger", sched.Stagger, "max_starts_per_tick", sched.startsCap())
+		if sched.Stagger > 0 || sched.MaxStartsPerTick > 0 {
+			capN := sched.MaxStartsPerTick
+			if capN <= 0 && sched.Stagger > 0 {
+				capN = 1
+			}
+			slog.Info("scheduler stagger", "stagger", sched.Stagger, "max_starts_per_tick", capN)
 		}
 		go sched.Run(ctx)
 	}
@@ -106,6 +111,7 @@ func main() {
 	power.Register(mux, os.Getenv("POWER_URL"))
 	printers.Register(mux, pool, bus, cfg.SiteID)
 	setup.Register(mux, pool, cfg.SiteID)
+	sites.Register(mux, pool)
 	users.Register(mux, pool)
 	mux.HandleFunc("GET /api/v1/version", func(w http.ResponseWriter, _ *http.Request) {
 		httpx.WriteJSON(w, version.Get())

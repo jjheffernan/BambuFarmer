@@ -57,6 +57,7 @@ Persistence stays in [`packages/db`](../../packages/db); core packages are thin 
 
 ### Recent
 
+- `GET /api/v1/sites` (+ `/{id}`)
 - Scheduler stagger (`SCHEDULER_STAGGER` / `SCHEDULER_MAX_STARTS_PER_TICK`)
 - Optional MinIO/S3 artifact mirror via `OBJECT_STORE_*` (compose `--profile object`)
 - Preset revision list/restore (`GET …/revisions`, `POST …/restore`)

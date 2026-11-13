@@ -10,6 +10,7 @@ On release: move that section to a new `## [X.Y.Z] — YYYY-MM-DD`, bump [`VERSI
 ## [Unreleased]
 
 ### Added
+- Sites API (`GET /api/v1/sites`, `GET /api/v1/sites/{id}`); Admin stack panel shows the site name
 - Admin stack/plugin status chips (version, Spoolman, Manyfold, power, slicer, commerce) and build version in the shell footer
 - Admin power On/Off controls and `GET /api/v1/power` status when `POWER_URL` is set (dry-run when unset)
 - Scheduler start stagger (`SCHEDULER_STAGGER`, optional `SCHEDULER_MAX_STARTS_PER_TICK`) so auto-assign does not slam every idle printer at once

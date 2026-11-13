@@ -36,4 +36,7 @@ func TestAdminPageHasRateCardEditor(t *testing.T) {
 	if !strings.Contains(layoutHTML, "/api/v1/slice/status") || !strings.Contains(layoutHTML, "/api/v1/commerce/status") {
 		t.Fatal("expected plugin status probes")
 	}
+	if !strings.Contains(layoutHTML, "/api/v1/sites") {
+		t.Fatal("expected sites status probe")
+	}
 }
