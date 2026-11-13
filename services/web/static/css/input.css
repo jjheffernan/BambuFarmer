@@ -87,6 +87,20 @@
   .bf-card-meta {
     @apply text-bf-muted text-sm mt-1;
   }
+  .bf-drawer-backdrop {
+    @apply fixed inset-0 z-40 bg-black/50 hidden;
+  }
+  .bf-drawer-backdrop.open {
+    @apply block;
+  }
+  .bf-drawer {
+    @apply fixed inset-y-0 right-0 z-50 w-full max-w-md border-l border-bf-border
+      bg-bf-1 p-5 overflow-y-auto shadow-[-8px_0_24px_rgb(0_0_0/0.35)]
+      translate-x-full transition-transform duration-200;
+  }
+  .bf-drawer.open {
+    @apply translate-x-0;
+  }
   .bf-btn {
     @apply inline-flex items-center justify-center rounded-bf border border-bf-border
       bg-bf-0 text-bf-text px-2.5 py-1.5 text-xs cursor-pointer

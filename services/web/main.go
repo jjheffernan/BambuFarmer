@@ -161,15 +161,32 @@ const layoutHTML = `<!DOCTYPE html>
           <button type="button" class="bf-btn" id="bulk-clear">Clear</button>
         </div>
         <div id="printer-grid" class="grid gap-3 grid-cols-[repeat(auto-fill,minmax(220px,1fr))]"></div>
+        <div id="drawer-backdrop" class="bf-drawer-backdrop" hidden></div>
+        <aside id="printer-drawer" class="bf-drawer" aria-hidden="true">
+          <div class="flex items-start justify-between gap-3 mb-4">
+            <div>
+              <h2 class="font-display text-lg" id="drawer-title">Printer</h2>
+              <p class="bf-card-meta m-0 font-mono text-xs" id="drawer-sn"></p>
+            </div>
+            <button type="button" class="bf-btn" id="drawer-close">Close</button>
+          </div>
+          <div id="drawer-body" class="space-y-4 text-sm"></div>
+        </aside>
         <script>
           const API = {{printf "%q" .APIBase}};
           const printers = new Map();
           const selected = new Set();
           let filter = 'all';
+          let openSn = '';
           const statusEl = document.getElementById('sse-status');
           const grid = document.getElementById('printer-grid');
           const bulkBar = document.getElementById('bulk-bar');
           const bulkCount = document.getElementById('bulk-count');
+          const drawer = document.getElementById('printer-drawer');
+          const drawerBackdrop = document.getElementById('drawer-backdrop');
+          const drawerBody = document.getElementById('drawer-body');
+          const drawerTitle = document.getElementById('drawer-title');
+          const drawerSn = document.getElementById('drawer-sn');
 
           document.querySelectorAll('#bucket-chips .bf-chip').forEach(chip => {
             chip.addEventListener('click', () => {
@@ -185,6 +202,7 @@ const layoutHTML = `<!DOCTYPE html>
             const prev = printers.get(p.external_sn) || {};
             printers.set(p.external_sn, Object.assign({}, prev, p));
             render();
+            if (openSn === p.external_sn) fillDrawer(printers.get(p.external_sn));
           }
 
           function esc(s) {
@@ -215,6 +233,86 @@ const layoutHTML = `<!DOCTYPE html>
             if (!chips.length) return '';
             return '<div class="flex flex-wrap gap-1 mt-2" data-ams-chips>' + chips.join('') + '</div>';
           }
+
+          function openDrawer(sn) {
+            openSn = sn;
+            const p = printers.get(sn);
+            if (!p) return;
+            drawer.classList.add('open');
+            drawerBackdrop.classList.add('open');
+            drawerBackdrop.hidden = false;
+            drawer.setAttribute('aria-hidden', 'false');
+            fillDrawer(p);
+          }
+
+          function closeDrawer() {
+            openSn = '';
+            drawer.classList.remove('open');
+            drawerBackdrop.classList.remove('open');
+            drawerBackdrop.hidden = true;
+            drawer.setAttribute('aria-hidden', 'true');
+          }
+
+          function fillDrawer(p) {
+            drawerTitle.textContent = p.name || p.external_sn || 'Printer';
+            drawerSn.textContent = p.external_sn || '';
+            const t = p.task || {};
+            const temps = [
+              ['Nozzle', p.nozzle_temper, p.nozzle_target_temper],
+              ['Bed', p.bed_temper, p.bed_target_temper],
+              ['Chamber', p.chamber_temper, null]
+            ].map(row => {
+              const cur = row[1] != null ? Number(row[1]).toFixed(1) + '°' : '—';
+              const tgt = row[2] != null && row[2] !== 0 ? ' → ' + Number(row[2]).toFixed(0) + '°' : '';
+              return '<div class="flex justify-between gap-2"><span class="text-bf-muted">' + esc(row[0]) +
+                '</span><span class="font-mono text-xs">' + esc(cur + tgt) + '</span></div>';
+            }).join('');
+            let amsRows = '';
+            (p.ams || []).forEach(u => (u.trays || []).forEach(tr => {
+              amsRows += '<tr><td class="font-mono text-xs">' + esc(u.id) + '/' + esc(tr.slot) +
+                '</td><td>' + esc(tr.type || '—') + '</td><td class="font-mono text-xs">' +
+                esc(tr.remain ? tr.remain + '%' : '—') + '</td><td class="font-mono text-xs truncate">' +
+                esc(tr.tag_uid || '') + '</td></tr>';
+            }));
+            const hms = (p.hms || []).map(c => '<span class="bf-chip text-xs">' + esc(c) + '</span>').join('') ||
+              '<span class="bf-empty">None</span>';
+            const tags = (p.tags || []).map(c => '<span class="bf-chip text-xs">' + esc(c) + '</span>').join('') ||
+              '<span class="bf-empty">None</span>';
+            drawerBody.innerHTML =
+              '<div class="bf-panel p-3">' +
+              '<div class="bf-card-meta m-0 mb-2">' + esc(p.model || '') + ' · <span class="state-' +
+              esc(p.gcode_state || '') + '">' + esc(p.gcode_state || '?') + '</span>' +
+              (p.mc_percent ? ' · ' + p.mc_percent + '%' : '') +
+              (p.mc_remaining_time ? ' · ' + p.mc_remaining_time + 's left' : '') + '</div>' +
+              '<div class="space-y-1">' + temps + '</div>' +
+              (p.wifi_signal ? '<p class="bf-card-meta mt-2 mb-0">Wi‑Fi ' + esc(p.wifi_signal) + '</p>' : '') +
+              '</div>' +
+              '<div><h3 class="font-display text-base mb-2">Task</h3>' +
+              (t.subtask_name || t.external_task_id
+                ? '<p class="m-0">' + esc(t.subtask_name || '—') + '</p><p class="bf-card-meta font-mono text-xs">' +
+                  esc(t.external_task_id || '') + '</p>'
+                : '<p class="bf-empty m-0">No active task</p>') +
+              '</div>' +
+              '<div><h3 class="font-display text-base mb-2">AMS</h3>' +
+              (amsRows
+                ? '<table class="bf-table"><thead><tr><th>Slot</th><th>Type</th><th>Remain</th><th>Tag</th></tr></thead><tbody>' +
+                  amsRows + '</tbody></table>'
+                : '<p class="bf-empty m-0">No AMS data</p>') +
+              '</div>' +
+              '<div><h3 class="font-display text-base mb-2">HMS</h3><div class="flex flex-wrap gap-1">' + hms + '</div></div>' +
+              '<div><h3 class="font-display text-base mb-2">Tags</h3><div class="flex flex-wrap gap-1">' + tags + '</div></div>' +
+              '<div><h3 class="font-display text-base mb-2">Liveview</h3>' +
+              '<img class="w-full rounded-bf border border-bf-border bg-bf-0" alt="liveview" ' +
+              'src="' + API + '/api/v1/printers/' + encodeURIComponent(p.external_sn) + '/liveview" ' +
+              'onerror="this.replaceWith(Object.assign(document.createElement(\'p\'),{className:\'bf-empty m-0\',textContent:\'No still\'}))"/>' +
+              '</div>';
+          }
+
+          document.getElementById('drawer-close').onclick = closeDrawer;
+          drawerBackdrop.onclick = closeDrawer;
+          document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && openSn) closeDrawer();
+          });
 
           function syncBulkBar() {
             const n = selected.size;
@@ -252,13 +350,14 @@ const layoutHTML = `<!DOCTYPE html>
               const sn = p.external_sn;
               const on = selected.has(sn) ? ' checked' : '';
               return '<article class="bf-card" id="printer-' + sn + '">' +
-                '<label class="flex items-start gap-2 mb-2 cursor-pointer">' +
+                '<div class="flex items-start gap-2 mb-2">' +
                 '<input type="checkbox" class="mt-1 bulk-pick" data-sn="' + sn + '"' + on + '/>' +
-                '<span><span class="bf-card-name">' + esc(p.name || sn) + '</span>' +
+                '<button type="button" class="text-left flex-1 min-w-0 printer-open cursor-pointer" data-sn="' + sn + '">' +
+                '<span class="bf-card-name">' + esc(p.name || sn) + '</span>' +
                 '<span class="bf-card-meta block">' + esc(p.model || '') + ' · <span class="state-' + esc(p.gcode_state||'') + '">' + esc(p.gcode_state||'?') + '</span>' +
                 (p.mc_percent ? ' · ' + p.mc_percent + '%' : '') + '</span>' +
                 taskLine(p) +
-                '</span></label>' +
+                '</button></div>' +
                 amsChips(p) +
                 '<div class="flex flex-wrap gap-1.5 mt-3">' +
                 '<button type="button" class="bf-btn" data-sn="' + sn + '" data-opt="pause">Pause</button>' +
@@ -272,6 +371,9 @@ const layoutHTML = `<!DOCTYPE html>
                 if (cb.checked) selected.add(cb.dataset.sn); else selected.delete(cb.dataset.sn);
                 syncBulkBar();
               });
+            });
+            grid.querySelectorAll('button.printer-open').forEach(btn => {
+              btn.addEventListener('click', () => openDrawer(btn.dataset.sn));
             });
             grid.querySelectorAll('button.bf-btn').forEach(btn => {
               btn.addEventListener('click', async () => {

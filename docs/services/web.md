@@ -37,7 +37,7 @@ Fleet/SSE and setup wizard are live; other panels are still light.
 ## 3. UX rules (from FM Client)
 
 - Status nav: Ready / Attention / Completed / Not in Task  
-- Detail drawer, not full-page navigation for printer detail  
+- Detail drawer, not full-page navigation for printer detail (fleet card opens drawer)
 - Bulk action bar with multi-select (Alpine)  
 - No browser polling of printers — gateway SSE only  
 

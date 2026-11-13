@@ -10,6 +10,7 @@ On release: move that section to a new `## [X.Y.Z] — YYYY-MM-DD`, bump [`VERSI
 ## [Unreleased]
 
 ### Added
+- Fleet printer detail drawer (temps, AMS table, task, HMS, tags, liveview still) opened from the card title; updates live over SSE
 - Fleet cards show AMS tray chips and active task name from edge snapshots; `GET /api/v1/edge/status` returns full snapshots (not summary-only)
 - Printer snapshots carry AMS trays and active task metadata from MQTT/FM `push_status` (`ams`, `task_id`, `subtask_name`) on deltas and the printers API
 - Slice jobs accept `print_preset_id` / `filament_preset_id` and materialize core preset JSON into Orca `--load-settings` / `--load-filaments` when `CORE_URL` and `ORCA_BIN` are set
