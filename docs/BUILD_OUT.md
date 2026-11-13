@@ -74,7 +74,7 @@ Reject: shared plugin SDK frameworks, frontend stack rewrites, fat all-in-one im
 
 | Field | Value |
 |-------|--------|
-| **Done** | P0–P6 on `after-hours/build-out`. GET /api/v1/sites |
+| **Done** | P0–P6 on `after-hours/build-out`. Artifacts operator page |
 | **Next** | More operator polish as needed. Stay on `after-hours/build-out` |
 | **Blocked** | — |
 | **Deferred** | Live FM upload→print→cost smoke — skipped for now. Use fixture mode or `direct_printer` |

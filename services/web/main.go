@@ -36,6 +36,9 @@ func main() {
 	mux.HandleFunc("GET /jobs", func(w http.ResponseWriter, _ *http.Request) {
 		render(w, "Jobs", "jobs")
 	})
+	mux.HandleFunc("GET /artifacts", func(w http.ResponseWriter, _ *http.Request) {
+		render(w, "Artifacts", "artifacts")
+	})
 	mux.HandleFunc("GET /presets", func(w http.ResponseWriter, _ *http.Request) {
 		render(w, "Presets", "presets")
 	})
@@ -113,6 +116,7 @@ const layoutHTML = `<!DOCTYPE html>
       <nav class="bf-nav">
         <a href="/" {{if eq .Active "fleet"}}class="active"{{end}}>Fleet</a>
         <a href="/jobs" {{if eq .Active "jobs"}}class="active"{{end}}>Jobs</a>
+        <a href="/artifacts" {{if eq .Active "artifacts"}}class="active"{{end}}>Artifacts</a>
         <a href="/presets" {{if eq .Active "presets"}}class="active"{{end}}>Presets</a>
         <a href="/filament" {{if eq .Active "filament"}}class="active"{{end}}>Filament</a>
         <a href="/library" {{if eq .Active "library"}}class="active"{{end}}>Library</a>
@@ -539,6 +543,124 @@ const layoutHTML = `<!DOCTYPE html>
 
           bootstrap();
           connectSSE();
+        </script>
+      {{else if eq .Active "artifacts"}}
+        <p class="bf-lede">Staged <code>.gcode.3mf</code> plates under <code>ARTIFACTS_DIR</code> (mirrored to object store when configured). Copy an id into Jobs to enqueue.</p>
+        <div class="bf-panel mb-4">
+          <h2 class="font-display text-lg mb-3">Upload</h2>
+          <form id="artifact-form" class="flex flex-wrap items-end gap-3">
+            <label class="text-sm">File
+              <input class="bf-input block mt-1" id="artifact-file" type="file" accept=".3mf,.gcode.3mf,application/octet-stream" required/>
+            </label>
+            <label class="text-sm">Est. seconds
+              <input class="bf-input block mt-1 w-28" id="artifact-est-sec" type="number" min="0" step="1"/>
+            </label>
+            <label class="text-sm">Est. grams
+              <input class="bf-input block mt-1 w-28" id="artifact-est-g" type="number" min="0" step="0.1"/>
+            </label>
+            <button type="submit" class="bf-btn bf-btn-primary">Upload</button>
+            <p class="text-sm m-0" id="artifact-form-msg"></p>
+          </form>
+        </div>
+        <div class="flex flex-wrap items-center gap-3 mb-3">
+          <div id="artifacts-status" class="bf-status m-0">loading…</div>
+          <button type="button" class="bf-btn" id="artifacts-refresh">Refresh</button>
+        </div>
+        <div class="bf-panel overflow-x-auto">
+          <table class="bf-table">
+            <thead>
+              <tr>
+                <th>Filename</th>
+                <th>ID</th>
+                <th>Size</th>
+                <th>Est.</th>
+                <th>Created</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="artifacts-body"><tr><td colspan="6" class="bf-empty">loading…</td></tr></tbody>
+          </table>
+        </div>
+        <script>
+          const API = {{printf "%q" .APIBase}};
+          const artStatus = document.getElementById('artifacts-status');
+          const artBody = document.getElementById('artifacts-body');
+          function esc(s) {
+            return String(s == null ? '' : s)
+              .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+          }
+          function fmtBytes(n) {
+            const v = Number(n) || 0;
+            if (v < 1024) return v + ' B';
+            if (v < 1048576) return (v / 1024).toFixed(1) + ' KB';
+            return (v / 1048576).toFixed(1) + ' MB';
+          }
+          async function loadArtifacts() {
+            artStatus.textContent = 'loading…';
+            artStatus.classList.remove('live');
+            try {
+              const items = await bfJSON(API + '/api/v1/artifacts');
+              if (!items || !items.length) {
+                artBody.innerHTML = '<tr><td colspan="6" class="bf-empty">No artifacts yet — upload a plate above.</td></tr>';
+                artStatus.textContent = 'empty';
+                return;
+              }
+              artBody.innerHTML = items.map(a => {
+                const est = [];
+                if (a.est_seconds) est.push(a.est_seconds + 's');
+                if (a.est_grams) est.push(a.est_grams + 'g');
+                return '<tr>' +
+                  '<td>' + esc(a.filename || '—') + '</td>' +
+                  '<td class="font-mono text-xs">' + esc(a.id) + '</td>' +
+                  '<td class="font-mono text-xs">' + esc(fmtBytes(a.bytes)) + '</td>' +
+                  '<td class="text-bf-muted text-xs">' + esc(est.join(' · ') || '—') + '</td>' +
+                  '<td class="font-mono text-xs">' + esc(a.created_at ? new Date(a.created_at).toLocaleString() : '—') + '</td>' +
+                  '<td class="whitespace-nowrap">' +
+                  '<a class="bf-btn" href="' + API + '/api/v1/artifacts/' + encodeURIComponent(a.id) + '/content">Download</a> ' +
+                  '<button type="button" class="bf-btn" data-copy="' + esc(a.id) + '">Copy id</button>' +
+                  '</td></tr>';
+              }).join('');
+              artBody.querySelectorAll('[data-copy]').forEach(btn => {
+                btn.onclick = async () => {
+                  try {
+                    await navigator.clipboard.writeText(btn.dataset.copy);
+                    artStatus.textContent = 'Copied ' + btn.dataset.copy;
+                    artStatus.classList.add('live');
+                  } catch (_) {
+                    artStatus.textContent = btn.dataset.copy;
+                  }
+                };
+              });
+              artStatus.textContent = 'updated · ' + items.length;
+              artStatus.classList.add('live');
+            } catch (e) {
+              artStatus.textContent = String(e.message || e);
+              artBody.innerHTML = '<tr><td colspan="6" class="text-bf-danger">' + esc(e.message || e) + '</td></tr>';
+            }
+          }
+          document.getElementById('artifacts-refresh').onclick = loadArtifacts;
+          document.getElementById('artifact-form').onsubmit = async (ev) => {
+            ev.preventDefault();
+            const msg = document.getElementById('artifact-form-msg');
+            msg.textContent = '';
+            const file = document.getElementById('artifact-file').files[0];
+            if (!file) return;
+            const fd = new FormData();
+            fd.append('file', file);
+            const estSec = parseInt(document.getElementById('artifact-est-sec').value, 10);
+            const estG = parseFloat(document.getElementById('artifact-est-g').value);
+            if (Number.isFinite(estSec) && estSec > 0) fd.append('est_seconds', String(estSec));
+            if (Number.isFinite(estG) && estG > 0) fd.append('est_grams', String(estG));
+            try {
+              const art = await bfJSON(API + '/api/v1/artifacts', {method: 'POST', credentials: 'include', body: fd});
+              msg.textContent = 'Uploaded ' + (art.id || art.filename);
+              document.getElementById('artifact-file').value = '';
+              await loadArtifacts();
+            } catch (e) {
+              msg.textContent = String(e.message || e);
+            }
+          };
+          loadArtifacts();
         </script>
       {{else if eq .Active "jobs"}}
         <p class="bf-lede">Upload a <code>.gcode.3mf</code>, enqueue against core. Target a printer SN when known; leave blank to queue unassigned.</p>
