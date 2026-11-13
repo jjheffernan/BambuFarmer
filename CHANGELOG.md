@@ -10,7 +10,7 @@ On release: move that section to a new `## [X.Y.Z] — YYYY-MM-DD`, bump [`VERSI
 ## [Unreleased]
 
 ### Added
-- Jobs create form staged-artifact picker fills `artifact_id` from the artifact store
+- Jobs create form pickers for printer SN, after-job, Spoolman spool, and staged artifact
 - Slice page print/filament preset dropdowns from `GET /api/v1/presets/*`
 - Library export and Commerce webhook forms pick staged artifact ids from the artifact store
 - Admin Farm tags panel lists circuit/group tags from `GET /api/v1/edge/tags`

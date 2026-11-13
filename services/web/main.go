@@ -717,6 +717,12 @@ const layoutHTML = `<!DOCTYPE html>
               <input class="bf-input" id="job-file-id" name="file_id" placeholder="skip upload when set"/>
             </div>
             <div>
+              <label class="bf-field" for="job-sn-pick">Printer</label>
+              <select class="bf-input" id="job-sn-pick">
+                <option value="">— pick or type SN below —</option>
+              </select>
+            </div>
+            <div>
               <label class="bf-field" for="job-sn">Printer SN <span class="text-bf-muted">(external_sn)</span></label>
               <input class="bf-input" id="job-sn" name="external_sn" placeholder="optional — triggers start when set"/>
             </div>
@@ -725,12 +731,24 @@ const layoutHTML = `<!DOCTYPE html>
               <input class="bf-input" id="job-model" name="target_model" placeholder="P1S, X1C, …"/>
             </div>
             <div>
-              <label class="bf-field" for="job-after">After job <span class="text-bf-muted">(wait until it succeeds)</span></label>
+              <label class="bf-field" for="job-after-pick">After job</label>
+              <select class="bf-input" id="job-after-pick">
+                <option value="">— pick or type id below —</option>
+              </select>
+            </div>
+            <div>
+              <label class="bf-field" for="job-after">After job id <span class="text-bf-muted">(wait until it succeeds)</span></label>
               <input class="bf-input" id="job-after" name="after_job_id" placeholder="job id"/>
             </div>
             <div>
-              <label class="bf-field" for="job-spool">Spoolman spool <span class="text-bf-muted">(optional id)</span></label>
-              <input class="bf-input" id="job-spool" name="spool_id" placeholder="posted on finish when set"/>
+              <label class="bf-field" for="job-spool-pick">Spoolman spool</label>
+              <select class="bf-input" id="job-spool-pick">
+                <option value="">— pick or type id below —</option>
+              </select>
+            </div>
+            <div>
+              <label class="bf-field" for="job-spool">Spool id <span class="text-bf-muted">(posted on finish)</span></label>
+              <input class="bf-input" id="job-spool" name="spool_id" placeholder="optional"/>
             </div>
             <div>
               <label class="bf-field" for="job-copies">Copies</label>
@@ -918,11 +936,65 @@ const layoutHTML = `<!DOCTYPE html>
               sel.innerHTML = opts.join('');
             } catch (_) {}
           }
+          async function loadJobCreatePickers() {
+            await loadJobArtifacts();
+            try {
+              const printers = await bfJSON(API + '/api/v1/printers');
+              const snSel = document.getElementById('job-sn-pick');
+              const snOpts = ['<option value="">— pick or type SN below —</option>'];
+              (printers || []).forEach(p => {
+                const sn = p.external_sn || p.id;
+                if (!sn) return;
+                const label = (p.name || sn) + (p.model ? ' · ' + p.model : '') + ' · ' + sn;
+                snOpts.push('<option value="' + esc(sn) + '" data-model="' + esc(p.model || '') + '">' + esc(label) + '</option>');
+              });
+              snSel.innerHTML = snOpts.join('');
+            } catch (_) {}
+            try {
+              const jobs = await bfJSON(API + '/api/v1/jobs');
+              const afterSel = document.getElementById('job-after-pick');
+              const afterOpts = ['<option value="">— pick or type id below —</option>'];
+              (jobs || []).slice(0, 50).forEach(j => {
+                if (!j.id) return;
+                const label = (j.name || j.id) + ' · ' + (j.state || '') + ' · ' + String(j.id).slice(0, 8);
+                afterOpts.push('<option value="' + esc(j.id) + '">' + esc(label) + '</option>');
+              });
+              afterSel.innerHTML = afterOpts.join('');
+            } catch (_) {}
+            try {
+              const data = await bfJSON(API + '/api/v1/filament/spools');
+              const spoolSel = document.getElementById('job-spool-pick');
+              const spoolOpts = ['<option value="">— pick or type id below —</option>'];
+              ((data && data.spools) || []).forEach(s => {
+                const id = s.id || s.spoolman_id;
+                if (!id) return;
+                const label = (s.name || id) + (s.material ? ' · ' + s.material : '') + ' · ' + id;
+                spoolOpts.push('<option value="' + esc(String(id)) + '">' + esc(label) + '</option>');
+              });
+              spoolSel.innerHTML = spoolOpts.join('');
+            } catch (_) {}
+          }
           document.getElementById('job-artifact-pick').onchange = () => {
             const sel = document.getElementById('job-artifact-pick');
             if (sel.value) document.getElementById('job-artifact').value = sel.value;
           };
-          document.getElementById('jobs-refresh').onclick = () => { loadJobs(); loadJobArtifacts(); };
+          document.getElementById('job-sn-pick').onchange = () => {
+            const sel = document.getElementById('job-sn-pick');
+            if (!sel.value) return;
+            document.getElementById('job-sn').value = sel.value;
+            const opt = sel.options[sel.selectedIndex];
+            const modelEl = document.getElementById('job-model');
+            if (!modelEl.value.trim() && opt && opt.dataset.model) modelEl.value = opt.dataset.model;
+          };
+          document.getElementById('job-after-pick').onchange = () => {
+            const sel = document.getElementById('job-after-pick');
+            if (sel.value) document.getElementById('job-after').value = sel.value;
+          };
+          document.getElementById('job-spool-pick').onchange = () => {
+            const sel = document.getElementById('job-spool-pick');
+            if (sel.value) document.getElementById('job-spool').value = sel.value;
+          };
+          document.getElementById('jobs-refresh').onclick = () => { loadJobs(); loadJobCreatePickers(); };
           document.getElementById('jobs-q').oninput = () => { loadJobs(); };
           document.getElementById('jobs-state').onchange = () => { loadJobs(); };
           jobsTb.onclick = async (ev) => {
@@ -1073,7 +1145,7 @@ const layoutHTML = `<!DOCTYPE html>
           }
 
           loadJobs();
-          loadJobArtifacts();
+          loadJobCreatePickers();
           connectJobsSSE();
         </script>
       {{else if eq .Active "presets"}}
