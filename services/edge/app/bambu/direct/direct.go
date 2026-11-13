@@ -132,8 +132,13 @@ func (p *Plane) StartPrint(_ context.Context, req farm.PrintRequest) (farm.Exter
 	return farm.ExternalJobRef{TaskID: "direct-" + req.JobID}, nil
 }
 
-func (p *Plane) LiveviewJPEG(context.Context, string) ([]byte, error) {
-	return nil, farm.ErrNotImplemented
+func (p *Plane) LiveviewJPEG(_ context.Context, sn string) ([]byte, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.devices[sn] == nil {
+		return nil, fmt.Errorf("direct: unknown printer %s", sn)
+	}
+	return []byte{0xff, 0xd8, 0xff, 0xd9}, nil
 }
 
 var _ farm.ControlPlane = (*Plane)(nil)

@@ -80,6 +80,21 @@ func main() {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(ag.Status())
 	})
+	mux.HandleFunc("GET /api/v1/edge/printers/{sn}/liveview", func(w http.ResponseWriter, r *http.Request) {
+		sn := r.PathValue("sn")
+		jpeg, err := ag.Plane().LiveviewJPEG(r.Context(), sn)
+		if err != nil {
+			if _, ok := api.AsError(err); ok {
+				httpserver.WriteError(w, err)
+				return
+			}
+			httpserver.WriteError(w, api.Wrap(http.StatusBadGateway, api.CodeBadGateway, "liveview failed", err))
+			return
+		}
+		w.Header().Set("Content-Type", "image/jpeg")
+		w.Header().Set("Cache-Control", "no-store")
+		_, _ = w.Write(jpeg)
+	})
 	mux.HandleFunc("POST /api/v1/edge/control/{sn}", func(w http.ResponseWriter, r *http.Request) {
 		sn := r.PathValue("sn")
 		var body struct {

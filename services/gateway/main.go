@@ -270,6 +270,12 @@ func main() {
 	mux.Handle("/api/v1/artifacts", coreProxy)
 	mux.Handle("/api/v1/artifacts/", coreProxy)
 	mux.Handle("/api/v1/printers", coreProxy)
+	mux.Handle("GET /api/v1/printers/{id}/liveview", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+		r.URL.Path = "/api/v1/edge/printers/" + id + "/liveview"
+		r.URL.RawPath = ""
+		edgeProxy.ServeHTTP(w, r)
+	}))
 	mux.Handle("/api/v1/printers/", coreProxy)
 	mux.Handle("/api/v1/admin/", coreProxy)
 	mux.Handle("/api/v1/setup", coreProxy)

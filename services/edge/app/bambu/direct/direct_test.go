@@ -47,4 +47,8 @@ func TestPrintAndPause(t *testing.T) {
 	if err := p.Control(context.Background(), "missing", api.ControlStop); err == nil {
 		t.Fatal("expected unknown printer")
 	}
+	jpeg, err := p.LiveviewJPEG(context.Background(), "abc")
+	if err != nil || len(jpeg) < 2 || jpeg[0] != 0xff {
+		t.Fatalf("%v %v", jpeg, err)
+	}
 }

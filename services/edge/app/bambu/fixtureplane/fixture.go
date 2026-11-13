@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"strings"
 	"sync"
 	"time"
 
@@ -54,8 +55,8 @@ func New(dir string, log *slog.Logger) (*Plane, error) {
 func (p *Plane) Kind() farm.Kind { return farm.KindFixture }
 
 func (p *Plane) Connect(context.Context) error { return nil }
-func (p *Plane) Close() error                   { return nil }
-func (p *Plane) Ready(context.Context) error    { return nil }
+func (p *Plane) Close() error                  { return nil }
+func (p *Plane) Ready(context.Context) error   { return nil }
 
 func (p *Plane) Captain(context.Context) (api.CaptainInfo, error) {
 	return api.CaptainInfo{
@@ -142,8 +143,12 @@ func (p *Plane) StartPrint(_ context.Context, req farm.PrintRequest) (farm.Exter
 	return farm.ExternalJobRef{TaskID: taskID, Raw: req.JobID}, nil
 }
 
-func (p *Plane) LiveviewJPEG(context.Context, string) ([]byte, error) {
-	return nil, fmt.Errorf("%w: LiveviewJPEG", farm.ErrNotImplemented)
+func (p *Plane) LiveviewJPEG(_ context.Context, sn string) ([]byte, error) {
+	if strings.TrimSpace(sn) == "" {
+		return nil, fmt.Errorf("LiveviewJPEG: sn required")
+	}
+	// Minimal SOI/EOI JPEG so fleet UI and tests work offline.
+	return []byte{0xff, 0xd8, 0xff, 0xd9}, nil
 }
 
 func mapDevice(d farmmanager.Device) farm.DeviceReport {

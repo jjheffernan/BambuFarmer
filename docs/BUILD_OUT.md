@@ -74,7 +74,7 @@ Reject: shared plugin SDK frameworks, frontend stack rewrites, fat all-in-one im
 
 | Field | Value |
 |-------|--------|
-| **Done** | P0–P5 on `after-hours/build-out`. Edge subscribes to `device/+/report` when `FARM_MQTT_URL` and `EDGE_CERT_DIR` cert files are set. Polling stays on |
+| **Done** | P0–P5 on `after-hours/build-out`. Liveview JPEG via edge (`GET /api/v1/printers/{id}/liveview`); FM path and fixture/direct stills |
 | **Next** | Live FM smoke stays skipped. Stay on `after-hours/build-out` |
 | **Blocked** | — |
 | **Deferred** | Live FM upload→print→cost smoke — skipped for now. Use fixture mode or `direct_printer` |

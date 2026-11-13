@@ -150,9 +150,10 @@ func firstNonEmpty(vals ...string) string {
 }
 
 func (p *Plane) LiveviewJPEG(ctx context.Context, sn string) ([]byte, error) {
-	_ = ctx
-	_ = sn
-	return nil, fmt.Errorf("%w: LiveviewJPEG", farm.ErrNotImplemented)
+	if err := p.client.EnsureSession(ctx, p.cfg.User, p.cfg.Password); err != nil {
+		return nil, err
+	}
+	return p.client.LiveviewJPEG(ctx, sn)
 }
 
 func mapDevice(d farmmanager.Device) farm.DeviceReport {
