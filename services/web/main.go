@@ -574,6 +574,14 @@ const layoutHTML = `<!DOCTYPE html>
           <div id="artifacts-status" class="bf-status m-0">loading…</div>
           <button type="button" class="bf-btn" id="artifacts-refresh">Refresh</button>
         </div>
+        <div id="artifact-detail-panel" class="bf-panel mb-3 hidden">
+          <div class="flex items-center justify-between gap-2 mb-2">
+            <h2 class="font-display text-base m-0">Artifact detail <span class="text-bf-muted font-mono text-xs" id="artifact-detail-id"></span></h2>
+            <button type="button" class="bf-btn" id="artifact-detail-close">Close</button>
+          </div>
+          <dl class="grid gap-x-4 gap-y-1 md:grid-cols-2 text-sm mb-3" id="artifact-detail-fields"></dl>
+          <pre class="bf-pre text-xs m-0" id="artifact-detail-json">…</pre>
+        </div>
         <div class="bf-panel overflow-x-auto">
           <table class="bf-table">
             <thead>
@@ -624,11 +632,15 @@ const layoutHTML = `<!DOCTYPE html>
                   '<td class="text-bf-muted text-xs">' + esc(est.join(' · ') || '—') + '</td>' +
                   '<td class="font-mono text-xs">' + esc(a.created_at ? new Date(a.created_at).toLocaleString() : '—') + '</td>' +
                   '<td class="whitespace-nowrap">' +
+                  '<button type="button" class="bf-btn" data-detail="' + esc(a.id) + '">Detail</button> ' +
                   '<a class="bf-btn" href="' + API + '/api/v1/artifacts/' + encodeURIComponent(a.id) + '/content">Download</a> ' +
                   '<button type="button" class="bf-btn" data-copy="' + esc(a.id) + '">Copy id</button> ' +
                   '<button type="button" class="bf-btn" data-del="' + esc(a.id) + '" data-del-name="' + esc(a.filename || a.id) + '">Delete</button>' +
                   '</td></tr>';
               }).join('');
+              artBody.querySelectorAll('[data-detail]').forEach(btn => {
+                btn.onclick = () => loadArtifactDetail(btn.dataset.detail);
+              });
               artBody.querySelectorAll('[data-copy]').forEach(btn => {
                 btn.onclick = async () => {
                   try {
@@ -665,6 +677,38 @@ const layoutHTML = `<!DOCTYPE html>
               artBody.innerHTML = '<tr><td colspan="6" class="text-bf-danger">' + esc(e.message || e) + '</td></tr>';
             }
           }
+          function artDetailRow(label, value) {
+            return '<div><dt class="text-bf-muted text-xs">' + esc(label) + '</dt>' +
+              '<dd class="m-0 font-mono text-xs break-all">' + esc(value == null || value === '' ? '—' : value) + '</dd></div>';
+          }
+          async function loadArtifactDetail(id) {
+            const panel = document.getElementById('artifact-detail-panel');
+            const fields = document.getElementById('artifact-detail-fields');
+            const jsonEl = document.getElementById('artifact-detail-json');
+            document.getElementById('artifact-detail-id').textContent = id;
+            panel.classList.remove('hidden');
+            fields.innerHTML = '<p class="bf-empty md:col-span-2">loading…</p>';
+            jsonEl.textContent = '…';
+            try {
+              const a = await bfJSON(API + '/api/v1/artifacts/' + encodeURIComponent(id));
+              fields.innerHTML = [
+                artDetailRow('Filename', a.filename),
+                artDetailRow('Object key', a.object_key),
+                artDetailRow('Site', a.site_id),
+                artDetailRow('Bytes', a.bytes),
+                artDetailRow('Est. seconds', a.est_seconds),
+                artDetailRow('Est. grams', a.est_grams),
+                artDetailRow('Created', a.created_at),
+              ].join('');
+              jsonEl.textContent = JSON.stringify(a, null, 2);
+            } catch (e) {
+              fields.innerHTML = '<p class="text-bf-danger md:col-span-2">' + esc(e.message || e) + '</p>';
+              jsonEl.textContent = String(e.message || e);
+            }
+          }
+          document.getElementById('artifact-detail-close').onclick = () => {
+            document.getElementById('artifact-detail-panel').classList.add('hidden');
+          };
           document.getElementById('artifacts-refresh').onclick = loadArtifacts;
           document.getElementById('artifact-form').onsubmit = async (ev) => {
             ev.preventDefault();

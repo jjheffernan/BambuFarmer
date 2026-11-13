@@ -10,6 +10,7 @@ On release: move that section to a new `## [X.Y.Z] — YYYY-MM-DD`, bump [`VERSI
 ## [Unreleased]
 
 ### Added
+- Artifacts page Detail panel loads `GET /api/v1/artifacts/{id}` including `object_key`
 - Jobs Dispatch prompts for a printer SN when the job is unassigned
 - Presets page Duplicate forks a tip under a new id/name via GET + POST
 - Admin Scheduler readout (`GET /api/v1/admin/scheduler`) shows `CIRCUIT_MAX` / stagger / max starts per tick
