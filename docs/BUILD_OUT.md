@@ -74,8 +74,8 @@ Reject: shared plugin SDK frameworks, frontend stack rewrites, fat all-in-one im
 
 | Field | Value |
 |-------|--------|
-| **Done** | P0–P6 on `after-hours/build-out`. UX: bfFlash, Stop confirm, Jobs More menu |
-| **Next** | Create-job progressive disclosure / nav groups / Admin jump links as needed |
+| **Done** | P0–P6 polish on `after-hours/build-out` (draft PR #16). Skill draft → [heff-skills#1](https://github.com/jjheffernan/heff-skills/pull/1) |
+| **Next** | Fixture demo + daytime review/merge of #16; then UX ladder (create-job disclosure / nav groups) as needed |
 | **Blocked** | — |
 | **Deferred** | Live FM upload→print→cost smoke — skipped for now. Use fixture mode or `direct_printer` |
 | **Do not** | Commit third-party product source trees; migrate off Go; bundle the Orca binary into the image |
