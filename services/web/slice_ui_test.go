@@ -15,4 +15,7 @@ func TestSlicePage(t *testing.T) {
 	if !strings.Contains(layoutHTML, "slice-form") || !strings.Contains(layoutHTML, "ORCA_BIN") {
 		t.Fatal("expected slice form and ORCA note")
 	}
+	if !strings.Contains(layoutHTML, `id="slice-artifact"`) || !strings.Contains(layoutHTML, "/api/v1/artifacts") {
+		t.Fatal("expected staged artifact picker on Slice page")
+	}
 }

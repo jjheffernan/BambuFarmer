@@ -1593,6 +1593,11 @@ const layoutHTML = `<!DOCTYPE html>
             <label class="text-sm md:col-span-2">Name
               <input class="bf-input block mt-1 w-full" id="slice-name" required placeholder="Benchy"/>
             </label>
+            <label class="text-sm md:col-span-2">Staged artifact
+              <select class="bf-input block mt-1 w-full" id="slice-artifact">
+                <option value="">— pick or type path below —</option>
+              </select>
+            </label>
             <label class="text-sm md:col-span-2">Input path
               <input class="bf-input block mt-1 w-full font-mono text-xs" id="slice-input" placeholder="relative to SLICE_WORK_DIR / ARTIFACTS_DIR"/>
             </label>
@@ -1630,7 +1635,41 @@ const layoutHTML = `<!DOCTYPE html>
               sliceOut.textContent = String(e.message || e) + '\n\nEnable with: podman compose --profile slicer … and SLICER_URL on gateway.';
             }
           }
-          document.getElementById('slice-refresh').onclick = loadSliceStatus;
+          function escOpt(s) {
+            return String(s == null ? '' : s)
+              .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+          }
+          async function loadSliceArtifacts() {
+            const sel = document.getElementById('slice-artifact');
+            try {
+              const items = await bfJSON(API + '/api/v1/artifacts');
+              const opts = ['<option value="">— pick or type path below —</option>'];
+              (items || []).forEach(a => {
+                const path = a.object_key || a.filename || a.id || '';
+                if (!path) return;
+                const label = (a.filename || path) + (a.id ? ' · ' + a.id.slice(0, 8) : '');
+                opts.push('<option value="' + escOpt(path) + '" data-name="' + escOpt(a.filename || '') + '">' +
+                  escOpt(label) + '</option>');
+              });
+              sel.innerHTML = opts.join('');
+            } catch (_) {
+              /* leave default option */
+            }
+          }
+          document.getElementById('slice-artifact').onchange = () => {
+            const sel = document.getElementById('slice-artifact');
+            const opt = sel.options[sel.selectedIndex];
+            if (!sel.value) return;
+            document.getElementById('slice-input').value = sel.value;
+            const nameEl = document.getElementById('slice-name');
+            if (!nameEl.value.trim() && opt && opt.dataset.name) {
+              nameEl.value = opt.dataset.name.replace(/\.(gcode\.)?3mf$/i, '') || opt.dataset.name;
+            }
+          };
+          document.getElementById('slice-refresh').onclick = () => {
+            loadSliceStatus();
+            loadSliceArtifacts();
+          };
           document.getElementById('slice-form').onsubmit = async (ev) => {
             ev.preventDefault();
             const msg = document.getElementById('slice-form-msg');
@@ -1657,6 +1696,7 @@ const layoutHTML = `<!DOCTYPE html>
             }
           };
           loadSliceStatus();
+          loadSliceArtifacts();
         </script>
       {{else if eq .Active "commerce"}}
         <p class="bf-lede">Optional shop-orders plugin (<code>compose --profile commerce</code>). Webhook queues a core job when <code>CORE_URL</code> is set; pack/ship status is echoed (not stored yet).</p>
