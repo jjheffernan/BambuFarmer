@@ -2579,6 +2579,14 @@ const layoutHTML = `<!DOCTYPE html>
           <p class="text-sm mt-2" id="sys-msg"></p>
         </div>
         <div class="bf-panel mb-4">
+          <h2 class="font-display text-lg mb-2">Lab · setup</h2>
+          <p class="text-sm text-bf-muted mb-3">Re-open the first-run wizard via <code>POST /api/v1/setup/reset</code>. Lab/fixture only — does not delete users or jobs.</p>
+          <div class="flex flex-wrap gap-2 items-center">
+            <button type="button" class="bf-btn" id="setup-reset-btn">Re-open setup wizard</button>
+            <p class="text-sm m-0" id="setup-reset-msg"></p>
+          </div>
+        </div>
+        <div class="bf-panel mb-4">
           <h2 class="font-display text-lg mb-2">Power</h2>
           <p class="text-sm text-bf-muted mb-3">Smart-plug webhook via <code>POWER_URL</code>. Empty URL accepts the call and does not switch.</p>
           <div id="power-status" class="bf-status m-0 mb-3">loading…</div>
@@ -3086,6 +3094,22 @@ const layoutHTML = `<!DOCTYPE html>
               await loadSystem();
             } catch (e) {
               msg.className = 'text-bf-danger text-sm mt-2';
+              msg.textContent = String(e.message || e);
+            }
+          };
+          document.getElementById('setup-reset-btn').onclick = async () => {
+            const msg = document.getElementById('setup-reset-msg');
+            msg.className = 'text-sm m-0';
+            msg.textContent = '';
+            if (!confirm('Re-open the setup wizard? Browse to /setup after reset.')) return;
+            try {
+              await bfJSON(API + '/api/v1/setup/reset', {
+                method: 'POST', credentials: 'include',
+              });
+              msg.className = 'text-bf-accent text-sm m-0';
+              msg.textContent = 'Reset — open /setup';
+            } catch (e) {
+              msg.className = 'text-bf-danger text-sm m-0';
               msg.textContent = String(e.message || e);
             }
           };

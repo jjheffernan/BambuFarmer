@@ -64,4 +64,7 @@ func TestAdminPageHasRateCardEditor(t *testing.T) {
 	if !strings.Contains(layoutHTML, "/api/v1/admin/scheduler") || !strings.Contains(layoutHTML, `id="scheduler-out"`) {
 		t.Fatal("expected Admin scheduler readout")
 	}
+	if !strings.Contains(layoutHTML, `id="setup-reset-btn"`) || !strings.Contains(layoutHTML, "/api/v1/setup/reset") {
+		t.Fatal("expected Admin setup reset control")
+	}
 }

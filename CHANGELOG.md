@@ -10,6 +10,7 @@ On release: move that section to a new `## [X.Y.Z] — YYYY-MM-DD`, bump [`VERSI
 ## [Unreleased]
 
 ### Added
+- Admin Lab control to re-open the setup wizard (`POST /api/v1/setup/reset`)
 - Commerce webhook Spoolman spool picker; Slice advanced Orca `printer_json` / `process_json` / `filament_json` paths
 - Fleet edge status strip, online/model filters, and bulk action accepted/skipped feedback
 - Jobs create form optional `queue_pos` for initial queue ordering
