@@ -10,6 +10,7 @@ On release: move that section to a new `## [X.Y.Z] — YYYY-MM-DD`, bump [`VERSI
 ## [Unreleased]
 
 ### Added
+- `GET /api/v1/printers` returns full snapshots hydrated from `last_snapshot` (AMS, HMS, task, temps) so fleet bootstrap matches edge status
 - Core forwards `alert.raised` to `NOTIFY_URL` when set (same webhook as job-finished; empty URL does nothing)
 - Edge raises `alert.raised` on `bf.events.alert` for offline, PAUSE/FAILED, or new HMS codes; fleet shows a live attention banner; analytics counts the stream
 - Presets page import/export (download JSON bundle, paste or upload file into `POST /api/v1/presets/import`) with list refresh
