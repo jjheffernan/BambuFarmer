@@ -12,9 +12,6 @@ On release: move that section to a new `## [X.Y.Z] — YYYY-MM-DD`, bump [`VERSI
 ### Added
 - Shared `bfFlash` toast for copy/control feedback; Jobs row primary actions + More menu; `bf-btn-danger` + Stop confirm
 - Fleet `/?sn=` deep-link; Artifacts `?artifact=`; Jobs honor `?q=`/`?state=`; job detail Fleet/Artifacts links; drawer Copy SN; commerce Open job; Jobs Copy link
-
-### Changed
-- Removed unused htmx CDN from the web shell; focus-visible rings on buttons/chips
 - Jobs deep-link `?job=` opens Detail (optional `history=1`); human-readable job timestamps; Fleet alert Open → drawer
 - Filament Copy spool id / tray lookup copy; Admin setup readout includes `rate_card`
 - Shell Change password for LAN users (including viewers); Jobs live % from `job.progress`; job detail started/finished + artifact download
@@ -77,6 +74,9 @@ On release: move that section to a new `## [X.Y.Z] — YYYY-MM-DD`, bump [`VERSI
 - Slice lifecycle events (`slice.queued` / `slice.succeeded` / `slice.failed`) on `bf.events.slice` when the slicer has `REDIS_URL`; gateway SSE and analytics counters include the stream
 - Slice plugin invokes operator-supplied `ORCA_BIN` when set (`input_path` required; optional settings/filament JSON paths); empty `ORCA_BIN` still records the job without running a slicer
 - Printer `hms[]` from MQTT/FM push_status is formatted as `XXXX_XXXX_XXXX_XXXX` codes on snapshots and printer events; analytics failures roll up each HMS code alongside `print_error`
+
+### Changed
+- Removed unused htmx CDN from the web shell; focus-visible rings on buttons/chips
 
 ### Fixed
 - Preset edit PATCH merges the loaded tip so JSON/models/notes are not wiped by the form fields
