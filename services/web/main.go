@@ -852,6 +852,9 @@ const layoutHTML = `<!DOCTYPE html>
                   esc(j.error || '—') + '</td>' +
                 '<td><button type="button" class="bf-btn" data-history="' + esc(j.id) + '">History</button> ' +
                   '<button type="button" class="bf-btn" data-reprint="' + esc(j.id) + '">Reprint</button>' +
+                  (['queued','assigned'].indexOf(j.state) >= 0
+                    ? ' <button type="button" class="bf-btn" data-dispatch="' + esc(j.id) + '" data-sn="' + esc(j.external_sn || '') + '">Dispatch</button>'
+                    : '') +
                   (['queued','assigned','dispatched','running','paused'].indexOf(j.state) >= 0
                     ? ' <button type="button" class="bf-btn" data-cancel="' + esc(j.id) + '">Cancel</button>'
                     : '') +
@@ -919,6 +922,26 @@ const layoutHTML = `<!DOCTYPE html>
                 jobsStatus.textContent = String(e.message || e);
                 jobsStatus.classList.remove('live');
                 move.disabled = false;
+              }
+              return;
+            }
+            const dispatchBtn = ev.target.closest('[data-dispatch]');
+            if (dispatchBtn && !dispatchBtn.disabled) {
+              dispatchBtn.disabled = true;
+              try {
+                const body = {};
+                if (dispatchBtn.dataset.sn) body.external_sn = dispatchBtn.dataset.sn;
+                await bfJSON(API + '/api/v1/jobs/' + encodeURIComponent(dispatchBtn.dataset.dispatch) + '/dispatch', {
+                  method: 'POST', credentials: 'include',
+                  headers: {'Content-Type': 'application/json'},
+                  body: JSON.stringify(body),
+                });
+                jobsStatus.textContent = 'Dispatched';
+                await loadJobs();
+              } catch (e) {
+                jobsStatus.textContent = String(e.message || e);
+                jobsStatus.classList.remove('live');
+                dispatchBtn.disabled = false;
               }
               return;
             }
