@@ -1481,6 +1481,11 @@ const layoutHTML = `<!DOCTYPE html>
         <div class="bf-panel mb-4">
           <h2 class="font-display text-lg mb-3">Export artifact → model</h2>
           <form id="library-export-form" class="grid gap-3 md:grid-cols-2">
+            <label class="text-sm">Staged artifact
+              <select class="bf-input block mt-1 w-full" id="library-export-pick">
+                <option value="">— pick or type id below —</option>
+              </select>
+            </label>
             <label class="text-sm">Artifact id
               <input class="bf-input block mt-1 w-full" id="library-export-artifact" required placeholder="artifact uuid"/>
             </label>
@@ -1539,7 +1544,30 @@ const layoutHTML = `<!DOCTYPE html>
               libBody.innerHTML = '<tr><td colspan="3" class="text-bf-danger">' + esc(e.message || e) + '</td></tr>';
             }
           }
-          document.getElementById('library-refresh').onclick = loadLibrary;
+          async function loadLibraryArtifacts() {
+            const sel = document.getElementById('library-export-pick');
+            try {
+              const items = await bfJSON(API + '/api/v1/artifacts');
+              const opts = ['<option value="">— pick or type id below —</option>'];
+              (items || []).forEach(a => {
+                if (!a.id) return;
+                const label = (a.filename || a.id) + ' · ' + String(a.id).slice(0, 8);
+                opts.push('<option value="' + esc(a.id) + '" data-name="' + esc(a.filename || '') + '">' + esc(label) + '</option>');
+              });
+              sel.innerHTML = opts.join('');
+            } catch (_) {}
+          }
+          document.getElementById('library-export-pick').onchange = () => {
+            const sel = document.getElementById('library-export-pick');
+            if (!sel.value) return;
+            document.getElementById('library-export-artifact').value = sel.value;
+            const opt = sel.options[sel.selectedIndex];
+            const nameEl = document.getElementById('library-export-name');
+            if (!nameEl.value.trim() && opt && opt.dataset.name) {
+              nameEl.value = opt.dataset.name.replace(/\.(gcode\.)?3mf$/i, '') || opt.dataset.name;
+            }
+          };
+          document.getElementById('library-refresh').onclick = () => { loadLibrary(); loadLibraryArtifacts(); };
           document.getElementById('library-import-form').onsubmit = async (ev) => {
             ev.preventDefault();
             const msg = document.getElementById('library-import-msg');
@@ -1576,6 +1604,7 @@ const layoutHTML = `<!DOCTYPE html>
             }
           };
           loadLibrary();
+          loadLibraryArtifacts();
         </script>
       {{else if eq .Active "slice"}}
         <p class="bf-lede">Optional slicer plugin (<code>compose --profile slicer</code>). Orca is operator-supplied via <code>ORCA_BIN</code> and is not bundled.</p>
@@ -1717,6 +1746,11 @@ const layoutHTML = `<!DOCTYPE html>
             <label class="text-sm">External id
               <input class="bf-input block mt-1 w-full font-mono text-xs" id="commerce-external" placeholder="shop-123"/>
             </label>
+            <label class="text-sm">Staged artifact
+              <select class="bf-input block mt-1 w-full" id="commerce-artifact-pick">
+                <option value="">— optional pick —</option>
+              </select>
+            </label>
             <label class="text-sm">Artifact id
               <input class="bf-input block mt-1 w-full font-mono text-xs" id="commerce-artifact" placeholder="optional"/>
             </label>
@@ -1764,7 +1798,28 @@ const layoutHTML = `<!DOCTYPE html>
               commerceOut.textContent = String(e.message || e) + '\n\nEnable with: podman compose --profile commerce … and COMMERCE_URL on gateway.';
             }
           }
-          document.getElementById('commerce-refresh').onclick = loadCommerceStatus;
+          async function loadCommerceArtifacts() {
+            const sel = document.getElementById('commerce-artifact-pick');
+            try {
+              const items = await bfJSON(API + '/api/v1/artifacts');
+              const opts = ['<option value="">— optional pick —</option>'];
+              (items || []).forEach(a => {
+                if (!a.id) return;
+                const label = (a.filename || a.id) + ' · ' + String(a.id).slice(0, 8);
+                opts.push('<option value="' + String(a.id).replace(/"/g, '&quot;') + '">' +
+                  String(label).replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</option>');
+              });
+              sel.innerHTML = opts.join('');
+            } catch (_) {}
+          }
+          document.getElementById('commerce-artifact-pick').onchange = () => {
+            const sel = document.getElementById('commerce-artifact-pick');
+            if (sel.value) document.getElementById('commerce-artifact').value = sel.value;
+          };
+          document.getElementById('commerce-refresh').onclick = () => {
+            loadCommerceStatus();
+            loadCommerceArtifacts();
+          };
           document.getElementById('commerce-webhook-form').onsubmit = async (ev) => {
             ev.preventDefault();
             const msg = document.getElementById('commerce-webhook-msg');
@@ -1810,6 +1865,7 @@ const layoutHTML = `<!DOCTYPE html>
             }
           };
           loadCommerceStatus();
+          loadCommerceArtifacts();
         </script>
       {{else if eq .Active "analytics"}}
         <p class="bf-lede">Daily utilization, costs, and failure codes from the analytics consumer.</p>

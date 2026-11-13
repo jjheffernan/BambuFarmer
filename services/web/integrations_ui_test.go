@@ -20,4 +20,7 @@ func TestFilamentAndLibraryPages(t *testing.T) {
 		!strings.Contains(layoutHTML, "/api/v1/library/export") {
 		t.Fatal("expected library API calls")
 	}
+	if !strings.Contains(layoutHTML, `id="library-export-pick"`) {
+		t.Fatal("expected library export artifact picker")
+	}
 }

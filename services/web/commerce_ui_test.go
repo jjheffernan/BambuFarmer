@@ -17,4 +17,7 @@ func TestCommercePage(t *testing.T) {
 	if !strings.Contains(layoutHTML, "commerce-webhook-form") {
 		t.Fatal("expected webhook test form")
 	}
+	if !strings.Contains(layoutHTML, `id="commerce-artifact-pick"`) {
+		t.Fatal("expected commerce artifact picker")
+	}
 }
