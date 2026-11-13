@@ -409,7 +409,7 @@ const layoutHTML = `<!DOCTYPE html>
               statusEl.textContent = 'SSE live';
               statusEl.classList.add('live');
             });
-            ['printer.state_changed','printer.online','printer.offline'].forEach(ev => {
+            ['printer.state_changed','printer.online','printer.offline','printer.ams_changed'].forEach(ev => {
               es.addEventListener(ev, (msg) => {
                 try {
                   const env = JSON.parse(msg.data);

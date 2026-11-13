@@ -71,6 +71,26 @@ func (p *Publisher) PublishPrinterDelta(ctx context.Context, snap api.PrinterSna
 	p.Log.Debug("published", "stream", events.StreamPrinter, "id", id, "sn", snap.ExternalSN, "state", snap.GcodeState)
 }
 
+// PublishAMSChanged emits printer.ams_changed with the current AMS tray map.
+func (p *Publisher) PublishAMSChanged(ctx context.Context, snap api.PrinterSnapshot) {
+	if p == nil || p.Bus == nil {
+		return
+	}
+	payload := map[string]any{
+		"external_sn": snap.ExternalSN,
+		"name":        snap.Name,
+		"model":       snap.Model,
+		"ams":         snap.AMS,
+	}
+	env := events.NewEnvelope(events.TypePrinterAMSChanged, "edge", p.SiteID, payload)
+	id, err := p.Bus.Publish(ctx, events.StreamPrinter, env)
+	if err != nil {
+		p.Log.Warn("publish ams_changed", "err", err)
+		return
+	}
+	p.Log.Debug("published", "stream", events.StreamPrinter, "id", id, "sn", snap.ExternalSN, "type", events.TypePrinterAMSChanged)
+}
+
 // PublishJob emits a job lifecycle event on bf.events.job.
 func (p *Publisher) PublishJob(ctx context.Context, typ, correlationID string, payload map[string]any) {
 	if p == nil || p.Bus == nil {

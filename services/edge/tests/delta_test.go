@@ -34,3 +34,23 @@ func TestFilterReset(t *testing.T) {
 		t.Fatal("after reset should change again")
 	}
 }
+
+func TestAMSChanged(t *testing.T) {
+	f := delta.New()
+	empty := api.PrinterSnapshot{PrinterSummary: api.PrinterSummary{ExternalSN: "sn1"}}
+	if f.AMSChanged(empty) {
+		t.Fatal("first empty AMS should not emit")
+	}
+	with := empty
+	with.AMS = []api.PrinterAMS{{ID: 0, Trays: []api.PrinterAMSTray{{Slot: 0, Type: "PLA"}}}}
+	if !f.AMSChanged(with) {
+		t.Fatal("first non-empty AMS should emit")
+	}
+	if f.AMSChanged(with) {
+		t.Fatal("identical AMS should not emit")
+	}
+	with.AMS[0].Trays[0].Remain = 50
+	if !f.AMSChanged(with) {
+		t.Fatal("AMS tray change should emit")
+	}
+}
