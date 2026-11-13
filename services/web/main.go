@@ -123,11 +123,24 @@ const layoutHTML = `<!DOCTYPE html>
         <p id="bf-user-label" class="hidden"></p>
         <button type="button" id="bf-logout" class="bf-btn hidden w-full">Log out</button>
         <p class="hidden md:block">Gateway API<br/><code class="text-[0.7rem] break-all">{{.APIBase}}</code></p>
+        <p class="font-mono text-[0.7rem]" id="bf-build-version">…</p>
       </div>
     </aside>
     <script>
       (async () => {
         const API = {{printf "%q" .APIBase}};
+        try {
+          const v = await bfJSON(API + '/api/v1/version');
+          const el = document.getElementById('bf-build-version');
+          if (el) {
+            const parts = [v.version || v.Version, v.commit || v.Commit].filter(Boolean);
+            el.textContent = parts.length ? parts.join(' · ') : 'dev';
+            if (v.built_at || v.BuiltAt) el.title = String(v.built_at || v.BuiltAt);
+          }
+        } catch (_) {
+          const el = document.getElementById('bf-build-version');
+          if (el) el.textContent = '';
+        }
         try {
           const me = await bfJSON(API + '/api/v1/auth/me');
           if (me.authenticated && me.user) {
@@ -1570,6 +1583,12 @@ const layoutHTML = `<!DOCTYPE html>
             <p class="text-sm m-0" id="power-msg"></p>
           </div>
         </div>
+        <div class="bf-panel mb-4">
+          <h2 class="font-display text-lg mb-2">Stack &amp; plugins</h2>
+          <p class="text-sm text-bf-muted mb-3">Core version plus optional compose profiles (slicer, commerce) and integration URLs.</p>
+          <div id="stack-status" class="flex flex-wrap gap-2 text-sm">loading…</div>
+          <button type="button" class="bf-btn mt-3" id="stack-refresh">Refresh</button>
+        </div>
         <div class="grid gap-4 md:grid-cols-2">
           <div class="bf-panel">
             <h2 class="font-display text-lg mb-3">Users</h2>
@@ -1720,6 +1739,54 @@ const layoutHTML = `<!DOCTYPE html>
               el.classList.remove('live');
             }
           }
+          function stackChip(label, ok, detail) {
+            const cls = ok ? 'bf-chip' : 'bf-chip opacity-70';
+            return '<span class="' + cls + '" title="' + String(detail || '').replace(/"/g, '&quot;') + '">' +
+              label + (ok ? ' · on' : ' · off') + '</span>';
+          }
+          async function probe(path) {
+            try {
+              return {ok: true, data: await bfJSON(API + path, opts)};
+            } catch (e) {
+              return {ok: false, err: String(e.message || e)};
+            }
+          }
+          async function loadStack() {
+            const el = document.getElementById('stack-status');
+            el.textContent = 'loading…';
+            const [ver, integ, power, slice, commerce] = await Promise.all([
+              probe('/api/v1/version'),
+              probe('/api/v1/integrations/status'),
+              probe('/api/v1/power'),
+              probe('/api/v1/slice/status'),
+              probe('/api/v1/commerce/status'),
+            ]);
+            const chips = [];
+            if (ver.ok) {
+              const v = ver.data || {};
+              chips.push(stackChip('core ' + (v.version || v.Version || 'dev'), true,
+                [v.commit || v.Commit, v.built_at || v.BuiltAt].filter(Boolean).join(' · ')));
+            } else {
+              chips.push(stackChip('core', false, ver.err));
+            }
+            if (integ.ok) {
+              const s = integ.data || {};
+              chips.push(stackChip('spoolman', !!(s.spoolman && s.spoolman.configured), JSON.stringify(s.spoolman || {})));
+              chips.push(stackChip('manyfold', !!(s.manyfold && s.manyfold.configured), JSON.stringify(s.manyfold || {})));
+            } else {
+              chips.push(stackChip('integrations', false, integ.err));
+            }
+            chips.push(stackChip('power', !!(power.ok && power.data && power.data.configured), power.ok ? '' : power.err));
+            chips.push(stackChip('slicer', !!(slice.ok && slice.data), slice.ok
+              ? ('orca=' + !!(slice.data && slice.data.orca_configured))
+              : (slice.err || 'profile off')));
+            chips.push(stackChip('commerce', !!(commerce.ok && commerce.data), commerce.ok
+              ? String((commerce.data && commerce.data.status) || 'up')
+              : (commerce.err || 'profile off')));
+            el.innerHTML = chips.join('');
+          }
+          document.getElementById('stack-refresh').onclick = loadStack;
+          loadStack();
           document.querySelectorAll('[data-power]').forEach(btn => {
             btn.onclick = async () => {
               const msg = document.getElementById('power-msg');

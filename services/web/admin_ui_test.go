@@ -27,4 +27,13 @@ func TestAdminPageHasRateCardEditor(t *testing.T) {
 	if !strings.Contains(layoutHTML, `id="power-on"`) || !strings.Contains(layoutHTML, "/api/v1/power") {
 		t.Fatal("expected Admin power controls")
 	}
+	if !strings.Contains(layoutHTML, "bf-build-version") || !strings.Contains(layoutHTML, "/api/v1/version") {
+		t.Fatal("expected build version in shell")
+	}
+	if !strings.Contains(layoutHTML, "stack-status") || !strings.Contains(layoutHTML, "loadStack") {
+		t.Fatal("expected Admin stack/plugin status")
+	}
+	if !strings.Contains(layoutHTML, "/api/v1/slice/status") || !strings.Contains(layoutHTML, "/api/v1/commerce/status") {
+		t.Fatal("expected plugin status probes")
+	}
 }
