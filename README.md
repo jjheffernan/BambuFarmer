@@ -2,8 +2,8 @@
 
 Operations layer for a Bambu Lab print farm: Farm Manager integration, jobs, presets, Spoolman/Manyfold adapters, costing, and analytics.
 
-**Status:** design freeze in progress + scaffold stubs.  
-See [`docs/DESIGN_SPEC.md`](docs/DESIGN_SPEC.md), [`docs/MVP_CHECKLIST.md`](docs/MVP_CHECKLIST.md), and per-service shapes in [`docs/services/`](docs/services/).  
+**Status:** MVP farm loop on `dev` (fixture/unit covered; live Farm Manager smoke still deferred).  
+See [`docs/DESIGN_SPEC.md`](docs/DESIGN_SPEC.md), [`docs/MVP_CHECKLIST.md`](docs/MVP_CHECKLIST.md), [`docs/BUILD_OUT.md`](docs/BUILD_OUT.md), and per-service shapes in [`docs/services/`](docs/services/).  
 Edge / Farm Manager research: [`docs/services/edge-farm-manager.md`](docs/services/edge-farm-manager.md).
 
 [![CI](https://github.com/jjheffernan/BambuFarmer/actions/workflows/ci.yml/badge.svg)](https://github.com/jjheffernan/BambuFarmer/actions/workflows/ci.yml)
@@ -17,8 +17,10 @@ Edge / Farm Manager research: [`docs/services/edge-farm-manager.md`](docs/servic
 | `edge` | `localhost/bambufarmer-edge` | 18082 | Farm Manager LAN adapter |
 | `integrations` | `localhost/bambufarmer-integrations` | 18083 | Spoolman / Manyfold |
 | `analytics` | `localhost/bambufarmer-analytics` | 18084 | Rollups / reports |
-| `web` | `localhost/bambufarmer-web` | 13000 | templ + HTMX UI |
+| `web` | `localhost/bambufarmer-web` | 13000 | Operator UI (`html/template` + SSE + Tailwind) |
 | Postgres / Redis | upstream images | 5432 / 6379 | Backing stores |
+
+Optional compose profiles: `commerce`, `slicer`, `object` (MinIO).
 
 Each app service is a **separate distroless image** with a single Go binary (`services/<name>/Containerfile`). We do not ship an all-in-one app container.
 
@@ -57,7 +59,7 @@ podman build -t localhost/bambufarmer-edge:dev -f services/edge/Containerfile .
 
 Systemd / Quadlets: see [`deploy/podman/README.md`](deploy/podman/README.md).
 
-Import example presets into the core stub:
+Import example presets into core:
 
 ```bash
 curl -sS -X POST http://127.0.0.1:18081/api/v1/presets/import \
@@ -75,6 +77,6 @@ make tidy
 cd services/web && HTTP_ADDR=:3000 go run .
 ```
 
-## Design exit criteria
+## Live Farm Manager
 
-Do not treat Farm Manager integration as “in progress” until checklist section **A** is answered (or defaults accepted) and section **C** product boxes are checked.
+Product decisions in checklist **A** are locked. Remaining gate before calling FM integration “production-proven” is a live LAN smoke (checklist **C** integration readiness) — fixture mode covers CI and local demos without FM.

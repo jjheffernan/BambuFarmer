@@ -86,7 +86,7 @@ vendor_ref/
 *_upstream/
 *.clone/
 
-# --- After-hours session artifacts ---
-.cursor/after-hours-loop.state.json
-.cursor/after-hours-morning-brief.md
-.cursor/after-hours-runs/
+# --- Local agent session artifacts (do not commit) ---
+.cursor/after-hours-*
+.cursor/*-loop.state.json
+.cursor/*-morning-brief.md

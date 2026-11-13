@@ -28,6 +28,7 @@ packages/db/
   migrations.go              # ordered list of migration names
   migration_001_baseline.go  # baseline DDL const
   migration_002_users.go     # users table const
+  migration_003_*.go …       # forward migrations (see orderedMigrations; through 006+)
   seed_lab.go                # LabSeedSQL const
   migrate.go                 # Migrate() applies orderedMigrations
   cmd/seedlab/               # CLI: migrate + SeedLab via DATABASE_URL

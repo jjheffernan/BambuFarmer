@@ -19,7 +19,7 @@ func main() {
 	mux.HandleFunc("GET /api/v1/commerce/status", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{
-			"status":  "stub",
+			"status":  "ok",
 			"service": service,
 			"note":    "POST /api/v1/commerce/webhook queues a core job when CORE_URL is set; POST /api/v1/commerce/orders/status echoes packed or shipped",
 		})

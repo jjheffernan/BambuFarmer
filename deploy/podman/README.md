@@ -13,7 +13,7 @@ One process → one image → one container:
 | `localhost/bambufarmer-edge` | Farm Manager LAN adapter |
 | `localhost/bambufarmer-integrations` | Spoolman / Manyfold |
 | `localhost/bambufarmer-analytics` | rollups |
-| `localhost/bambufarmer-web` | HTMX UI |
+| `localhost/bambufarmer-web` | Operator UI |
 
 Do **not** combine these into a fat “all-in-one” app container. Backing services (Postgres, Redis, optional MinIO) stay separate too.
 

@@ -15,7 +15,7 @@ Shared abstraction: [`packages/farm`](../../packages/farm) (`farm.ControlPlane`)
 
 Edge is the **only** process that speaks Bambu farm backends. It:
 
-1. Selects a `farm.ControlPlane` (`fm_native` | `fixture` | `cdp` stub | later `fleet_hub`)  
+1. Selects a `farm.ControlPlane` (`fm_native` | `fixture` | `cdp` stub | `direct_printer`; `fleet_hub` reserved)  
 2. Runs the **edge agent** (poll / track / delta / Redis publish / command consumer)  
 3. Never stores BambuFarmer operator passwords (FM service account only)
 
@@ -33,6 +33,7 @@ Edge is the **only** process that speaks Bambu farm backends. It:
 │       │                                            │
 │       ├─ native (fm_native REST)                   │
 │       ├─ fixture (fixtures/fm JSON)                │
+│       ├─ direct_printer (in-process; no LAN)       │
 │       ├─ cdp (stub)                                │
 │       └─ none                                      │
 │  tracker (printerstate) + delta filter             │
@@ -50,8 +51,10 @@ Edge is the **only** process that speaks Bambu farm backends. It:
 |-----|---------|-------|
 | `SITE_ID` | `default` | Single-site MVP |
 | `FARM_MANAGER_URL` | | Live FM → `fm_native` (or `cdp` if transport set) |
-| `FARM_MANAGER_TRANSPORT` | `fm_native` | or `cdp` |
+| `FARM_MANAGER_TRANSPORT` | `fm_native` | or `cdp` / `direct_printer` |
 | `FARM_MANAGER_USER` / `PASSWORD` | | FM service account |
+| `DIRECT_PRINTERS` | | `sn:model,…` when transport is `direct_printer` |
+| `FARM_MQTT_URL` | | Optional MQTT reports (needs certs in `EDGE_CERT_DIR`) |
 | `EDGE_FIXTURE_DIR` | | Used when URL empty |
 | `REDIS_URL` | | Streams |
 | `HTTP_ADDR` | `:8080` | |
@@ -64,8 +67,9 @@ Edge is the **only** process that speaks Bambu farm backends. It:
 packages/farm/                 # ControlPlane abstraction (shared)
 services/edge/app/             # process-private (not packages/)
   agent/                       # edge runtime
-  bambu/                       # factory + native|fixture|cdp|none
+  bambu/                       # factory + native|fixture|cdp|direct|none
   farmmanager/                 # low-level Farm Manager HTTP (native only)
+  mqtt/                        # optional report subscribe
   tracker/ normalize/ delta/
   bus/ fixture/ config/
 ```
@@ -77,11 +81,12 @@ services/edge/app/             # process-private (not packages/)
 | Milestone | Status |
 |-----------|--------|
 | M1 `farm.ControlPlane` + agent + native/fixture | **done** |
-| M2 Redis delta publish + commands | **done** (StartPrint stub on native) |
+| M2 Redis delta publish + commands | **done** |
 | M3 HTTP control | **done** |
-| M4 Upload3MF + StartPrint on native | next |
-| M5 MQTT EventSource | later |
-| CDP real implementation | later |
+| M4 Upload3MF + StartPrint on native | **done** (fixture/unit; live FM smoke deferred) |
+| M5 MQTT EventSource | **done when** `FARM_MQTT_URL` + certs set |
+| `direct_printer` in-process plane | **done** (no LAN) |
+| CDP real implementation | stub |
 
 ---
 

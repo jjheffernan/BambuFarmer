@@ -56,7 +56,7 @@ type LibraryProvider interface {
 }
 ```
 
-Today: `ListSpools` / `ListModels` implemented on concrete clients; full interfaces land with consume + import/export.
+Today: Spoolman list/consume + AMS tray map; Manyfold list/import/export on concrete clients when URLs are set.
 
 ---
 
@@ -79,7 +79,7 @@ Today: `ListSpools` / `ListModels` implemented on concrete clients; full interfa
 
 ## 5. Config
 
-`SPOOLMAN_URL`, `SPOOLMAN_API_TOKEN`, `LOW_STOCK_GRAMS`, `AMS_SLOT_MAP`, `MANYFOLD_URL`, `MANYFOLD_CLIENT_ID`, `MANYFOLD_CLIENT_SECRET`, `MANYFOLD_TOKEN`, `REDIS_URL`, `CORE_URL` / object store as needed.
+`SPOOLMAN_URL`, `SPOOLMAN_API_TOKEN`, `LOW_STOCK_GRAMS`, `AMS_SLOT_MAP`, `MANYFOLD_URL`, `MANYFOLD_CLIENT_ID`, `MANYFOLD_CLIENT_SECRET`, `MANYFOLD_TOKEN`, `REDIS_URL`, optional object-store vars for artifact fetch on export.
 
 ---
 

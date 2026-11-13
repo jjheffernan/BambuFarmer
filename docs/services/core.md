@@ -31,9 +31,13 @@ services/core/
     presets/              # filament/print CRUD + import/export
     rates/                # RateCard admin
     printers/             # list projection + Redis consumer
-    jobs/                 # create/list/transition (+ command emit)
+    jobs/                 # create/list/transition/cancel/reprint + scheduler
+    users/                # LAN user store helpers
+    sites/                # site CRUD
+    notify/               # NOTIFY_URL webhook + Admin test
+    power/                # POWER_URL on/off forwarder
+    alerts/               # alert.raised → notify
     setup/                # install wizard API
-    # later: scheduler/, users/
 ```
 
 Persistence stays in [`packages/db`](../../packages/db); core packages are thin HTTP/event adapters.
@@ -63,8 +67,9 @@ Persistence stays in [`packages/db`](../../packages/db); core packages are thin 
 - Preset revision list/restore (`GET …/revisions`, `POST …/restore`)
 - `GET/PUT /api/v1/admin/rate-cards`  
 - `GET /api/v1/printers` (projection)  
-- Jobs create/list/dispatch + scheduler  
+- Jobs create/list/dispatch/cancel/reprint + scheduler + `GET …/events`  
 - `POST/GET /api/v1/artifacts` (+ `/content`) — local `ARTIFACTS_DIR` staging
+- `GET/POST /api/v1/notify*` when `NOTIFY_URL` set; `GET/POST /api/v1/power` when `POWER_URL` set
 
 ---
 

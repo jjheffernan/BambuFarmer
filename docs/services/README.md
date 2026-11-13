@@ -10,8 +10,8 @@ Per-module design docs that expand [`DESIGN_SPEC.md`](../DESIGN_SPEC.md) into im
 | **edge / FM research** | [edge-farm-manager.md](./edge-farm-manager.md) | Protocol research, endpoints, lab checklist |
 | **integrations** | [integrations.md](./integrations.md) | Spoolman + Manyfold adapters |
 | **analytics** | [analytics.md](./analytics.md) | Event rollups, reports |
-| **commerce** | — | Optional shop-orders plugin (`compose --profile commerce`) |
-| **web** | [web.md](./web.md) | HTMX + Tailwind operator UI |
+| **commerce** | [commerce.md](./commerce.md) | Optional shop-orders plugin (`compose --profile commerce`) |
+| **web** | [web.md](./web.md) | Operator UI (`html/template` + SSE + Tailwind) |
 | **slicer** | [slicer.md](./slicer.md) | Optional slice plugin (`compose --profile slicer`); Orca binary not bundled |
 
 Cross-cutting: [`DEPLOYMENT_MODES.md`](../DEPLOYMENT_MODES.md) (LAN vs OIDC) · [`INSTALL.md`](../INSTALL.md) (wizard + releases) · [`TESTING.md`](../TESTING.md) · [`BUILD_OUT.md`](../BUILD_OUT.md) · [`plugins.md`](../plugins.md).
@@ -44,6 +44,7 @@ web ──► gateway ──► core
                  ├─► analytics
                  ├─► integrations
                  ├─► commerce*   (* compose --profile commerce)
+                 ├─► slicer*     (* compose --profile slicer)
                  └─► edge ──► Farm Manager Server (LAN)
 core ◄── Redis Streams ◄── edge / integrations
 analytics ◄── Redis Streams

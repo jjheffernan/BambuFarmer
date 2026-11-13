@@ -13,7 +13,7 @@ func TestCommerceStatusRoute(t *testing.T) {
 	mux := httpserver.NewMux("commerce")
 	mux.HandleFunc("GET /api/v1/commerce/status", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]string{"status": "stub"})
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 	})
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/commerce/status", nil)
 	rec := httptest.NewRecorder()

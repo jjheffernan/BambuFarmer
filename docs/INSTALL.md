@@ -34,7 +34,7 @@ CLI overview: `./scripts/bf help` · [`scripts/README.md`](../scripts/README.md)
 
 Complete the wizard (including admin password), then sign in at `/login` and use the fleet UI. Farm Manager / OIDC secrets stay in **`.env`**. Operator passwords are Argon2id hashes in Postgres `users` only. Set a real `SESSION_SECRET` before production.
 
-**Password reset (LAN):** signed-in users change their own password via Admin → “Change my password” (`POST /api/v1/auth/password`). Admins can set a new password for any user (`POST /api/v1/admin/users/{id}/password`). There is no email-based forgot-password flow in LAN mode.
+**Password reset (LAN):** signed-in users change their own password via the shell “Change password” form or Admin → “Change my password” (`POST /api/v1/auth/password`). Admins can set a new password for any user (`POST /api/v1/admin/users/{id}/password`). There is no email-based forgot-password flow in LAN mode.
 
 Lab DB reset / seed snapshot: [`DATABASE.md`](./DATABASE.md) (`make db-reset`).
 

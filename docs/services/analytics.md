@@ -22,8 +22,10 @@ Subscribe (consumer group `analytics`):
 
 - `bf.events.printer`  
 - `bf.events.job`  
-- `bf.events.filament`  
+- `bf.events.slice`  
 - `bf.events.alert`  
+
+(`bf.events.filament` is reserved; analytics does not subscribe yet.)
 
 Idempotent by event `id`.
 

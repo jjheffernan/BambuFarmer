@@ -1,4 +1,4 @@
-# Service shape: `bambufarmer-slicer` (post-MVP)
+# Service shape: `bambufarmer-slicer` (optional profile)
 
 **Language:** Go + OrcaSlicer CLI binary  
 **Container:** separate heavy image (not in default compose)  

@@ -8,10 +8,10 @@ Canonical architecture: [`DESIGN_SPEC.md`](./DESIGN_SPEC.md) · plugins: [`plugi
 | Topic | Choice |
 |-------|--------|
 | Language / packaging | Go monorepo; one service → one Containerfile → one container |
-| Control plane now | Farm Manager (`fm_native`); CDP / fixture escape hatches |
-| Control plane later | Direct-printer adapter behind `packages/farm.ControlPlane` |
+| Control plane now | Farm Manager (`fm_native`); fixture / CDP stub / `direct_printer` |
+| Control plane later | Deeper FM parity; optional `fleet_hub` if needed |
 | Long horizon | OrcaSlicer module + deeper FM feature parity — incremental |
-| Commerce | Parallel **plugin** (`services/commerce`, compose profile); stub early, implement after job loop |
+| Commerce | Parallel **plugin** (`services/commerce`, compose profile); webhook → jobs + pack/ship echo |
 | Growth model | Thin Go interfaces + optional compose services — no plugin mega-framework |
 
 ## Capability → module map
@@ -23,12 +23,12 @@ Canonical architecture: [`DESIGN_SPEC.md`](./DESIGN_SPEC.md) · plugins: [`plugi
 | Queue / scheduling / batch | `core` scheduler |
 | Costing + utilization | rate cards + `analytics` |
 | Filament / AMS / Spoolman | `integrations` + presets |
-| Notifications | future notify plugin or integrations adapters |
-| Power / automation | edge/core hooks (Phase 2+) |
-| Auth (LAN / OIDC; LDAP later) | `gateway` |
-| Shop orders → print → pack/ship | `services/commerce` (profile) |
-| Direct printer MQTT/FTPS | future `ControlPlane` kind |
-| In-app / Orca slice | `services/slicer` (post-MVP) |
+| Notifications | `core` + `NOTIFY_URL` (job finish + alerts) |
+| Power / automation | `core` + `POWER_URL` (dry-run when unset) |
+| Auth (LAN done; OIDC stubs; LDAP later) | `gateway` |
+| Shop orders → print → pack/ship | `services/commerce` (profile; webhook + echo) |
+| Direct printer (in-process) | `direct_printer` + `DIRECT_PRINTERS` |
+| In-app / Orca slice | `services/slicer` (profile; Orca not bundled) |
 
 ## Phases
 
@@ -74,8 +74,9 @@ Reject: shared plugin SDK frameworks, frontend stack rewrites, fat all-in-one im
 
 | Field | Value |
 |-------|--------|
-| **Done** | P0–P6 polish on `after-hours/build-out` (draft PR #16). Skill draft → [heff-skills#1](https://github.com/jjheffernan/heff-skills/pull/1). Collapsible nav + create disclosure + expandable rows + file drop zones |
-| **Next** | Daytime review/merge of #16; UX ladder (nav groups / Admin jump links / fleet filter collapse) as needed |
+| **Done** | [#16](https://github.com/jjheffernan/BambuFarmer/pull/16) on `dev`; after-hours branch + demo torn down; docs/HTMX staleness pass |
+| **Next** | Live FM smoke when LAN available; UX ladder (nav groups / Admin jump links / fleet filter collapse); OIDC code exchange |
+| **Gaps** | OIDC code exchange stub; CDP stub; unread `EDGE_TOKEN`/`FARM_MODE`; DESIGN_SPEC §11 historical HTMX narrative |
 | **Blocked** | — |
 | **Deferred** | Live FM upload→print→cost smoke — skipped for now. Use fixture mode or `direct_printer` |
 | **Do not** | Commit third-party product source trees; migrate off Go; bundle the Orca binary into the image |

@@ -13,7 +13,7 @@ Canonical secrets template: [`.env.example`](../.env.example) → copy to **`.en
 | `AUTH_MODE` | `lan` (alias: `local_insecure`) | `oidc` |
 | Who authenticates operators | Local username/password in BambuFarmer | External IdP (Authentik, Keycloak, Google Workspace, …) |
 | Public URL / reverse proxy | **Not required** — and **must not** be exposed to the public internet | **Required** — HTTPS URL + redirect URIs |
-| IdP / OIDC_* secrets | Unused | Required (`OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `OIDC_REDIRECT_URL`) |
+| IdP / OIDC_* secrets | Unused | Required for SSO (`OIDC_*`); **code exchange still stubbed in gateway** |
 | Gateway bind | Private LAN / VPN / localhost only | Behind TLS reverse proxy (or gateway TLS later) |
 | Boot behavior | Loud warning: insecure LAN mode | No LAN warning; fail closed if OIDC misconfigured |
 | Default for | Lab, shop floor, air‑gapped / no IdP farms | Multi-user orgs, remote access, anything with a real hostname |
@@ -92,7 +92,7 @@ Edge credentials (`FARM_MANAGER_*`, `EDGE_CERT_DIR`, `EDGE_TOKEN`) **never** bel
 | `SESSION_SECRET` | gateway | **Required** | **Required** |
 | `POSTGRES_PASSWORD` / `DATABASE_URL` | postgres, core, gateway, analytics | Required | Required |
 | `FARM_MANAGER_PASSWORD` | edge | If FM live | If FM live |
-| `EDGE_TOKEN` | gateway↔edge (planned auth) | Set a real value | Set a real value |
+| `EDGE_TOKEN` | reserved (unused in Go today) | Optional | Optional |
 | `OIDC_CLIENT_SECRET` | gateway | Unused | **Required** |
 | `SPOOLMAN_API_TOKEN` | integrations | Optional | Optional |
 | `MANYFOLD_CLIENT_SECRET` / `MANYFOLD_TOKEN` | integrations | Optional | Optional |

@@ -302,31 +302,6 @@ type AdminResetPasswordRequest struct {
 	NewPassword string `json:"new_password"`
 }
 
-// ShopConnection is a commerce plugin store link (DTO only until commerce migrations land).
-type ShopConnection struct {
-	ID       string `json:"id"`
-	Provider string `json:"provider"` // e.g. shopify
-	Name     string `json:"name"`
-	Domain   string `json:"domain,omitempty"`
-	Active   bool   `json:"active"`
-}
-
-// CommerceOrder is a shop order tracked by the commerce plugin (DTO stub).
-type CommerceOrder struct {
-	ID            string     `json:"id"`
-	ShopID        string     `json:"shop_id"`
-	ExternalID    string     `json:"external_id"`
-	State         string     `json:"state"` // received|to_print|printing|to_pack|shipped|pickup|blocked
-	Currency      string     `json:"currency,omitempty"`
-	ItemCount     int        `json:"item_count,omitempty"`
-	ShipBy        *time.Time `json:"ship_by,omitempty"`
-	Tracking      string     `json:"tracking,omitempty"`
-	JobIDs        []string   `json:"job_ids,omitempty"`
-	BlockedReason string     `json:"blocked_reason,omitempty"`
-	CreatedAt     time.Time  `json:"created_at,omitempty"`
-	UpdatedAt     time.Time  `json:"updated_at,omitempty"`
-}
-
 // JobEvent is one state transition recorded for a job.
 type JobEvent struct {
 	ID        int64     `json:"id"`

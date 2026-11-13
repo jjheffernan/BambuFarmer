@@ -164,50 +164,25 @@ GeraldCox docs also capture a rich `POST /task` body used by the Client for mult
 
 ---
 
-## 6. Edge package shape (implementation plan)
+## 6. Edge package shape (as shipped)
 
 ```text
 services/edge/
   main.go                 # process, health, status, control
   app/
-    config/               # env: SITE_ID, FARM_MANAGER_*, REDIS_URL, CDP_URL
-    adapter/              # Connect + REST poll + Status (M1)
-    fm/
-      client.go           # HTTP client + BBL headers + JWT
-      auth.go             # tickets → tokens (+ HashPasswordChallenge helper)
-      devices.go          # list / get
-      control.go          # POST /device/{sn}/opt
-      # tasks.go / files.go / transport/cdp — planned
-    tracker/              # per-SN packages/printerstate.Machine
-    normalize/            # FM JSON → packages/api.PrinterSnapshot
-    delta/                # snapshot hash filter
-    mqtt/                 # device/+/report when FARM_MQTT_URL and cert files are set
-    bus/                  # Redis Streams publish + command consumer (planned)
+    config/               # env: SITE_ID, FARM_MANAGER_*, REDIS_URL, DIRECT_PRINTERS, …
+    agent/                # poll / track / delta / Redis / command consumer
+    bambu/                # factory + native|fixture|cdp|direct|none
+    farmmanager/          # FM HTTP (auth, devices, control, tasks, files, liveview, tags)
+    mqtt/                 # device/+/report when FARM_MQTT_URL + cert files are set
+    tracker/ normalize/ delta/ bus/ fixture/
+packages/farm/            # ControlPlane abstraction
 packages/printerstate/    # IDLE/PREPARE/RUNNING/PAUSE/FINISH/FAILED + attention buckets
 ```
 
 ### Go interfaces
 
-Canonical types live in [`packages/farm`](../../packages/farm):
-
-```go
-// farm.ControlPlane — implemented by edge/app/bambu/{native,fixture,cdp,none}
-type ControlPlane interface {
-    Kind() Kind
-    Connect(ctx context.Context) error
-    Ready(ctx context.Context) error
-    Captain(ctx context.Context) (api.CaptainInfo, error)
-    ListDevices(ctx context.Context) ([]DeviceReport, error)
-    Control(ctx context.Context, sn string, opt api.ControlOpt) error
-    Upload3MF(ctx context.Context, name string, r io.Reader) (FileRef, error)
-    StartPrint(ctx context.Context, req PrintRequest) (ExternalJobRef, error)
-    LiveviewJPEG(ctx context.Context, sn string) ([]byte, error)
-}
-
-type EventSource interface {
-    Subscribe(ctx context.Context) (<-chan DeviceReport, error) // MQTT later
-}
-```
+Canonical types live in [`packages/farm`](../../packages/farm). Planes: `edge/app/bambu/{native,fixture,cdp,direct}`. CDP remains a stub; MQTT subscribe is opt-in via `FARM_MQTT_URL` + `EDGE_CERT_DIR`.
 
 Edge agent (`app/agent`) polls `ListDevices`, runs `printerstate` tracking, publishes Redis deltas, and consumes commands via the same plane.
 

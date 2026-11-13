@@ -1,6 +1,6 @@
 # MVP freeze checklist & integration decisions
 
-Decisions below are **locked** from operator answers (2026-11-06). Remaining boxes are engineering smoke tests before FM adapter coding.
+Decisions below are **locked** from operator answers (2026-11-06). Remaining open boxes are live-box smoke tests (FM reachable), not open design.
 
 ---
 
@@ -72,7 +72,7 @@ Still needed before coding against a live box (not design blockers):
 Prefer FM tags, FM v3 groups, or our own groups as primary? *(default: mirror FM tags/groups)*
 
 ### B4. SSE vs WebSocket
-Default remains **SSE + HTMX**.
+Default remains **SSE + vanilla JS** in `services/web` (HTMX was removed).
 
 ### B5. Object storage
 MinIO optional (`--profile object`) until a live S3 endpoint is set.
@@ -99,7 +99,7 @@ MinIO optional (`--profile object`) until a live S3 endpoint is set.
 - [x] Redis Streams bus (`packages/events`) + gateway SSE
 - [x] Edge fixture mode (no live FM) + delta publish
 - [x] Jobs + rate cards APIs; analytics consumer/rollups
-- [x] HTMX fleet shell + sample `.gcode.3mf` fixture
+- [x] Fleet shell (SSE + vanilla JS) + sample `.gcode.3mf` fixture
 - [x] First-run install wizard (`/setup`) + tagged releases workflow
 
 ### Integration readiness (before live FM adapter)
@@ -122,7 +122,7 @@ MinIO optional (`--profile object`) until a live S3 endpoint is set.
 | 6 | web/gateway | Separate containers | 2026-11-06 |
 | 7 | Costing | $/hr, $/kg, kg/hr | 2026-11-06 |
 | 8 | Auth | `AUTH_MODE=lan` insecure LAN mode + OIDC | 2026-11-06 |
-| 9 | Growth model | Lean plugins (compose profiles + `ControlPlane`); FM-first; commerce stub parallel | 2026-11-12 |
+| 9 | Growth model | Lean plugins (compose profiles + `ControlPlane`); FM-first; commerce profile parallel | 2026-11-12 |
 | 10 | Direct printers | Future adapter; do not block FM MVP | 2026-11-12 |
 
 ---
@@ -135,6 +135,6 @@ Track detail in [`BUILD_OUT.md`](./BUILD_OUT.md).
 - [x] P1 — Job archive + richer queue
 - [x] P2 — Filament consumption / AMS depth
 - [x] P3 — Notify + power plugins
-- [x] P4 — Commerce plugin (beyond stub)
+- [x] P4 — Commerce plugin (webhook → jobs + pack/ship status echo; no shop DB)
 - [x] P5 — Direct-printer `ControlPlane` (in-process; no LAN)
-- [x] P6 — Slicer profile records a job; Orca CLI is not bundled and is not invoked
+- [x] P6 — Slicer profile; Orca not bundled; invoked only when `ORCA_BIN` is set

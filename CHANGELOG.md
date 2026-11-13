@@ -9,6 +9,11 @@ On release: move that section to a new `## [X.Y.Z] — YYYY-MM-DD`, bump [`VERSI
 
 ## [Unreleased]
 
+### Changed
+- Docs pass: drop HTMX/scaffold-stub claims; README + service shapes (gateway/edge/core/web/commerce/FM research) match shipped surface; commerce status reports `ok`; after-hours cursor artifacts removed
+- `.env.example` documents `DIRECT_PRINTERS`, `AMS_SLOT_MAP`, `POWER_URL`, and `FARM_MQTT_URL`; marks unused `EDGE_TOKEN` / `FARM_MODE`
+- Removed unused speculative commerce DTOs (`ShopConnection`, `CommerceOrder`)
+
 ### Added
 - Jobs/Artifacts collapsible create panels and expandable table detail rows; create-job progressive disclosure (plate source / targeting / estimates)
 - Shared `bfBindFile` drop zones for plate upload (Jobs + Artifacts) with clear + filename feedback

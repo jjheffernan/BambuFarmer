@@ -16,8 +16,8 @@ Stay lean: one interface, one default adapter, env-driven enablement.
 | `fm_native` | Primary | `services/edge` |
 | `cdp` | Escape hatch | `services/edge` |
 | `fixture` | Lab / CI | `services/edge` |
-| `direct_printer` | In-process list (`DIRECT_PRINTERS`); no LAN | `services/edge` |
-| `fleet_hub` | Reserved | future |
+| `direct_printer` | In-process list (`DIRECT_PRINTERS`); no LAN smoke needed | `services/edge` |
+| `fleet_hub` | Reserved name only | future |
 
 Core, gateway, and web must speak jobs/printers via APIs and events—never backend HTTP types.
 

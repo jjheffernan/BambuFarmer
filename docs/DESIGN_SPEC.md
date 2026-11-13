@@ -1,12 +1,14 @@
 # BambuFarmer — Design Specification
 
-**Status:** Draft v0.8 (MVP decisions locked)  
-**Date:** 2026-11-06  
+**Status:** Draft v0.8 (MVP decisions locked; build-out P0–P6 landed on `dev`)  
+**Date:** 2026-11-06 (implementation notes updated 2026-11-13)  
 **Scope:** Architecture and module design for a containerized print-farm operations platform that integrates with the Bambu Lab ecosystem (Farm Manager Server primary; Fleet Hub optional later), Spoolman (and peers), Manyfold (and peers), with multi-user access, costing, analytics, and **per-install filament/print presets**. Post-MVP: OrcaSlicer-backed slice service.
 
 **Pre-build gate:** integration answers are recorded in [`MVP_CHECKLIST.md`](./MVP_CHECKLIST.md). Remaining items are live-box smoke tests (FM IP/version), not open design.
 
 **Per-service design shapes:** [`docs/services/`](./services/README.md) — including Farm Manager research for edge ([`edge-farm-manager.md`](./services/edge-farm-manager.md)).
+
+**Implementation note (2026-11-13):** The web UI ships as Go `html/template` + vanilla JS + SSE + Tailwind. HTMX was removed; templ migration remains optional. Sections below that still say “HTMX” describe the original Plan A — treat [`docs/services/web.md`](./services/web.md) as the live UI contract. Live Farm Manager smoke is still deferred (fixture/unit cover the loop).
 
 ### Locked decisions
 
@@ -18,7 +20,7 @@
 | Language (all services) | **Go** |
 | Event bus | **Redis Streams** |
 | Auth | **`AUTH_MODE=lan`** (insecure LAN mode) + **OIDC-ready** for URL’d deploys |
-| web-frontend | **Go + templ + HTMX** (separate container from gateway) |
+| web-frontend | **Go `html/template` + SSE + Tailwind** (separate container from gateway; templ optional) |
 | farm-edge | **Go** |
 | Spoolman | **Optional live URL** — not required to run |
 | Manyfold | **Optional live URL**; OAuth optional |
@@ -138,7 +140,7 @@ External (same Podman/Compose network or linked hosts):
 
 | Module | Container | Responsibility |
 |--------|-----------|----------------|
-| **web-frontend** | `bambufarmer-web` | **Go + templ + HTMX.** Operator GUI; Bambu-like design language |
+| **web-frontend** | `bambufarmer-web` | **Go `html/template` + SSE + Tailwind.** Operator GUI; Bambu-like design language |
 | **api-gateway** | `bambufarmer-gateway` | TLS termination (optional), JWT/OIDC, routing, OpenAPI surface |
 | **core-backend** | `bambufarmer-core` | Users, orgs, printers registry, jobs, costing rules, policies |
 | **farm-edge** | `bambufarmer-edge` | **Go.** LAN integration with Farm Manager (v1); event ingest; file push |
@@ -1013,7 +1015,7 @@ Out of MVP: OrcaSlicer, forcing OIDC, Fleet Hub, multi-site, firmware upgrade UI
 - Feed slice metadata into costing + analytics
 
 ### Plugin tracks (parallel; see [`BUILD_OUT.md`](./BUILD_OUT.md), [`plugins.md`](./plugins.md))
-- **Commerce** (`services/commerce`, compose `--profile commerce`): stub ✅; store webhook → jobs → pack/ship later
+- **Commerce** (`services/commerce`, compose `--profile commerce`): webhook → jobs + pack/ship status echo ✅
 - **Direct printer** (`farm.KindDirect`): reserved behind `ControlPlane`; implement after FM job loop is solid
 - **Notify / power**: thin adapters, not core hard deps
 - Growth rule: interfaces + optional services — no plugin mega-framework; stay Go

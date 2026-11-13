@@ -17,7 +17,7 @@ const (
 	KindNative  Kind = "fm_native"      // Farm Manager Client–shaped REST (primary)
 	KindCDP     Kind = "cdp"            // FM Client DevTools escape hatch
 	KindFixture Kind = "fixture"        // redacted JSON for lab / CI
-	KindDirect  Kind = "direct_printer" // future: LAN MQTT/FTPS without FM
+	KindDirect  Kind = "direct_printer" // in-process list (DIRECT_PRINTERS); no LAN
 	KindHub     Kind = "fleet_hub"      // future
 	KindNone    Kind = "none"
 )
