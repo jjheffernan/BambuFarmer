@@ -74,8 +74,8 @@ Reject: shared plugin SDK frameworks, frontend stack rewrites, fat all-in-one im
 
 | Field | Value |
 |-------|--------|
-| **Done** | P0–P5 on `after-hours/build-out`. HMS array parse → failures rollup |
-| **Next** | P6 depth: optional Orca invoke when `ORCA_BIN` set (bin not bundled). Stay on `after-hours/build-out` |
+| **Done** | P0–P6 base on `after-hours/build-out`. Orca invoke when `ORCA_BIN` set |
+| **Next** | Remaining depth: slice events on Redis, preset JSON → Orca flags, FM parity extras. Stay on `after-hours/build-out` |
 | **Blocked** | — |
 | **Deferred** | Live FM upload→print→cost smoke — skipped for now. Use fixture mode or `direct_printer` |
 | **Do not** | Commit third-party product source trees; migrate off Go; bundle the Orca binary into the image |

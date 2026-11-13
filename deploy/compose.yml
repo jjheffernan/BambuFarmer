@@ -230,7 +230,8 @@ services:
       - "18085:8080"
 
   # Optional slice plugin: compose --profile slicer up -d
-  # Does not bundle Orca. ORCA_BIN empty accepts the job and does not invoke a slicer.
+  # Does not bundle Orca. Mount an operator-supplied binary and set ORCA_BIN to its path.
+  # ORCA_BIN empty accepts the job and does not invoke a slicer.
   slicer:
     profiles: ["slicer"]
     image: localhost/bambufarmer-slicer:dev
@@ -241,6 +242,10 @@ services:
     environment:
       HTTP_ADDR: ":8080"
       ORCA_BIN: ${ORCA_BIN:-}
+      ARTIFACTS_DIR: /data/artifacts
+      SLICE_WORK_DIR: /data/artifacts
+    volumes:
+      - artifacts:/data/artifacts
     ports:
       - "18086:8080"
 

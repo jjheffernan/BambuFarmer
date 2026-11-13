@@ -26,9 +26,16 @@ Preset `process_json` / `printer_json` from core feed `--load-settings`.
 
 ## 2. API
 
-- `POST /api/v1/slice/jobs` with `{"name":"..."}` — empty `ORCA_BIN` returns `sliced: false` and does not invoke a slicer
-- `GET /api/v1/slice/status`
-- The Orca CLI is operator-supplied and is not bundled in the image  
+- `POST /api/v1/slice/jobs` body:
+  - `name` (required)
+  - `input_path` (required when `ORCA_BIN` is set; absolute or relative to `SLICE_WORK_DIR` / `ARTIFACTS_DIR`)
+  - `output_path` (optional; default sibling `*.gcode.3mf`)
+  - `printer_json` / `process_json` → `--load-settings` (`;`-joined)
+  - `filament_json` → `--load-filaments`
+- Empty `ORCA_BIN` returns `sliced: false` and does not invoke a slicer
+- When `ORCA_BIN` is set, runs the CLI (`--arrange 1 --slice 0 --export-3mf …`) and returns `sliced: true` only if exit 0 and the output file exists
+- `GET /api/v1/slice/status` — `orca_configured`, `work_dir`
+- The Orca CLI is operator-supplied and is not bundled in the image
 
 ---
 
