@@ -24,6 +24,9 @@ func TestJobsPageUsesSSENotIntervalPoll(t *testing.T) {
 	if !strings.Contains(layoutHTML, "data-cancel") || !strings.Contains(layoutHTML, "/cancel") {
 		t.Fatal("jobs page missing cancel control")
 	}
+	if !strings.Contains(layoutHTML, "Cancel reason") {
+		t.Fatal("expected cancel reason prompt")
+	}
 	if !strings.Contains(layoutHTML, "data-dispatch") || !strings.Contains(layoutHTML, "/dispatch") {
 		t.Fatal("jobs page missing dispatch control")
 	}

@@ -1274,12 +1274,14 @@ const layoutHTML = `<!DOCTYPE html>
             }
             const cancelBtn = ev.target.closest('[data-cancel]');
             if (cancelBtn && !cancelBtn.disabled) {
+              const reason = prompt('Cancel reason', 'operator cancel');
+              if (reason == null) return;
               cancelBtn.disabled = true;
               try {
                 await bfJSON(API + '/api/v1/jobs/' + encodeURIComponent(cancelBtn.dataset.cancel) + '/cancel', {
                   method: 'POST', credentials: 'include',
                   headers: {'Content-Type': 'application/json'},
-                  body: JSON.stringify({reason: 'operator cancel'}),
+                  body: JSON.stringify({reason: String(reason).trim() || 'operator cancel'}),
                 });
                 jobsStatus.textContent = 'Cancelled';
                 await loadJobs();
