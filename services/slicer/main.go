@@ -1,6 +1,7 @@
 // Command slicer is the optional slice plugin (compose profile: slicer).
 // ORCA_BIN empty accepts a job and does not invoke a slicer.
 // When ORCA_BIN is set, POST /api/v1/slice/jobs runs the operator-supplied CLI.
+// print_preset_id / filament_preset_id pull JSON from CORE_URL into --load-settings / --load-filaments.
 // When REDIS_URL is set, slice.queued / slice.succeeded|failed are published.
 package main
 
@@ -28,6 +29,7 @@ func main() {
 	bin := os.Getenv("ORCA_BIN")
 	workDir := getenv("SLICE_WORK_DIR", getenv("ARTIFACTS_DIR", ""))
 	siteID := getenv("SITE_ID", "default")
+	coreURL := os.Getenv("CORE_URL")
 	redisURL := os.Getenv("REDIS_URL")
 
 	var bus *events.Bus
@@ -44,12 +46,14 @@ func main() {
 	mux := httpserver.NewMux(service)
 	mux.HandleFunc("POST /api/v1/slice/jobs", func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
-			Name         string `json:"name"`
-			InputPath    string `json:"input_path"`
-			OutputPath   string `json:"output_path"`
-			PrinterJSON  string `json:"printer_json"`
-			ProcessJSON  string `json:"process_json"`
-			FilamentJSON string `json:"filament_json"`
+			Name             string `json:"name"`
+			InputPath        string `json:"input_path"`
+			OutputPath       string `json:"output_path"`
+			PrinterJSON      string `json:"printer_json"`
+			ProcessJSON      string `json:"process_json"`
+			FilamentJSON     string `json:"filament_json"`
+			PrintPresetID    string `json:"print_preset_id"`
+			FilamentPresetID string `json:"filament_preset_id"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON body"})
@@ -65,6 +69,14 @@ func main() {
 			WorkDir:      workDir,
 			Timeout:      30 * time.Minute,
 		}
+		if strings.TrimSpace(bin) != "" && (body.PrintPresetID != "" || body.FilamentPresetID != "") {
+			files, err := slice.MaterializePresets(r.Context(), coreURL, workDir, body.PrintPresetID, body.FilamentPresetID, nil)
+			if err != nil {
+				writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+				return
+			}
+			slice.ApplyPresetFiles(&req, files)
+		}
 		res, err := slice.Job(r.Context(), bin, req)
 		if err != nil {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
@@ -77,9 +89,10 @@ func main() {
 		writeJSON(w, http.StatusOK, map[string]any{
 			"service":         service,
 			"orca_configured": strings.TrimSpace(bin) != "",
+			"core_url":        strings.TrimSpace(coreURL) != "",
 			"events":          bus != nil,
 			"work_dir":        workDir,
-			"note":            "POST /api/v1/slice/jobs with input_path invokes ORCA_BIN when set. Slice events publish when REDIS_URL is set. The Orca binary is not bundled.",
+			"note":            "POST /api/v1/slice/jobs may pass print_preset_id / filament_preset_id (CORE_URL) or printer_json/process_json/filament_json paths. ORCA_BIN and REDIS_URL are optional. The Orca binary is not bundled.",
 		})
 	})
 	if err := httpserver.ListenAndServe(httpserver.Options{

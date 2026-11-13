@@ -10,6 +10,7 @@ On release: move that section to a new `## [X.Y.Z] — YYYY-MM-DD`, bump [`VERSI
 ## [Unreleased]
 
 ### Added
+- Slice jobs accept `print_preset_id` / `filament_preset_id` and materialize core preset JSON into Orca `--load-settings` / `--load-filaments` when `CORE_URL` and `ORCA_BIN` are set
 - Slice lifecycle events (`slice.queued` / `slice.succeeded` / `slice.failed`) on `bf.events.slice` when the slicer has `REDIS_URL`; gateway SSE and analytics counters include the stream
 - Slice plugin invokes operator-supplied `ORCA_BIN` when set (`input_path` required; optional settings/filament JSON paths); empty `ORCA_BIN` still records the job without running a slicer
 - Printer `hms[]` from MQTT/FM push_status is formatted as `XXXX_XXXX_XXXX_XXXX` codes on snapshots and printer events; analytics failures roll up each HMS code alongside `print_error`
