@@ -45,7 +45,9 @@ Persistence stays in [`packages/db`](../../packages/db); core packages are thin 
 ### Done / partial
 
 - `GET/POST /api/v1/presets/filament`  
+- `GET/PATCH/DELETE /api/v1/presets/filament/{id}`  
 - `GET/POST /api/v1/presets/print`  
+- `GET/PATCH/DELETE /api/v1/presets/print/{id}`  
 - `GET /api/v1/presets/export`  
 - `POST /api/v1/presets/import`  
 

@@ -910,15 +910,37 @@ const layoutHTML = `<!DOCTYPE html>
               '<div class="bf-card-meta">' + (x.material||'') + ' · ' + (x.vendor||'') +
               ' · v' + (x.version||1) +
               (x.price_per_kg ? ' · $' + x.price_per_kg + '/kg' : '') + '</div>' +
-              '<button type="button" class="bf-btn mt-2" data-hist-kind="filament" data-hist-id="' + x.id + '" data-hist-name="' + (x.name||x.id) + '">History</button></li>');
+              '<div class="flex flex-wrap gap-2 mt-2">' +
+              '<button type="button" class="bf-btn" data-hist-kind="filament" data-hist-id="' + x.id + '" data-hist-name="' + (x.name||x.id) + '">History</button>' +
+              '<button type="button" class="bf-btn" data-del-kind="filament" data-del-id="' + x.id + '" data-del-name="' + (x.name||x.id) + '">Delete</button></div></li>');
             list(document.getElementById('print-list'), p, x =>
               '<li class="bf-card"><div class="bf-card-name">' + (x.name||x.id) + '</div>' +
               '<div class="bf-card-meta">' + (x.layer_height_mm||'') + 'mm · ø' + (x.nozzle_diameter_mm||'') +
               ' · v' + (x.version||1) + '</div>' +
-              '<button type="button" class="bf-btn mt-2" data-hist-kind="print" data-hist-id="' + x.id + '" data-hist-name="' + (x.name||x.id) + '">History</button></li>');
+              '<div class="flex flex-wrap gap-2 mt-2">' +
+              '<button type="button" class="bf-btn" data-hist-kind="print" data-hist-id="' + x.id + '" data-hist-name="' + (x.name||x.id) + '">History</button>' +
+              '<button type="button" class="bf-btn" data-del-kind="print" data-del-id="' + x.id + '" data-del-name="' + (x.name||x.id) + '">Delete</button></div></li>');
             document.querySelectorAll('[data-hist-id]').forEach(btn => {
               btn.onclick = () => openHistory(btn.dataset.histKind, btn.dataset.histId, btn.dataset.histName);
             });
+            document.querySelectorAll('[data-del-id]').forEach(btn => {
+              btn.onclick = () => deletePreset(btn.dataset.delKind, btn.dataset.delId, btn.dataset.delName);
+            });
+          }
+          async function deletePreset(kind, id, name) {
+            if (!confirm('Delete preset ' + (name || id) + '? Revisions are removed too.')) return;
+            try {
+              const r = await fetch(API + '/api/v1/presets/' + kind + '/' + encodeURIComponent(id), {
+                method: 'DELETE', credentials: 'include',
+              });
+              if (!r.ok) {
+                const t = await r.text();
+                throw new Error(t || r.statusText);
+              }
+              await loadPresets();
+            } catch (e) {
+              alert(String(e.message || e));
+            }
           }
           async function openHistory(kind, id, name) {
             historyKind = kind;

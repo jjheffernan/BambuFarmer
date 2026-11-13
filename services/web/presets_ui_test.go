@@ -24,4 +24,7 @@ func TestPresetsPageHasImportExport(t *testing.T) {
 	if !strings.Contains(layoutHTML, "/revisions") || !strings.Contains(layoutHTML, "/restore") {
 		t.Fatal("expected revision history/restore UI")
 	}
+	if !strings.Contains(layoutHTML, "data-del-id") || !strings.Contains(layoutHTML, "deletePreset") {
+		t.Fatal("expected preset delete control")
+	}
 }

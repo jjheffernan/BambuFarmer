@@ -10,6 +10,7 @@ On release: move that section to a new `## [X.Y.Z] — YYYY-MM-DD`, bump [`VERSI
 ## [Unreleased]
 
 ### Added
+- Preset GET/PATCH/DELETE by id for filament and print; Presets page Delete removes tip and revision history
 - Fleet printer filters: `GET /api/v1/printers` accepts `tag`, `state`, `model`, `q`, `online`; Fleet page tag chips + search
 - Job transition history (`GET /api/v1/jobs/{id}/events`); Jobs page History panel
 - Cancel a job (`POST /api/v1/jobs/{id}/cancel`); Jobs page Cancel button; stops the printer when the job was already on a machine
