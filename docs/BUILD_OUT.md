@@ -74,7 +74,7 @@ Reject: shared plugin SDK frameworks, frontend stack rewrites, fat all-in-one im
 
 | Field | Value |
 |-------|--------|
-| **Done** | P0–P6 on `after-hours/build-out`. Admin install readout |
+| **Done** | P0–P6 on `after-hours/build-out`. Shell pw / jobs progress / fleet print_error |
 | **Next** | More operator polish as needed. Stay on `after-hours/build-out` |
 | **Blocked** | — |
 | **Deferred** | Live FM upload→print→cost smoke — skipped for now. Use fixture mode or `direct_printer` |

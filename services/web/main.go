@@ -134,6 +134,16 @@ const layoutHTML = `<!DOCTYPE html>
       <div class="mt-auto text-xs text-bf-muted space-y-2">
         <p id="bf-user-label" class="hidden"></p>
         <button type="button" id="bf-logout" class="bf-btn hidden w-full">Log out</button>
+        <details class="hidden" id="shell-pw">
+          <summary class="cursor-pointer text-bf-ink">Change password</summary>
+          <form id="shell-pw-form" class="mt-2 space-y-1">
+            <input class="bf-input text-xs" type="password" id="shell-pw-cur" placeholder="Current" autocomplete="current-password" required/>
+            <input class="bf-input text-xs" type="password" id="shell-pw-new" placeholder="New" autocomplete="new-password" required/>
+            <input class="bf-input text-xs" type="password" id="shell-pw-new2" placeholder="Confirm" autocomplete="new-password" required/>
+            <button type="submit" class="bf-btn w-full">Update</button>
+            <p class="text-xs m-0" id="shell-pw-msg"></p>
+          </form>
+        </details>
         <p class="hidden md:block">Gateway API<br/><code class="text-[0.7rem] break-all">{{.APIBase}}</code></p>
         <p class="font-mono text-[0.7rem]" id="bf-build-version">…</p>
       </div>
@@ -169,6 +179,37 @@ const layoutHTML = `<!DOCTYPE html>
             const roles = me.roles || me.user.roles || [];
             if (roles.indexOf('admin') < 0 && roles.indexOf('operator') < 0) {
               document.querySelectorAll('a[href="/admin"]').forEach(a => a.classList.add('hidden'));
+            }
+            if (me.auth_mode === 'lan') {
+              const pw = document.getElementById('shell-pw');
+              if (pw) {
+                pw.classList.remove('hidden');
+                document.getElementById('shell-pw-form').onsubmit = async (ev) => {
+                  ev.preventDefault();
+                  const msg = document.getElementById('shell-pw-msg');
+                  msg.className = 'text-xs m-0';
+                  msg.textContent = '';
+                  const a = document.getElementById('shell-pw-new').value;
+                  const b = document.getElementById('shell-pw-new2').value;
+                  if (a !== b) { msg.className = 'text-bf-danger text-xs m-0'; msg.textContent = 'Mismatch'; return; }
+                  try {
+                    await bfJSON(API + '/api/v1/auth/password', {
+                      method: 'POST', credentials: 'include',
+                      headers: {'Content-Type': 'application/json'},
+                      body: JSON.stringify({
+                        current_password: document.getElementById('shell-pw-cur').value,
+                        new_password: a,
+                      }),
+                    });
+                    msg.className = 'text-bf-accent text-xs m-0';
+                    msg.textContent = 'Updated';
+                    document.getElementById('shell-pw-form').reset();
+                  } catch (e) {
+                    msg.className = 'text-bf-danger text-xs m-0';
+                    msg.textContent = String(e.message || e);
+                  }
+                };
+              }
             }
           } else if (me.auth_mode === 'lan') {
             // Gateway will 401/redirect protected routes; soft-hint only.
@@ -443,10 +484,17 @@ const layoutHTML = `<!DOCTYPE html>
             const keepSrc = prevImg && prevImg.dataset.sn === p.external_sn ? prevImg.src : liveviewURL(p.external_sn);
             drawerBody.innerHTML =
               '<div class="bf-panel p-3">' +
-              '<div class="bf-card-meta m-0 mb-2">' + esc(p.model || '') + ' · <span class="state-' +
-              esc(p.gcode_state || '') + '">' + esc(p.gcode_state || '?') + '</span>' +
+              '<div class="bf-card-meta m-0 mb-2">' + esc(p.model || '') + ' · ' +
+              (p.online === false ? '<span class="text-bf-danger">offline</span> · ' : '') +
+              '<span class="state-' + esc(p.gcode_state || '') + '">' + esc(p.gcode_state || '?') + '</span>' +
               (p.mc_percent ? ' · ' + p.mc_percent + '%' : '') +
+              (p.layer_num || p.total_layer_num
+                ? (' · L' + (p.layer_num || 0) + '/' + (p.total_layer_num || '?'))
+                : '') +
               (p.mc_remaining_time ? ' · ' + p.mc_remaining_time + 's left' : '') + '</div>' +
+              (p.print_error
+                ? '<p class="text-bf-danger text-xs m-0 mb-2">print_error ' + esc(p.print_error) + '</p>'
+                : '') +
               '<div class="space-y-1">' + temps + '</div>' +
               (p.wifi_signal ? '<p class="bf-card-meta mt-2 mb-0">Wi‑Fi ' + esc(p.wifi_signal) + '</p>' : '') +
               '</div>' +
@@ -551,9 +599,16 @@ const layoutHTML = `<!DOCTYPE html>
                 '<div class="flex items-start gap-2 mb-2">' +
                 '<input type="checkbox" class="mt-1 bulk-pick" data-sn="' + sn + '"' + on + '/>' +
                 '<button type="button" class="text-left flex-1 min-w-0 printer-open cursor-pointer" data-sn="' + sn + '">' +
-                '<span class="bf-card-name">' + esc(p.name || sn) + '</span>' +
+                '<span class="bf-card-name">' + esc(p.name || sn) +
+                (p.online === false ? ' <span class="text-bf-danger text-xs font-sans">offline</span>' : '') +
+                '</span>' +
                 '<span class="bf-card-meta block">' + esc(p.model || '') + ' · <span class="state-' + esc(p.gcode_state||'') + '">' + esc(p.gcode_state||'?') + '</span>' +
-                (p.mc_percent ? ' · ' + p.mc_percent + '%' : '') + '</span>' +
+                (p.mc_percent ? ' · ' + p.mc_percent + '%' : '') +
+                (p.layer_num || p.total_layer_num
+                  ? (' · L' + (p.layer_num || 0) + '/' + (p.total_layer_num || '?'))
+                  : '') +
+                (p.print_error ? (' · <span class="text-bf-danger">err ' + esc(p.print_error) + '</span>') : '') +
+                '</span>' +
                 taskLine(p) +
                 '</button></div>' +
                 amsChips(p) +
@@ -816,15 +871,30 @@ const layoutHTML = `<!DOCTYPE html>
             jsonEl.textContent = '…';
             try {
               const a = await bfJSON(API + '/api/v1/artifacts/' + encodeURIComponent(id));
+              const key = a.object_key
+                ? (esc(a.object_key) +
+                  ' <button type="button" class="bf-btn" data-copy-key="' + esc(a.object_key) + '">Copy key</button>')
+                : esc('—');
               fields.innerHTML = [
                 artDetailRow('Filename', a.filename),
-                artDetailRow('Object key', a.object_key),
+                '<div><dt class="text-bf-muted text-xs">Object key</dt><dd class="m-0 font-mono text-xs break-all">' + key + '</dd></div>',
                 artDetailRow('Site', a.site_id),
                 artDetailRow('Bytes', a.bytes),
                 artDetailRow('Est. seconds', a.est_seconds),
                 artDetailRow('Est. grams', a.est_grams),
                 artDetailRow('Created', a.created_at),
               ].join('');
+              fields.querySelectorAll('[data-copy-key]').forEach(btn => {
+                btn.onclick = async () => {
+                  try {
+                    await navigator.clipboard.writeText(btn.dataset.copyKey);
+                    artStatus.textContent = 'Copied object_key';
+                    artStatus.classList.add('live');
+                  } catch (_) {
+                    artStatus.textContent = btn.dataset.copyKey;
+                  }
+                };
+              });
               jsonEl.textContent = JSON.stringify(a, null, 2);
             } catch (e) {
               fields.innerHTML = '<p class="text-bf-danger md:col-span-2">' + esc(e.message || e) + '</p>';
@@ -1044,6 +1114,17 @@ const layoutHTML = `<!DOCTYPE html>
             const s = p.toString();
             return API + '/api/v1/jobs' + (s ? '?' + s : '');
           }
+          const jobProgress = new Map();
+          function fmtProgress(j) {
+            const p = jobProgress.get(j.id);
+            if (!p) return '';
+            const pct = (p.mc_percent != null && p.mc_percent !== '') ? (p.mc_percent + '%') : '';
+            const layers = (p.layer_num || p.total_layer_num)
+              ? ('L' + (p.layer_num || 0) + '/' + (p.total_layer_num || '?'))
+              : '';
+            const bits = [pct, layers].filter(Boolean);
+            return bits.length ? bits.join(' · ') : '';
+          }
           async function loadJobs() {
             try {
               const jobs = await bfJSON(jobsURL());
@@ -1061,6 +1142,10 @@ const layoutHTML = `<!DOCTYPE html>
                   ? ('after ' + String(j.after_job_id).slice(0, 8))
                   : '';
                 const target = [j.target_model, after].filter(Boolean).join(' · ') || '—';
+                const prog = fmtProgress(j);
+                const est = prog
+                  ? (esc(prog) + (fmtEst(j) !== '—' ? (' · ' + esc(fmtEst(j))) : ''))
+                  : esc(fmtEst(j));
                 return '<tr>' +
                 '<td><div class="font-medium">' + esc(j.name || j.id) + '</div>' +
                   '<div class="text-bf-muted text-xs font-mono">' + esc(j.id) + '</div></td>' +
@@ -1069,7 +1154,7 @@ const layoutHTML = `<!DOCTYPE html>
                 '<td class="text-bf-muted font-mono text-xs">' + esc(j.external_sn || '—') + '</td>' +
                 '<td class="text-bf-muted text-xs">' + esc(target) + '</td>' +
                 '<td class="text-bf-muted font-mono text-xs">' + esc(j.artifact_id || '—') + '</td>' +
-                '<td class="text-bf-muted">' + esc(fmtEst(j)) + '</td>' +
+                '<td class="text-bf-muted">' + est + '</td>' +
                 '<td class="text-bf-muted">' + esc(fmtCost(j)) + '</td>' +
                 '<td class="' + (j.error ? 'text-bf-danger text-xs' : 'text-bf-muted') + '">' +
                   esc(j.error || '—') + '</td>' +
@@ -1114,11 +1199,16 @@ const layoutHTML = `<!DOCTYPE html>
             detailJSON.textContent = '…';
             try {
               const j = await bfJSON(API + '/api/v1/jobs/' + encodeURIComponent(id));
+              const art = j.artifact_id
+                ? (esc(j.artifact_id) +
+                  ' <a class="bf-btn" href="' + API + '/api/v1/artifacts/' + encodeURIComponent(j.artifact_id) +
+                  '/content" target="_blank" rel="noopener">Download</a>')
+                : esc('—');
               detailFields.innerHTML = [
                 detailRow('Name', j.name),
                 detailRow('State', j.state),
                 detailRow('Printer SN', j.external_sn),
-                detailRow('Artifact', j.artifact_id),
+                '<div><dt class="text-bf-muted text-xs">Artifact</dt><dd class="m-0 font-mono text-xs break-all">' + art + '</dd></div>',
                 detailRow('File id', j.external_file_id || j.file_id),
                 detailRow('Queue pos', j.queue_pos),
                 detailRow('Target model', j.target_model),
@@ -1131,6 +1221,8 @@ const layoutHTML = `<!DOCTYPE html>
                 detailRow('Cost actual', j.cost_actual),
                 detailRow('Currency', j.currency),
                 detailRow('Error', j.error),
+                detailRow('Started', j.started_at),
+                detailRow('Finished', j.finished_at),
                 detailRow('Created', j.created_at),
                 detailRow('Updated', j.updated_at),
               ].join('');
@@ -1428,8 +1520,32 @@ const layoutHTML = `<!DOCTYPE html>
               jobsStatus.textContent = 'SSE live';
               jobsStatus.classList.add('live');
             });
-            ['job.queued','job.assigned','job.dispatched','job.progress','job.finished','job.failed','job.cancelled'].forEach(ev => {
-              es.addEventListener(ev, () => { scheduleJobsReload(); });
+            es.addEventListener('job.progress', (msg) => {
+              try {
+                const env = JSON.parse(msg.data);
+                const p = env.payload || {};
+                const id = p.job_id || p.id;
+                if (id) {
+                  jobProgress.set(id, {
+                    mc_percent: p.mc_percent,
+                    layer_num: p.layer_num,
+                    total_layer_num: p.total_layer_num,
+                  });
+                }
+              } catch (_) {}
+              scheduleJobsReload();
+            });
+            ['job.queued','job.assigned','job.dispatched','job.finished','job.failed','job.cancelled'].forEach(ev => {
+              es.addEventListener(ev, (msg) => {
+                if (ev === 'job.finished' || ev === 'job.failed' || ev === 'job.cancelled') {
+                  try {
+                    const env = JSON.parse(msg.data);
+                    const id = (env.payload || {}).job_id || (env.payload || {}).id;
+                    if (id) jobProgress.delete(id);
+                  } catch (_) {}
+                }
+                scheduleJobsReload();
+              });
             });
             es.onerror = () => {
               jobsStatus.textContent = 'SSE reconnecting…';
@@ -2375,7 +2491,16 @@ const layoutHTML = `<!DOCTYPE html>
                   spool_id: document.getElementById('commerce-spool').value.trim() || undefined,
                 }),
               });
-              msg.textContent = out.queued ? ('Queued job ' + (out.job_id || '')) : (out.reason || 'not queued');
+              if (out.queued && out.job_id) {
+                msg.innerHTML = 'Queued job <code class="font-mono text-xs">' + esc(out.job_id) +
+                  '</code> <button type="button" class="bf-btn" id="commerce-copy-job">Copy id</button>';
+                document.getElementById('commerce-copy-job').onclick = async () => {
+                  try { await navigator.clipboard.writeText(out.job_id); msg.append(' · copied'); }
+                  catch (_) { msg.append(' · ' + out.job_id); }
+                };
+              } else {
+                msg.textContent = out.reason || 'not queued';
+              }
               commerceResult.textContent = JSON.stringify(out, null, 2);
               commerceResult.classList.remove('hidden');
             } catch (e) {

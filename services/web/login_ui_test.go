@@ -13,3 +13,9 @@ func TestLoginPageSupportsOIDC(t *testing.T) {
 		t.Fatal("expected login page to probe auth mode")
 	}
 }
+
+func TestShellPasswordChange(t *testing.T) {
+	if !strings.Contains(layoutHTML, `id="shell-pw"`) || !strings.Contains(layoutHTML, "/api/v1/auth/password") {
+		t.Fatal("expected shell password change for LAN users")
+	}
+}

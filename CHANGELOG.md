@@ -10,6 +10,8 @@ On release: move that section to a new `## [X.Y.Z] — YYYY-MM-DD`, bump [`VERSI
 ## [Unreleased]
 
 ### Added
+- Shell Change password for LAN users (including viewers); Jobs live % from `job.progress`; job detail started/finished + artifact download
+- Fleet offline / layer / print_error on cards; Commerce webhook Copy job id; Artifacts Copy object_key
 - Admin install readout (`GET /api/v1/setup`) beside setup reset
 - Fleet card control errors via bfJSON, HMS chips, and dismissible alert banner; shell shows site name
 - Jobs Copy id; Slice `slice.*` SSE toasts; OIDC SSO button on `/login` when `AUTH_MODE=oidc`; Filament low-stock row highlight

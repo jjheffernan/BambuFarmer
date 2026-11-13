@@ -68,6 +68,12 @@ func TestJobsPageUsesSSENotIntervalPoll(t *testing.T) {
 	if !strings.Contains(layoutHTML, `data-copy="' + esc(j.id)`) {
 		t.Fatal("jobs table missing copy id control")
 	}
+	if !strings.Contains(layoutHTML, "jobProgress") || !strings.Contains(layoutHTML, "fmtProgress") {
+		t.Fatal("jobs table missing live progress from job.progress SSE")
+	}
+	if !strings.Contains(layoutHTML, "started_at") || !strings.Contains(layoutHTML, "/content") {
+		t.Fatal("job detail missing started/finished or artifact download")
+	}
 	for _, ev := range []string{
 		"job.queued",
 		"job.assigned",

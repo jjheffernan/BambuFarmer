@@ -60,4 +60,10 @@ func TestFleetPageShowsAMSAndTaskHelpers(t *testing.T) {
 	if !strings.Contains(layoutHTML, "alert-banner-dismiss") {
 		t.Fatal("expected alert banner dismiss")
 	}
+	if !strings.Contains(layoutHTML, "print_error") || !strings.Contains(layoutHTML, "layer_num") {
+		t.Fatal("expected fleet print_error and layer progress")
+	}
+	if !strings.Contains(layoutHTML, "offline") {
+		t.Fatal("expected fleet offline badge")
+	}
 }
