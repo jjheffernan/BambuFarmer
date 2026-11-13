@@ -11,6 +11,7 @@ import (
 	"github.com/jjheffernan/BambuFarmer/packages/api"
 	"github.com/jjheffernan/BambuFarmer/packages/events"
 	"github.com/jjheffernan/BambuFarmer/packages/farm"
+	"github.com/jjheffernan/BambuFarmer/packages/objectstore"
 	"github.com/jjheffernan/BambuFarmer/packages/printerstate"
 	"github.com/jjheffernan/BambuFarmer/services/edge/app/bus"
 	"github.com/jjheffernan/BambuFarmer/services/edge/app/config"
@@ -75,6 +76,12 @@ func New(opts Options) *Agent {
 			SiteID:       opts.Config.SiteID,
 			ArtifactsDir: opts.Config.ArtifactsDir,
 			Log:          log,
+		}
+		if remote, err := objectstore.Dial(objectstore.FromEnv()); err != nil {
+			log.Warn("object store dial", "err", err)
+		} else if remote != nil {
+			a.pub.ObjectStore = remote
+			log.Info("object store enabled for artifact fetch")
 		}
 	}
 	return a

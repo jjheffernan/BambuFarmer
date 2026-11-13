@@ -180,7 +180,7 @@ type RateCard struct {
 	FailureSurchargePct float64 `json:"failure_surcharge_pct,omitempty"`
 }
 
-// Artifact is a staged .gcode.3mf (local ARTIFACTS_DIR until object-store profile).
+// Artifact is a staged .gcode.3mf (local ARTIFACTS_DIR; mirrored to OBJECT_STORE_* when set).
 type Artifact struct {
 	ID         string    `json:"id"`
 	SiteID     string    `json:"site_id"`

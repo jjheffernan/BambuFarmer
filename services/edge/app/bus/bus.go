@@ -12,6 +12,7 @@ import (
 	"github.com/jjheffernan/BambuFarmer/packages/api"
 	"github.com/jjheffernan/BambuFarmer/packages/events"
 	"github.com/jjheffernan/BambuFarmer/packages/farm"
+	"github.com/jjheffernan/BambuFarmer/packages/objectstore"
 )
 
 // Commander is the subset of farm.ControlPlane the command consumer needs.
@@ -29,7 +30,8 @@ type Uploader interface {
 type Publisher struct {
 	Bus          *events.Bus
 	SiteID       string
-	ArtifactsDir string // shared volume with core; object_key is relative
+	ArtifactsDir string             // shared volume with core; object_key is relative
+	ObjectStore  *objectstore.Client // optional MinIO/S3 when local file missing
 	Log          *slog.Logger
 }
 
@@ -266,26 +268,16 @@ func (p *Publisher) uploadArtifact(ctx context.Context, cmd Commander, objectKey
 	if !ok {
 		return "", "", fmt.Errorf("start_print: commander cannot Upload3MF")
 	}
-	dir := ""
-	if p != nil {
-		dir = p.ArtifactsDir
-	}
-	if dir == "" {
-		return "", "", fmt.Errorf("start_print: ARTIFACTS_DIR unset and no file_id")
-	}
-	path, err := absArtifact(dir, objectKey)
+	rc, cleanup, baseName, err := p.openArtifact(ctx, objectKey)
 	if err != nil {
 		return "", "", err
 	}
-	f, err := os.Open(path)
-	if err != nil {
-		return "", "", fmt.Errorf("open artifact %s: %w", objectKey, err)
-	}
-	defer f.Close()
+	defer cleanup()
+	defer rc.Close()
 	if name == "" {
-		name = filepath.Base(path)
+		name = baseName
 	}
-	ref, err := up.Upload3MF(ctx, name, f)
+	ref, err := up.Upload3MF(ctx, name, rc)
 	if err != nil {
 		return "", "", err
 	}
@@ -293,6 +285,38 @@ func (p *Publisher) uploadArtifact(ctx context.Context, cmd Commander, objectKey
 		return "", "", fmt.Errorf("upload returned empty file id")
 	}
 	return ref.ID, firstNonEmpty(ref.Name, name), nil
+}
+
+func (p *Publisher) openArtifact(ctx context.Context, objectKey string) (io.ReadCloser, func(), string, error) {
+	nop := func() {}
+	dir := ""
+	if p != nil {
+		dir = p.ArtifactsDir
+	}
+	if dir != "" {
+		path, err := absArtifact(dir, objectKey)
+		if err != nil {
+			return nil, nop, "", err
+		}
+		f, err := os.Open(path)
+		if err == nil {
+			return f, nop, filepath.Base(path), nil
+		}
+		if !os.IsNotExist(err) {
+			return nil, nop, "", fmt.Errorf("open artifact %s: %w", objectKey, err)
+		}
+	}
+	if p != nil && p.ObjectStore != nil {
+		rc, err := p.ObjectStore.Get(ctx, objectKey)
+		if err != nil {
+			return nil, nop, "", fmt.Errorf("object store get %s: %w", objectKey, err)
+		}
+		return rc, nop, filepath.Base(objectKey), nil
+	}
+	if dir == "" {
+		return nil, nop, "", fmt.Errorf("start_print: ARTIFACTS_DIR unset and no file_id")
+	}
+	return nil, nop, "", fmt.Errorf("open artifact %s: not in local store or object store", objectKey)
 }
 
 func absArtifact(dir, objectKey string) (string, error) {

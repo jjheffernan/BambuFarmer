@@ -15,6 +15,7 @@ import (
 	"github.com/jjheffernan/BambuFarmer/packages/db"
 	"github.com/jjheffernan/BambuFarmer/packages/events"
 	"github.com/jjheffernan/BambuFarmer/packages/httpserver"
+	"github.com/jjheffernan/BambuFarmer/packages/objectstore"
 	"github.com/jjheffernan/BambuFarmer/packages/version"
 	"github.com/jjheffernan/BambuFarmer/services/core/internal/alerts"
 	"github.com/jjheffernan/BambuFarmer/services/core/internal/artifacts"
@@ -72,6 +73,17 @@ func main() {
 	}
 
 	artStore := artifacts.Store{Dir: cfg.ArtifactsDir}
+	objCfg := objectstore.FromEnv()
+	if remote, err := objectstore.Dial(objCfg); err != nil {
+		slog.Warn("object store dial", "err", err)
+	} else if remote != nil {
+		artStore.Remote = remote
+		if err := remote.EnsureBucket(ctx); err != nil {
+			slog.Warn("object store bucket", "err", err)
+		} else {
+			slog.Info("object store enabled", "bucket", objCfg.Bucket)
+		}
+	}
 	if err := artStore.EnsureDir(); err != nil {
 		slog.Warn("artifacts dir", "dir", cfg.ArtifactsDir, "err", err)
 	}

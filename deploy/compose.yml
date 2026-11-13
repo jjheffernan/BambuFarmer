@@ -58,6 +58,28 @@ services:
     volumes:
       - miniodata:/data
 
+  minio-init:
+    profiles: ["object"]
+    image: docker.io/minio/mc:RELEASE.2024-11-17T19-35-56Z
+    env_file: *env_file
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      OBJECT_STORE_BUCKET: ${OBJECT_STORE_BUCKET:-bambufarmer}
+    depends_on:
+      - minio
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        i=0
+        until mc alias set local http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}"; do
+          i=$$((i+1)); if [ $$i -gt 30 ]; then exit 1; fi
+          sleep 1
+        done
+        mc mb -p "local/$${OBJECT_STORE_BUCKET}" || true
+        echo "bucket ready: $${OBJECT_STORE_BUCKET}"
+
   gateway:
     image: localhost/bambufarmer-gateway:dev
     build:
@@ -109,6 +131,11 @@ services:
       DATABASE_URL: ${DATABASE_URL:-postgres://bambufarmer:bambufarmer@postgres:5432/bambufarmer?sslmode=disable}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
       ARTIFACTS_DIR: ${ARTIFACTS_DIR:-/data/artifacts}
+      OBJECT_STORE_ENDPOINT: ${OBJECT_STORE_ENDPOINT:-}
+      OBJECT_STORE_ACCESS_KEY: ${OBJECT_STORE_ACCESS_KEY:-}
+      OBJECT_STORE_SECRET_KEY: ${OBJECT_STORE_SECRET_KEY:-}
+      OBJECT_STORE_BUCKET: ${OBJECT_STORE_BUCKET:-bambufarmer}
+      OBJECT_STORE_REGION: ${OBJECT_STORE_REGION:-us-east-1}
       CURRENCY: ${CURRENCY:-USD}
       MACHINE_RATE_PER_HOUR: ${MACHINE_RATE_PER_HOUR:-0}
       FILAMENT_PRICE_PER_KG: ${FILAMENT_PRICE_PER_KG:-0}
@@ -154,6 +181,11 @@ services:
       EDGE_TOKEN: ${EDGE_TOKEN:-}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
       ARTIFACTS_DIR: ${ARTIFACTS_DIR:-/data/artifacts}
+      OBJECT_STORE_ENDPOINT: ${OBJECT_STORE_ENDPOINT:-}
+      OBJECT_STORE_ACCESS_KEY: ${OBJECT_STORE_ACCESS_KEY:-}
+      OBJECT_STORE_SECRET_KEY: ${OBJECT_STORE_SECRET_KEY:-}
+      OBJECT_STORE_BUCKET: ${OBJECT_STORE_BUCKET:-bambufarmer}
+      OBJECT_STORE_REGION: ${OBJECT_STORE_REGION:-us-east-1}
     ports:
       - "18082:8080"
     volumes:

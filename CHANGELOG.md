@@ -10,6 +10,7 @@ On release: move that section to a new `## [X.Y.Z] — YYYY-MM-DD`, bump [`VERSI
 ## [Unreleased]
 
 ### Added
+- Optional MinIO/S3 artifact backend (`OBJECT_STORE_*`): core mirrors uploads, edge fetches on local miss; compose `--profile object` adds MinIO + bucket init
 - Analytics date window (`from`/`to`) and utilization `group_by` (`printer`/`site`/`day`) on series + export; Analytics page Apply controls
 - Fleet drawer liveview JPEG refreshes every 3s while open (cache-busted fetch); stops on close
 - Preset revision history and restore (`GET …/presets/{filament|print}/{id}/revisions`, `POST …/restore`); Presets page History opens the list

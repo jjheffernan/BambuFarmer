@@ -9,6 +9,7 @@ COPY packages/httpserver ./packages/httpserver
 COPY packages/printerstate ./packages/printerstate
 COPY packages/events ./packages/events
 COPY packages/farm ./packages/farm
+COPY packages/objectstore ./packages/objectstore
 COPY services/edge ./services/edge
 WORKDIR /src/services/edge
 RUN go mod tidy && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/service .

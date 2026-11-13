@@ -51,10 +51,11 @@ Persistence stays in [`packages/db`](../../packages/db); core packages are thin 
 
 ### Next
 
-- Object-store profile for artifacts (MinIO) when local volume is not enough  
+- (none blocking)  
 
 ### Recent
 
+- Optional MinIO/S3 artifact mirror via `OBJECT_STORE_*` (compose `--profile object`)
 - Preset revision list/restore (`GET …/revisions`, `POST …/restore`)
 - `GET/PUT /api/v1/admin/rate-cards`  
 - `GET /api/v1/printers` (projection)  
@@ -94,5 +95,5 @@ On boot: `db.Migrate`.
 2. Rate cards CRUD  
 3. Printer projection consumer  
 4. Jobs create → command edge → track finish  
-5. Artifact upload to MinIO/S3  
+5. Artifact upload to MinIO/S3 — done when `OBJECT_STORE_ENDPOINT` is set (`--profile object`)
 6. Lan users for gateway

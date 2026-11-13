@@ -14,6 +14,7 @@ COPY packages/config ./packages/config
 COPY packages/httpserver ./packages/httpserver
 COPY packages/db ./packages/db
 COPY packages/events ./packages/events
+COPY packages/objectstore ./packages/objectstore
 COPY packages/version ./packages/version
 COPY services/core ./services/core
 WORKDIR /src/services/core

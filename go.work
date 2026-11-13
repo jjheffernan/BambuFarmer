@@ -7,6 +7,7 @@ use (
 	./packages/events
 	./packages/farm
 	./packages/httpserver
+	./packages/objectstore
 	./packages/printerstate
 	./packages/version
 	./services/analytics
