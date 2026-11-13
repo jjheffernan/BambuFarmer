@@ -1650,9 +1650,17 @@ const layoutHTML = `<!DOCTYPE html>
             filStatus.textContent = 'loading…';
             filStatus.classList.remove('live');
             try {
+              let integNote = '';
+              try {
+                const st = await bfJSON(API + '/api/v1/integrations/status');
+                const s = (st && st.spoolman) || {};
+                integNote = s.configured
+                  ? ('Spoolman · ' + (s.url || 'on'))
+                  : 'Spoolman unset';
+              } catch (_) {}
               const data = await bfJSON(API + '/api/v1/filament/spools');
               if (!data.configured) {
-                filStatus.textContent = 'Spoolman not configured';
+                filStatus.textContent = integNote || 'Spoolman not configured';
                 filLow.innerHTML = '<p class="bf-empty m-0">Set SPOOLMAN_URL to list spools.</p>';
                 filBody.innerHTML = '<tr><td colspan="6" class="bf-empty">Not configured</td></tr>';
                 return;
@@ -1678,7 +1686,7 @@ const layoutHTML = `<!DOCTYPE html>
                   '<td class="font-mono text-xs">' + esc(s.id || s.spoolman_id || '—') + '</td>' +
                   '</tr>').join('');
               }
-              filStatus.textContent = 'updated · ' + spools.length + ' spools';
+              filStatus.textContent = (integNote || 'Spoolman') + ' · ' + spools.length + ' spools';
               filStatus.classList.add('live');
             } catch (e) {
               filStatus.textContent = String(e.message || e);
@@ -1758,9 +1766,17 @@ const layoutHTML = `<!DOCTYPE html>
             libStatus.textContent = 'loading…';
             libStatus.classList.remove('live');
             try {
+              let integNote = '';
+              try {
+                const st = await bfJSON(API + '/api/v1/integrations/status');
+                const m = (st && st.manyfold) || {};
+                integNote = m.configured
+                  ? ('Manyfold · ' + (m.url || 'on'))
+                  : 'Manyfold unset';
+              } catch (_) {}
               const data = await bfJSON(API + '/api/v1/library/models');
               if (!data.configured) {
-                libStatus.textContent = 'Manyfold not configured';
+                libStatus.textContent = integNote || 'Manyfold not configured';
                 libBody.innerHTML = '<tr><td colspan="3" class="bf-empty">Set MANYFOLD_URL to list models.</td></tr>';
                 return;
               }
@@ -1776,7 +1792,7 @@ const layoutHTML = `<!DOCTYPE html>
                     : '—') + '</td>' +
                   '</tr>').join('');
               }
-              libStatus.textContent = 'updated · ' + models.length + ' models';
+              libStatus.textContent = (integNote || 'Manyfold') + ' · ' + models.length + ' models';
               libStatus.classList.add('live');
             } catch (e) {
               libStatus.textContent = String(e.message || e);

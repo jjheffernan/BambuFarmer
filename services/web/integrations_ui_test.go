@@ -23,4 +23,7 @@ func TestFilamentAndLibraryPages(t *testing.T) {
 	if !strings.Contains(layoutHTML, `id="library-export-pick"`) {
 		t.Fatal("expected library export artifact picker")
 	}
+	if !strings.Contains(layoutHTML, "/api/v1/integrations/status") {
+		t.Fatal("expected Filament/Library to probe integrations status")
+	}
 }

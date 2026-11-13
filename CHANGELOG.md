@@ -10,6 +10,7 @@ On release: move that section to a new `## [X.Y.Z] — YYYY-MM-DD`, bump [`VERSI
 ## [Unreleased]
 
 ### Added
+- Filament and Library pages show Spoolman/Manyfold URL status from `GET /api/v1/integrations/status`
 - Analytics export kind picker (`utilization` / `costs` / `failures` / `all`) on JSON and CSV download links
 - Artifacts page Detail panel loads `GET /api/v1/artifacts/{id}` including `object_key`
 - Jobs Dispatch prompts for a printer SN when the job is unassigned
