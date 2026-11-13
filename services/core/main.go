@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -63,7 +65,7 @@ func main() {
 		}
 	}
 	if pool != nil {
-		sched := &jobs.Scheduler{Pool: pool, Bus: bus, SiteID: cfg.SiteID}
+		sched := &jobs.Scheduler{Pool: pool, Bus: bus, SiteID: cfg.SiteID, CircuitMax: circuitMax()}
 		go sched.Run(ctx)
 	}
 
@@ -105,4 +107,17 @@ func main() {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	_ = srv.Shutdown(shutdownCtx)
+}
+
+// circuitMax reads CIRCUIT_MAX. Empty or invalid means no circuit tag limit.
+func circuitMax() int {
+	raw := strings.TrimSpace(os.Getenv("CIRCUIT_MAX"))
+	if raw == "" {
+		return 0
+	}
+	n, err := strconv.Atoi(raw)
+	if err != nil || n < 0 {
+		return 0
+	}
+	return n
 }

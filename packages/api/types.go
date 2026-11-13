@@ -55,16 +55,17 @@ type PresetBundle struct {
 
 // PrinterSummary is a normalized fleet list item.
 type PrinterSummary struct {
-	ID         string `json:"id"`
-	SiteID     string `json:"site_id"`
-	ExternalSN string `json:"external_sn"`
-	Name       string `json:"name"`
-	Model      string `json:"model"`
-	Online     bool   `json:"online"`
-	GcodeState string `json:"gcode_state"`
-	MCPercent  int    `json:"mc_percent"`
-	RemainingS int    `json:"mc_remaining_time"`
-	Bucket     string `json:"bucket,omitempty"` // attention bucket (FM nav mirror)
+	ID         string   `json:"id"`
+	SiteID     string   `json:"site_id"`
+	ExternalSN string   `json:"external_sn"`
+	Name       string   `json:"name"`
+	Model      string   `json:"model"`
+	Online     bool     `json:"online"`
+	GcodeState string   `json:"gcode_state"`
+	MCPercent  int      `json:"mc_percent"`
+	RemainingS int      `json:"mc_remaining_time"`
+	Bucket     string   `json:"bucket,omitempty"` // attention bucket (FM nav mirror)
+	Tags       []string `json:"tags,omitempty"`   // farm tags / circuit groups
 }
 
 // PrinterSnapshot is the edge-normalized device view (FM report_status subset).

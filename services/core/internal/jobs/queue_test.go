@@ -25,14 +25,33 @@ func TestPickPrinterModelAndTarget(t *testing.T) {
 		{ExternalSN: "B", Model: "X1C"},
 	}
 	used := map[string]bool{}
-	if sn := PickPrinter(api.Job{TargetModel: "x1c"}, idle, used); sn != "B" {
+	if sn := PickPrinter(api.Job{TargetModel: "x1c"}, idle, idle, used, 0); sn != "B" {
 		t.Fatalf("model: %s", sn)
 	}
-	if sn := PickPrinter(api.Job{ExternalSN: "A", TargetModel: "X1C"}, idle, used); sn != "" {
+	if sn := PickPrinter(api.Job{ExternalSN: "A", TargetModel: "X1C"}, idle, idle, used, 0); sn != "" {
 		t.Fatalf("targeted model mismatch: %s", sn)
 	}
 	used["B"] = true
-	if sn := PickPrinter(api.Job{}, idle, used); sn != "A" {
+	if sn := PickPrinter(api.Job{}, idle, idle, used, 0); sn != "A" {
 		t.Fatalf("free: %s", sn)
+	}
+}
+
+func TestPickPrinterCircuitMax(t *testing.T) {
+	idle := []api.PrinterSummary{
+		{ExternalSN: "B", Tags: []string{"circuit-a"}},
+		{ExternalSN: "C", Tags: []string{"circuit-b"}},
+	}
+	known := []api.PrinterSummary{
+		{ExternalSN: "A", Tags: []string{"circuit-a"}},
+		{ExternalSN: "B", Tags: []string{"circuit-a"}},
+		{ExternalSN: "C", Tags: []string{"circuit-b"}},
+	}
+	used := map[string]bool{"A": true}
+	if sn := PickPrinter(api.Job{}, idle, known, used, 1); sn != "C" {
+		t.Fatalf("circuit full: %s", sn)
+	}
+	if sn := PickPrinter(api.Job{}, idle, known, used, 2); sn != "B" {
+		t.Fatalf("circuit room: %s", sn)
 	}
 }

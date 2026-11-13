@@ -22,16 +22,17 @@ type DeviceReport struct {
 	PrintError         int
 	WifiSignal         string
 	NozzleDiameter     string
+	Tags               []string
 	ObservedAt         time.Time
 }
 
 // PrintRequest starts a print on one or more printers via the farm control plane.
 type PrintRequest struct {
-	JobID      string   // BambuFarmer job id (correlation)
-	ExternalSN string   // target printer
-	FileRef    FileRef  // previously uploaded plate, or empty if Name+Body used
-	Name       string   // filename when uploading inline
-	PlateIndex int      // 0-based when relevant
+	JobID      string  // BambuFarmer job id (correlation)
+	ExternalSN string  // target printer
+	FileRef    FileRef // previously uploaded plate, or empty if Name+Body used
+	Name       string  // filename when uploading inline
+	PlateIndex int     // 0-based when relevant
 	Copies     int
 }
 

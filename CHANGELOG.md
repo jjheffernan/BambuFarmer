@@ -10,6 +10,7 @@ On release: move that section to a new `## [X.Y.Z] — YYYY-MM-DD`, bump [`VERSI
 ## [Unreleased]
 
 ### Added
+- Farm tags (`GET /api/v1/edge/tags`) attach circuit/group labels onto printer snapshots; scheduler respects `CIRCUIT_MAX` when set
 - Printer liveview JPEG (`GET /api/v1/printers/{id}/liveview`) via edge; Farm Manager uses `GET /file?asset_path=liveview\{sn}\liveview.jpeg`, fixture and direct return a tiny still offline
 - Edge subscribes to `device/+/report` when `FARM_MQTT_URL` and cert files in `EDGE_CERT_DIR` are both set. Polling continues either way
 - Farm report payloads (`device/<sn>/report`) fold into the existing printer snapshot. `msg` 0 replaces telemetry and `msg` 1 updates only fields that are present

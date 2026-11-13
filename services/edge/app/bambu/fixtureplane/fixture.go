@@ -85,7 +85,15 @@ func (p *Plane) ListDevices(context.Context) ([]farm.DeviceReport, error) {
 		}
 		out = append(out, rep)
 	}
+	if tags, err := fixture.LoadTags(p.dir); err == nil {
+		farmmanager.ApplyDeviceTags(out, tags)
+	}
 	return out, nil
+}
+
+// ListTags returns fixture tags.json.
+func (p *Plane) ListTags(context.Context) ([]farmmanager.Tag, error) {
+	return fixture.LoadTags(p.dir)
 }
 
 func (p *Plane) Control(_ context.Context, sn string, opt api.ControlOpt) error {
@@ -157,6 +165,7 @@ func mapDevice(d farmmanager.Device) farm.DeviceReport {
 		Name:       d.Name,
 		Model:      d.DevModel,
 		DevIP:      d.DevIP,
+		Tags:       append([]string(nil), d.Tags...),
 		ObservedAt: time.Now().UTC(),
 	}
 	if rep.Name == "" {

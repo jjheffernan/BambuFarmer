@@ -31,6 +31,7 @@ func Report(siteID string, d farm.DeviceReport, from, to printerstate.GcodeState
 		MCPercent:  d.MCPercent,
 		RemainingS: d.MCRemainingTime,
 		Bucket:     string(printerstate.BucketFor(online, to, pending)),
+		Tags:       append([]string(nil), d.Tags...),
 	}
 	obs := d.ObservedAt
 	if obs.IsZero() {

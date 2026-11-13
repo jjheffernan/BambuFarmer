@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -242,7 +243,7 @@ func scanJobs(rows interface {
 // ListIdlePrinters returns online IDLE printers with no busy job.
 func ListIdlePrinters(ctx context.Context, pool *pgxpool.Pool, siteID string) ([]api.PrinterSummary, error) {
 	rows, err := pool.Query(ctx, `
-		SELECT p.id, p.site_id, p.external_sn, p.name, p.model, p.online, p.gcode_state, p.mc_percent, p.mc_remaining_time
+		SELECT p.id, p.site_id, p.external_sn, p.name, p.model, p.online, p.gcode_state, p.mc_percent, p.mc_remaining_time, COALESCE(p.last_snapshot::text, '')
 		FROM printers p
 		WHERE p.site_id=$1
 		  AND p.online = TRUE
@@ -261,12 +262,27 @@ func ListIdlePrinters(ctx context.Context, pool *pgxpool.Pool, siteID string) ([
 	var out []api.PrinterSummary
 	for rows.Next() {
 		var p api.PrinterSummary
-		if err := rows.Scan(&p.ID, &p.SiteID, &p.ExternalSN, &p.Name, &p.Model, &p.Online, &p.GcodeState, &p.MCPercent, &p.RemainingS); err != nil {
+		var snap string
+		if err := rows.Scan(&p.ID, &p.SiteID, &p.ExternalSN, &p.Name, &p.Model, &p.Online, &p.GcodeState, &p.MCPercent, &p.RemainingS, &snap); err != nil {
 			return nil, err
 		}
+		p.Tags = tagsFromSnapshot(snap)
 		out = append(out, p)
 	}
 	return out, rows.Err()
+}
+
+func tagsFromSnapshot(raw string) []string {
+	if raw == "" || raw == "null" {
+		return nil
+	}
+	var snap struct {
+		Tags []string `json:"tags"`
+	}
+	if err := json.Unmarshal([]byte(raw), &snap); err != nil {
+		return nil
+	}
+	return snap.Tags
 }
 
 // AssignJob claims a queued job onto a printer SN and moves state to assigned.
@@ -420,7 +436,7 @@ func NewID() string { return newID() }
 // ListPrinters returns projected printers.
 func ListPrinters(ctx context.Context, pool *pgxpool.Pool, siteID string) ([]api.PrinterSummary, error) {
 	rows, err := pool.Query(ctx, `
-		SELECT id, site_id, external_sn, name, model, online, gcode_state, mc_percent, mc_remaining_time
+		SELECT id, site_id, external_sn, name, model, online, gcode_state, mc_percent, mc_remaining_time, COALESCE(last_snapshot::text, '')
 		FROM printers WHERE site_id=$1 ORDER BY name, external_sn`, siteID)
 	if err != nil {
 		return nil, err
@@ -429,9 +445,11 @@ func ListPrinters(ctx context.Context, pool *pgxpool.Pool, siteID string) ([]api
 	var out []api.PrinterSummary
 	for rows.Next() {
 		var p api.PrinterSummary
-		if err := rows.Scan(&p.ID, &p.SiteID, &p.ExternalSN, &p.Name, &p.Model, &p.Online, &p.GcodeState, &p.MCPercent, &p.RemainingS); err != nil {
+		var snap string
+		if err := rows.Scan(&p.ID, &p.SiteID, &p.ExternalSN, &p.Name, &p.Model, &p.Online, &p.GcodeState, &p.MCPercent, &p.RemainingS, &snap); err != nil {
 			return nil, err
 		}
+		p.Tags = tagsFromSnapshot(snap)
 		out = append(out, p)
 	}
 	return out, rows.Err()

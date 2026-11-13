@@ -13,11 +13,12 @@ import (
 
 // Scheduler periodically assigns queued jobs to idle printers and emits start_print.
 type Scheduler struct {
-	Pool     *pgxpool.Pool
-	Bus      *events.Bus
-	SiteID   string
-	Interval time.Duration
-	Log      *slog.Logger
+	Pool       *pgxpool.Pool
+	Bus        *events.Bus
+	SiteID     string
+	Interval   time.Duration
+	CircuitMax int // 0 = no circuit tag limit
+	Log        *slog.Logger
 }
 
 // Run ticks until ctx cancel.
@@ -60,7 +61,20 @@ func (s *Scheduler) Tick(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	known, err := db.ListPrinters(ctx, s.Pool, s.SiteID)
+	if err != nil {
+		return err
+	}
+	idleSet := map[string]bool{}
+	for _, p := range idle {
+		idleSet[p.ExternalSN] = true
+	}
 	used := map[string]bool{}
+	for _, p := range known {
+		if p.Online && !idleSet[p.ExternalSN] {
+			used[p.ExternalSN] = true
+		}
+	}
 
 	for _, job := range queued {
 		prevState := ""
@@ -72,7 +86,7 @@ func (s *Scheduler) Tick(ctx context.Context) error {
 		if WaitingOnPrevious(job.AfterJobID, prevState) {
 			continue
 		}
-		sn := PickPrinter(job, idle, used)
+		sn := PickPrinter(job, idle, known, used, s.CircuitMax)
 		if sn == "" {
 			continue
 		}

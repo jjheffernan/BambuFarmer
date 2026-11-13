@@ -1,0 +1,9 @@
+{
+  "tags": [
+    {
+      "id": "circuit-a",
+      "name": "circuit-a",
+      "devices": ["01P00CREDACTED01"]
+    }
+  ]
+}

@@ -88,9 +88,22 @@ func (p *Plane) ListDevices(ctx context.Context) ([]farm.DeviceReport, error) {
 	}
 	out := make([]farm.DeviceReport, 0, len(devices))
 	for _, d := range devices {
-		out = append(out, mapDevice(d))
+		rep := mapDevice(d)
+		rep.Tags = append([]string(nil), d.Tags...)
+		out = append(out, rep)
+	}
+	if tags, err := p.client.ListTags(ctx); err == nil {
+		farmmanager.ApplyDeviceTags(out, tags)
 	}
 	return out, nil
+}
+
+// ListTags returns farm tags for circuit and group membership.
+func (p *Plane) ListTags(ctx context.Context) ([]farmmanager.Tag, error) {
+	if err := p.client.EnsureSession(ctx, p.cfg.User, p.cfg.Password); err != nil {
+		return nil, err
+	}
+	return p.client.ListTags(ctx)
 }
 
 func (p *Plane) Control(ctx context.Context, sn string, opt api.ControlOpt) error {

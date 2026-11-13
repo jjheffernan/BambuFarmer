@@ -18,6 +18,7 @@ import (
 	"github.com/jjheffernan/BambuFarmer/services/edge/app/agent"
 	"github.com/jjheffernan/BambuFarmer/services/edge/app/bambu"
 	"github.com/jjheffernan/BambuFarmer/services/edge/app/config"
+	"github.com/jjheffernan/BambuFarmer/services/edge/app/farmmanager"
 	"github.com/jjheffernan/BambuFarmer/services/edge/app/mqtt"
 )
 
@@ -79,6 +80,24 @@ func main() {
 	mux.HandleFunc("GET /api/v1/edge/status", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(ag.Status())
+	})
+	mux.HandleFunc("GET /api/v1/edge/tags", func(w http.ResponseWriter, r *http.Request) {
+		type tagLister interface {
+			ListTags(context.Context) ([]farmmanager.Tag, error)
+		}
+		tags := []farmmanager.Tag{}
+		if tl, ok := ag.Plane().(tagLister); ok {
+			got, err := tl.ListTags(r.Context())
+			if err != nil {
+				httpserver.WriteError(w, api.Wrap(http.StatusBadGateway, api.CodeBadGateway, "tags failed", err))
+				return
+			}
+			if got != nil {
+				tags = got
+			}
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{"tags": tags})
 	})
 	mux.HandleFunc("GET /api/v1/edge/printers/{sn}/liveview", func(w http.ResponseWriter, r *http.Request) {
 		sn := r.PathValue("sn")

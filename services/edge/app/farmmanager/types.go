@@ -35,6 +35,7 @@ type Device struct {
 	DevName      string        `json:"dev_name"`
 	DevIP        string        `json:"dev_ip"`
 	Name         string        `json:"name"`
+	Tags         []string      `json:"tags,omitempty"`
 	Online       *bool         `json:"online,omitempty"` // some builds omit; infer from report_status
 	ReportStatus *ReportStatus `json:"report_status"`
 }

@@ -115,6 +115,8 @@ services:
       FILAMENT_KG_PER_HOUR: ${FILAMENT_KG_PER_HOUR:-0}
       NOTIFY_URL: ${NOTIFY_URL:-}
       POWER_URL: ${POWER_URL:-}
+      # Max concurrent jobs per shared farm tag. 0 = unlimited.
+      CIRCUIT_MAX: ${CIRCUIT_MAX:-0}
     ports:
       - "18081:8080"
     volumes:
