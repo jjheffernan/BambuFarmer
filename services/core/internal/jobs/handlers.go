@@ -71,6 +71,25 @@ func Register(mux *http.ServeMux, pool *pgxpool.Pool, bus *events.Bus, siteID st
 			respondCreated(w, r, pool, bus, siteID, req)
 		})
 	})
+	mux.HandleFunc("POST /api/v1/jobs/{id}/cancel", func(w http.ResponseWriter, r *http.Request) {
+		httpx.RequireDB(w, pool, func() {
+			var body struct {
+				Reason string `json:"reason"`
+			}
+			if r.ContentLength != 0 {
+				if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+					httpx.WriteError(w, api.BadRequest("invalid JSON body"))
+					return
+				}
+			}
+			job, err := CancelOne(r.Context(), pool, bus, siteID, r.PathValue("id"), body.Reason)
+			if err != nil {
+				httpx.WriteError(w, err)
+				return
+			}
+			httpx.WriteJSON(w, job)
+		})
+	})
 	mux.HandleFunc("GET /api/v1/jobs/{id}", func(w http.ResponseWriter, r *http.Request) {
 		httpx.RequireDB(w, pool, func() {
 			job, err := db.GetJob(r.Context(), pool, siteID, r.PathValue("id"))

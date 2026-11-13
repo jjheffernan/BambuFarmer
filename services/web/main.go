@@ -622,6 +622,9 @@ const layoutHTML = `<!DOCTYPE html>
                 '<td class="' + (j.error ? 'text-bf-danger text-xs' : 'text-bf-muted') + '">' +
                   esc(j.error || '—') + '</td>' +
                 '<td><button type="button" class="bf-btn" data-reprint="' + esc(j.id) + '">Reprint</button>' +
+                  (['queued','assigned','dispatched','running','paused'].indexOf(j.state) >= 0
+                    ? ' <button type="button" class="bf-btn" data-cancel="' + esc(j.id) + '">Cancel</button>'
+                    : '') +
                   (j.state === 'queued'
                     ? ' <button type="button" class="bf-btn" data-queue="earlier" data-job="' + esc(j.id) + '">Earlier</button>' +
                       ' <button type="button" class="bf-btn" data-queue="later" data-job="' + esc(j.id) + '">Later</button>'
@@ -653,6 +656,24 @@ const layoutHTML = `<!DOCTYPE html>
                 jobsStatus.textContent = String(e.message || e);
                 jobsStatus.classList.remove('live');
                 move.disabled = false;
+              }
+              return;
+            }
+            const cancelBtn = ev.target.closest('[data-cancel]');
+            if (cancelBtn && !cancelBtn.disabled) {
+              cancelBtn.disabled = true;
+              try {
+                await bfJSON(API + '/api/v1/jobs/' + encodeURIComponent(cancelBtn.dataset.cancel) + '/cancel', {
+                  method: 'POST', credentials: 'include',
+                  headers: {'Content-Type': 'application/json'},
+                  body: JSON.stringify({reason: 'operator cancel'}),
+                });
+                jobsStatus.textContent = 'Cancelled';
+                await loadJobs();
+              } catch (e) {
+                jobsStatus.textContent = String(e.message || e);
+                jobsStatus.classList.remove('live');
+                cancelBtn.disabled = false;
               }
               return;
             }

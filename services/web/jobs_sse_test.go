@@ -21,6 +21,9 @@ func TestJobsPageUsesSSENotIntervalPoll(t *testing.T) {
 	if !strings.Contains(layoutHTML, "data-reprint") || !strings.Contains(layoutHTML, "/reprint") {
 		t.Fatal("jobs page missing reprint control")
 	}
+	if !strings.Contains(layoutHTML, "data-cancel") || !strings.Contains(layoutHTML, "/cancel") {
+		t.Fatal("jobs page missing cancel control")
+	}
 	if !strings.Contains(layoutHTML, `id="jobs-q"`) || !strings.Contains(layoutHTML, `id="jobs-state"`) {
 		t.Fatal("jobs page missing search or state filter")
 	}
