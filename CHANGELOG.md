@@ -10,6 +10,7 @@ On release: move that section to a new `## [X.Y.Z] — YYYY-MM-DD`, bump [`VERSI
 ## [Unreleased]
 
 ### Added
+- Admin rate card editor (currency, $/hr, $/kg, kg/hr, labor flat, failure surcharge) replaces the session/rates JSON dump
 - Edge publishes `printer.ams_changed` when AMS trays change (fleet SSE listens); first empty AMS sighting is skipped
 - Fleet printer detail drawer (temps, AMS table, task, HMS, tags, liveview still) opened from the card title; updates live over SSE
 - Fleet cards show AMS tray chips and active task name from edge snapshots; `GET /api/v1/edge/status` returns full snapshots (not summary-only)

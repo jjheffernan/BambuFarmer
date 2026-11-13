@@ -78,4 +78,4 @@ Migrate from inline `html/template` to [templ](https://templ.guide/) once pages 
 3. Fleet table fed by SSE fragments  
 4. Job composer form  
 5. Analytics charts (done)
-6. Admin rate card editor ($/hr, $/kg, kg/hr)
+6. Admin rate card editor ($/hr, $/kg, kg/hr) (done)

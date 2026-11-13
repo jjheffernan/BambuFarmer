@@ -1034,8 +1034,25 @@ const layoutHTML = `<!DOCTYPE html>
               </form>
             </div>
             <div>
-              <h2 class="font-display text-lg mb-3">Session / rates</h2>
-              <pre class="bf-pre" id="admin-out">loading…</pre>
+              <h2 class="font-display text-lg mb-3">Rate card</h2>
+              <p class="text-sm text-bf-muted mb-3">Site costing defaults for job estimates and finish actuals.</p>
+              <p class="text-xs text-bf-muted mb-3" id="admin-me">Session…</p>
+              <form id="rates-form" class="space-y-2">
+                <label class="bf-field" for="rate-currency">Currency</label>
+                <input class="bf-input" id="rate-currency" name="currency" placeholder="USD" maxlength="8"/>
+                <label class="bf-field" for="rate-machine">Machine $/hr</label>
+                <input class="bf-input" id="rate-machine" name="machine_rate_per_hour" type="number" min="0" step="0.01"/>
+                <label class="bf-field" for="rate-filament">Filament $/kg</label>
+                <input class="bf-input" id="rate-filament" name="filament_price_per_kg" type="number" min="0" step="0.01"/>
+                <label class="bf-field" for="rate-kghr">Filament kg/hr</label>
+                <input class="bf-input" id="rate-kghr" name="filament_kg_per_hour" type="number" min="0" step="0.001"/>
+                <label class="bf-field" for="rate-labor">Labor flat</label>
+                <input class="bf-input" id="rate-labor" name="labor_flat" type="number" min="0" step="0.01"/>
+                <label class="bf-field" for="rate-fail">Failure surcharge %</label>
+                <input class="bf-input" id="rate-fail" name="failure_surcharge_pct" type="number" min="0" step="0.1"/>
+                <button type="submit" class="bf-btn bf-btn-primary mt-2">Save rates</button>
+                <p class="text-sm mt-2" id="rates-msg"></p>
+              </form>
             </div>
           </div>
         </div>
@@ -1138,14 +1155,57 @@ const layoutHTML = `<!DOCTYPE html>
               msg.textContent = String(e.message || e);
             }
           };
+          function fillRates(rc) {
+            if (!rc || rc.error) return;
+            document.getElementById('rate-currency').value = rc.currency || 'USD';
+            document.getElementById('rate-machine').value = rc.machine_rate_per_hour ?? 0;
+            document.getElementById('rate-filament').value = rc.filament_price_per_kg ?? 0;
+            document.getElementById('rate-kghr').value = rc.filament_kg_per_hour ?? 0;
+            document.getElementById('rate-labor').value = rc.labor_flat ?? 0;
+            document.getElementById('rate-fail').value = rc.failure_surcharge_pct ?? 0;
+          }
+          document.getElementById('rates-form').onsubmit = async (ev) => {
+            ev.preventDefault();
+            const msg = document.getElementById('rates-msg');
+            msg.className = 'text-sm mt-2';
+            msg.textContent = '';
+            const body = {
+              currency: document.getElementById('rate-currency').value.trim() || 'USD',
+              machine_rate_per_hour: Number(document.getElementById('rate-machine').value) || 0,
+              filament_price_per_kg: Number(document.getElementById('rate-filament').value) || 0,
+              filament_kg_per_hour: Number(document.getElementById('rate-kghr').value) || 0,
+              labor_flat: Number(document.getElementById('rate-labor').value) || 0,
+              failure_surcharge_pct: Number(document.getElementById('rate-fail').value) || 0,
+            };
+            try {
+              const out = await bfJSON(API + '/api/v1/admin/rate-cards', {
+                method: 'PUT', credentials: 'include',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(body),
+              });
+              fillRates(out);
+              msg.className = 'text-bf-accent text-sm mt-2';
+              msg.textContent = 'Rates saved';
+            } catch (e) {
+              msg.className = 'text-bf-danger text-sm mt-2';
+              msg.textContent = String(e.message || e);
+            }
+          };
           Promise.all([
             bfJSON(API + '/api/v1/auth/me', opts),
-            bfJSON(API + '/api/v1/admin/rate-cards', opts).catch(e => ({error: String(e)})),
+            bfJSON(API + '/api/v1/admin/rate-cards', opts),
             loadUsers().catch(e => { document.getElementById('users-list').textContent = String(e); }),
             loadSystem().catch(e => { document.getElementById('sys-out').textContent = String(e); })
           ]).then(([me, rates]) => {
-            document.getElementById('admin-out').textContent = JSON.stringify({me, rates}, null, 2);
-          }).catch(e => { document.getElementById('admin-out').textContent = String(e); });
+            const meEl = document.getElementById('admin-me');
+            meEl.textContent = me && me.username
+              ? ('Signed in as ' + me.username + (me.roles && me.roles.length ? ' · ' + me.roles.join(', ') : ''))
+              : 'Session unknown';
+            fillRates(rates);
+          }).catch(e => {
+            document.getElementById('rates-msg').className = 'text-bf-danger text-sm mt-2';
+            document.getElementById('rates-msg').textContent = String(e.message || e);
+          });
         </script>
       {{end}}
     </main>
