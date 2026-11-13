@@ -70,4 +70,4 @@ services/analytics/
 2. Consumer writing utilization intervals (done)  
 3. Job success/fail counts + `print_error` → `agg_hms_daily` / failures API (done)  
 4. Cost rollups from `job.costed` → `agg_cost_daily` / costs API (done)  
-5. Basic charts via web
+5. Basic charts via web (done)

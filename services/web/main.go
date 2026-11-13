@@ -598,7 +598,7 @@ const layoutHTML = `<!DOCTYPE html>
           });
         </script>
       {{else if eq .Active "analytics"}}
-        <p class="bf-lede">Daily utilization rollups and event counters from the analytics consumer.</p>
+        <p class="bf-lede">Daily utilization, costs, and failure codes from the analytics consumer.</p>
         <div class="flex items-center justify-between gap-3 mb-3">
           <div id="analytics-status" class="bf-status m-0">loading…</div>
           <button type="button" class="bf-btn" id="analytics-refresh">Refresh</button>
@@ -607,8 +607,9 @@ const layoutHTML = `<!DOCTYPE html>
           <h2 class="font-display text-lg mb-3">Event counters</h2>
           <div id="analytics-counters" class="flex flex-wrap gap-2 text-sm">loading…</div>
         </div>
-        <div class="bf-panel">
+        <div class="bf-panel mb-4">
           <h2 class="font-display text-lg mb-3">Daily utilization</h2>
+          <div id="analytics-util-bars" class="space-y-2 mb-4"></div>
           <div class="overflow-x-auto">
             <table class="bf-table" id="analytics-util-table">
               <thead>
@@ -629,11 +630,57 @@ const layoutHTML = `<!DOCTYPE html>
             </table>
           </div>
         </div>
+        <div class="bf-panel mb-4">
+          <h2 class="font-display text-lg mb-3">Daily costs</h2>
+          <div id="analytics-cost-bars" class="space-y-2 mb-4"></div>
+          <div class="overflow-x-auto">
+            <table class="bf-table" id="analytics-cost-table">
+              <thead>
+                <tr>
+                  <th>Day</th>
+                  <th>Site</th>
+                  <th>Material</th>
+                  <th>Machine</th>
+                  <th>Labor</th>
+                  <th>Total</th>
+                  <th>Jobs</th>
+                </tr>
+              </thead>
+              <tbody id="analytics-cost-body">
+                <tr><td colspan="7" class="bf-empty">loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="bf-panel">
+          <h2 class="font-display text-lg mb-3">Failure codes</h2>
+          <div id="analytics-fail-bars" class="space-y-2 mb-4"></div>
+          <div class="overflow-x-auto">
+            <table class="bf-table" id="analytics-fail-table">
+              <thead>
+                <tr>
+                  <th>Day</th>
+                  <th>Site</th>
+                  <th>Code</th>
+                  <th>Count</th>
+                </tr>
+              </thead>
+              <tbody id="analytics-fail-body">
+                <tr><td colspan="4" class="bf-empty">loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
         <script>
           const API = {{printf "%q" .APIBase}};
           const statusEl = document.getElementById('analytics-status');
           const countersEl = document.getElementById('analytics-counters');
           const utilBody = document.getElementById('analytics-util-body');
+          const utilBars = document.getElementById('analytics-util-bars');
+          const costBody = document.getElementById('analytics-cost-body');
+          const costBars = document.getElementById('analytics-cost-bars');
+          const failBody = document.getElementById('analytics-fail-body');
+          const failBars = document.getElementById('analytics-fail-bars');
 
           function fmtDuration(sec) {
             const s = Number(sec) || 0;
@@ -643,6 +690,9 @@ const layoutHTML = `<!DOCTYPE html>
             const m = Math.floor((s % 3600) / 60);
             return h + 'h ' + m + 'm';
           }
+          function fmtMoney(n) {
+            return '$' + (Number(n) || 0).toFixed(2);
+          }
           function utilPct(row) {
             const idle = Number(row.idle_s) || 0;
             const run = Number(row.run_s) || 0;
@@ -650,6 +700,15 @@ const layoutHTML = `<!DOCTYPE html>
             const total = idle + run + fail;
             if (!total) return '—';
             return ((100 * run) / total).toFixed(1) + '%';
+          }
+          function barRow(label, segments) {
+            const parts = segments.map(s =>
+              '<span style="width:' + s.pct + '%;background:' + s.color + '" title="' + s.title + '"></span>'
+            ).join('');
+            return '<div class="flex items-center gap-2 text-xs">' +
+              '<span class="font-mono w-24 shrink-0 truncate" title="' + label + '">' + label + '</span>' +
+              '<div class="flex-1 h-3 rounded-bf overflow-hidden bg-bf-0 border border-bf-border flex">' + parts + '</div>' +
+              '</div>';
           }
           function renderCounters(counters) {
             const keys = Object.keys(counters || {}).sort();
@@ -666,6 +725,7 @@ const layoutHTML = `<!DOCTYPE html>
             const rows = (series && series.series) || [];
             if (!rows.length) {
               utilBody.innerHTML = '<tr><td colspan="8" class="bf-empty">No daily rollups yet</td></tr>';
+              utilBars.innerHTML = '<p class="bf-empty m-0">No utilization chart yet</p>';
               return;
             }
             utilBody.innerHTML = rows.map(r =>
@@ -680,24 +740,106 @@ const layoutHTML = `<!DOCTYPE html>
               '<td class="font-mono text-xs">' + (r.samples ?? 0) + '</td>' +
               '</tr>'
             ).join('');
+            utilBars.innerHTML = rows.slice(0, 12).map(r => {
+              const idle = Number(r.idle_s) || 0;
+              const run = Number(r.run_s) || 0;
+              const fail = Number(r.fail_s) || 0;
+              const total = idle + run + fail || 1;
+              const label = (r.day || '') + ' ' + (r.external_sn || r.site_id || '');
+              return barRow(label.trim(), [
+                { pct: (100 * run) / total, color: 'var(--color-bf-accent, #3dd68c)', title: 'run ' + fmtDuration(run) },
+                { pct: (100 * idle) / total, color: 'rgb(100 116 139 / 0.55)', title: 'idle ' + fmtDuration(idle) },
+                { pct: (100 * fail) / total, color: 'rgb(239 68 68 / 0.75)', title: 'fail ' + fmtDuration(fail) }
+              ]);
+            }).join('');
+          }
+          function renderCosts(series) {
+            const rows = (series && series.series) || [];
+            if (!rows.length) {
+              costBody.innerHTML = '<tr><td colspan="7" class="bf-empty">No cost rollups yet</td></tr>';
+              costBars.innerHTML = '<p class="bf-empty m-0">No cost chart yet</p>';
+              return;
+            }
+            const maxTotal = Math.max(...rows.map(r =>
+              (Number(r.material_cost)||0) + (Number(r.machine_cost)||0) + (Number(r.labor_cost)||0)
+            ), 0.01);
+            costBody.innerHTML = rows.map(r => {
+              const mat = Number(r.material_cost) || 0;
+              const mac = Number(r.machine_cost) || 0;
+              const lab = Number(r.labor_cost) || 0;
+              return '<tr>' +
+                '<td class="font-mono text-xs">' + (r.day || '—') + '</td>' +
+                '<td>' + (r.site_id || '—') + '</td>' +
+                '<td class="font-mono text-xs">' + fmtMoney(mat) + '</td>' +
+                '<td class="font-mono text-xs">' + fmtMoney(mac) + '</td>' +
+                '<td class="font-mono text-xs">' + fmtMoney(lab) + '</td>' +
+                '<td class="font-mono text-xs">' + fmtMoney(mat + mac + lab) + '</td>' +
+                '<td class="font-mono text-xs">' + (r.jobs ?? 0) + '</td>' +
+                '</tr>';
+            }).join('');
+            costBars.innerHTML = rows.slice(0, 12).map(r => {
+              const mat = Number(r.material_cost) || 0;
+              const mac = Number(r.machine_cost) || 0;
+              const lab = Number(r.labor_cost) || 0;
+              const total = mat + mac + lab;
+              const scale = (100 * total) / maxTotal;
+              const inner = total || 1;
+              return barRow((r.day || '') + ' ' + (r.site_id || ''), [
+                { pct: scale * mat / inner, color: 'var(--color-bf-accent, #3dd68c)', title: 'material ' + fmtMoney(mat) },
+                { pct: scale * mac / inner, color: 'rgb(56 189 248 / 0.8)', title: 'machine ' + fmtMoney(mac) },
+                { pct: scale * lab / inner, color: 'rgb(250 204 21 / 0.85)', title: 'labor ' + fmtMoney(lab) }
+              ]);
+            }).join('');
+          }
+          function renderFailures(series) {
+            const rows = (series && series.series) || [];
+            if (!rows.length) {
+              failBody.innerHTML = '<tr><td colspan="4" class="bf-empty">No failure codes yet</td></tr>';
+              failBars.innerHTML = '<p class="bf-empty m-0">No failure chart yet</p>';
+              return;
+            }
+            const maxCount = Math.max(...rows.map(r => Number(r.count) || 0), 1);
+            failBody.innerHTML = rows.map(r =>
+              '<tr>' +
+              '<td class="font-mono text-xs">' + (r.day || '—') + '</td>' +
+              '<td>' + (r.site_id || '—') + '</td>' +
+              '<td class="font-mono text-xs">' + (r.code || '—') + '</td>' +
+              '<td class="font-mono text-xs">' + (r.count ?? 0) + '</td>' +
+              '</tr>'
+            ).join('');
+            failBars.innerHTML = rows.slice(0, 12).map(r => {
+              const n = Number(r.count) || 0;
+              const label = (r.code || '—') + ' · ' + (r.day || '');
+              return barRow(label, [
+                { pct: (100 * n) / maxCount, color: 'rgb(239 68 68 / 0.75)', title: n + ' hits' }
+              ]);
+            }).join('');
           }
           async function loadAnalytics() {
             statusEl.textContent = 'loading…';
             statusEl.classList.remove('live');
             try {
-              const [u, c] = await Promise.all([
+              const [u, c, costs, fails] = await Promise.all([
                 bfJSON(API + '/api/v1/analytics/utilization'),
-                bfJSON(API + '/api/v1/analytics/counters')
+                bfJSON(API + '/api/v1/analytics/counters'),
+                bfJSON(API + '/api/v1/analytics/costs'),
+                bfJSON(API + '/api/v1/analytics/failures')
               ]);
               renderCounters(c);
               renderUtilization(u);
+              renderCosts(costs);
+              renderFailures(fails);
               statusEl.textContent = 'updated';
               statusEl.classList.add('live');
             } catch (e) {
-              statusEl.textContent = String(e.message || e);
+              const msg = String(e.message || e);
+              statusEl.textContent = msg;
               statusEl.classList.remove('live');
-              countersEl.textContent = String(e.message || e);
-              utilBody.innerHTML = '<tr><td colspan="8" class="bf-empty">' + String(e.message || e) + '</td></tr>';
+              countersEl.textContent = msg;
+              utilBody.innerHTML = '<tr><td colspan="8" class="bf-empty">' + msg + '</td></tr>';
+              costBody.innerHTML = '<tr><td colspan="7" class="bf-empty">' + msg + '</td></tr>';
+              failBody.innerHTML = '<tr><td colspan="4" class="bf-empty">' + msg + '</td></tr>';
+              utilBars.innerHTML = costBars.innerHTML = failBars.innerHTML = '';
             }
           }
           document.getElementById('analytics-refresh').onclick = loadAnalytics;

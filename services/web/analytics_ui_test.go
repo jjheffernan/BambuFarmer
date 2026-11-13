@@ -18,10 +18,29 @@ func TestAnalyticsPageRendersRollupTableNotRawJSON(t *testing.T) {
 	if !strings.Contains(layoutHTML, "analytics-counters") {
 		t.Fatal("expected event counters summary")
 	}
-	if !strings.Contains(layoutHTML, "/api/v1/analytics/utilization") {
-		t.Fatal("expected utilization API fetch")
+	if !strings.Contains(layoutHTML, "analytics-cost-table") {
+		t.Fatal("expected daily costs table")
 	}
-	if !strings.Contains(layoutHTML, "/api/v1/analytics/counters") {
-		t.Fatal("expected counters API fetch")
+	if !strings.Contains(layoutHTML, "analytics-fail-table") {
+		t.Fatal("expected failure codes table")
+	}
+	if !strings.Contains(layoutHTML, "analytics-util-bars") {
+		t.Fatal("expected utilization chart bars")
+	}
+	if !strings.Contains(layoutHTML, "analytics-cost-bars") {
+		t.Fatal("expected cost chart bars")
+	}
+	if !strings.Contains(layoutHTML, "analytics-fail-bars") {
+		t.Fatal("expected failure chart bars")
+	}
+	for _, path := range []string{
+		"/api/v1/analytics/utilization",
+		"/api/v1/analytics/counters",
+		"/api/v1/analytics/costs",
+		"/api/v1/analytics/failures",
+	} {
+		if !strings.Contains(layoutHTML, path) {
+			t.Fatalf("expected %s API fetch", path)
+		}
 	}
 }

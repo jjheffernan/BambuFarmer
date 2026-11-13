@@ -137,4 +137,4 @@ Track detail in [`BUILD_OUT.md`](./BUILD_OUT.md).
 - [x] P3 — Notify + power plugins
 - [x] P4 — Commerce plugin (beyond stub)
 - [x] P5 — Direct-printer `ControlPlane` (in-process; no LAN)
-- [ ] P6 — Slicer profile records a job; Orca CLI is not bundled and is not invoked
+- [x] P6 — Slicer profile records a job; Orca CLI is not bundled and is not invoked
