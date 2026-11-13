@@ -53,6 +53,9 @@ func TestJobsPageUsesSSENotIntervalPoll(t *testing.T) {
 	if !strings.Contains(layoutHTML, `id="job-spool"`) || !strings.Contains(layoutHTML, `id="job-model"`) || !strings.Contains(layoutHTML, "/queue") {
 		t.Fatal("jobs page missing queue reorder or model target")
 	}
+	if !strings.Contains(layoutHTML, `id="job-queue-pos"`) || !strings.Contains(layoutHTML, "queue_pos") {
+		t.Fatal("jobs page missing optional queue_pos on create")
+	}
 	for _, ev := range []string{
 		"job.queued",
 		"job.assigned",

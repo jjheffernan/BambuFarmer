@@ -799,6 +799,10 @@ const layoutHTML = `<!DOCTYPE html>
               <input class="bf-input" id="job-copies" name="copies" type="number" min="1" value="1"/>
             </div>
             <div>
+              <label class="bf-field" for="job-queue-pos">Queue pos <span class="text-bf-muted">(optional)</span></label>
+              <input class="bf-input" id="job-queue-pos" name="queue_pos" type="number" min="0" step="1" placeholder="default"/>
+            </div>
+            <div>
               <label class="bf-field" for="job-est-sec">Est. seconds</label>
               <input class="bf-input" id="job-est-sec" name="est_seconds" type="number" min="0" placeholder="0"/>
             </div>
@@ -1191,6 +1195,7 @@ const layoutHTML = `<!DOCTYPE html>
             msg.className = 'text-sm self-center';
             msg.textContent = '';
             const copies = parseInt(document.getElementById('job-copies').value, 10);
+            const queuePos = parseInt(document.getElementById('job-queue-pos').value, 10);
             const estSec = parseInt(document.getElementById('job-est-sec').value, 10);
             const estG = parseFloat(document.getElementById('job-est-g').value);
             let artifactId = document.getElementById('job-artifact').value.trim();
@@ -1217,6 +1222,9 @@ const layoutHTML = `<!DOCTYPE html>
                 spool_id: document.getElementById('job-spool').value.trim() || undefined,
                 copies: Number.isFinite(copies) && copies > 0 ? copies : 1,
               };
+              if (Number.isFinite(queuePos) && queuePos >= 0 && document.getElementById('job-queue-pos').value.trim() !== '') {
+                body.queue_pos = queuePos;
+              }
               if (Number.isFinite(estSec) && estSec > 0) body.est_seconds = estSec;
               if (Number.isFinite(estG) && estG > 0) body.est_grams = estG;
               const job = await bfJSON(API + '/api/v1/jobs', {
