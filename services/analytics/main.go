@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jjheffernan/BambuFarmer/packages/api"
 	"github.com/jjheffernan/BambuFarmer/packages/db"
 	"github.com/jjheffernan/BambuFarmer/packages/events"
 	"github.com/jjheffernan/BambuFarmer/packages/httpserver"
@@ -57,22 +58,7 @@ func main() {
 		w.Header().Set("Content-Type", "application/json")
 		series := []map[string]any{}
 		if pool != nil {
-			rows, err := pool.Query(r.Context(), `
-				SELECT day::text, site_id, external_sn, idle_s, run_s, fail_s, samples
-				FROM agg_utilization_daily ORDER BY day DESC LIMIT 30`)
-			if err == nil {
-				defer rows.Close()
-				for rows.Next() {
-					var day, site, sn string
-					var idle, run, fail, samples int
-					if err := rows.Scan(&day, &site, &sn, &idle, &run, &fail, &samples); err == nil {
-						series = append(series, map[string]any{
-							"day": day, "site_id": site, "external_sn": sn,
-							"idle_s": idle, "run_s": run, "fail_s": fail, "samples": samples,
-						})
-					}
-				}
-			}
+			series = queryUtilization(r.Context(), pool)
 		}
 		_ = json.NewEncoder(w).Encode(map[string]any{"series": series})
 	})
@@ -80,23 +66,7 @@ func main() {
 		w.Header().Set("Content-Type", "application/json")
 		series := []map[string]any{}
 		if pool != nil {
-			rows, err := pool.Query(r.Context(), `
-				SELECT day::text, site_id, material_cost, machine_cost, labor_cost, jobs
-				FROM agg_cost_daily ORDER BY day DESC LIMIT 30`)
-			if err == nil {
-				defer rows.Close()
-				for rows.Next() {
-					var day, site string
-					var material, machine, labor float64
-					var jobs int
-					if err := rows.Scan(&day, &site, &material, &machine, &labor, &jobs); err == nil {
-						series = append(series, map[string]any{
-							"day": day, "site_id": site,
-							"material_cost": material, "machine_cost": machine, "labor_cost": labor, "jobs": jobs,
-						})
-					}
-				}
-			}
+			series = queryCosts(r.Context(), pool)
 		}
 		_ = json.NewEncoder(w).Encode(map[string]any{"series": series})
 	})
@@ -104,21 +74,7 @@ func main() {
 		w.Header().Set("Content-Type", "application/json")
 		series := []map[string]any{}
 		if pool != nil {
-			rows, err := pool.Query(r.Context(), `
-				SELECT day::text, site_id, code, count
-				FROM agg_hms_daily ORDER BY day DESC, count DESC LIMIT 100`)
-			if err == nil {
-				defer rows.Close()
-				for rows.Next() {
-					var day, site, code string
-					var n int
-					if err := rows.Scan(&day, &site, &code, &n); err == nil {
-						series = append(series, map[string]any{
-							"day": day, "site_id": site, "code": code, "count": n,
-						})
-					}
-				}
-			}
+			series = queryFailures(r.Context(), pool)
 		}
 		_ = json.NewEncoder(w).Encode(map[string]any{"series": series})
 	})
@@ -139,6 +95,21 @@ func main() {
 			}
 		}
 		_ = json.NewEncoder(w).Encode(out)
+	})
+	mux.HandleFunc("GET /api/v1/analytics/export", func(w http.ResponseWriter, r *http.Request) {
+		bundle := exportBundle{
+			Utilization: []map[string]any{},
+			Costs:       []map[string]any{},
+			Failures:    []map[string]any{},
+		}
+		if pool != nil {
+			bundle.Utilization = queryUtilization(r.Context(), pool)
+			bundle.Costs = queryCosts(r.Context(), pool)
+			bundle.Failures = queryFailures(r.Context(), pool)
+		}
+		if err := writeExport(w, exportFormat(r), exportKind(r), bundle); err != nil {
+			httpserver.WriteError(w, api.Internal("export failed: "+err.Error()))
+		}
 	})
 
 	srv := &http.Server{

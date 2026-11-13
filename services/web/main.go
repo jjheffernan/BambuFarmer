@@ -601,7 +601,11 @@ const layoutHTML = `<!DOCTYPE html>
         <p class="bf-lede">Daily utilization, costs, and failure codes from the analytics consumer.</p>
         <div class="flex items-center justify-between gap-3 mb-3">
           <div id="analytics-status" class="bf-status m-0">loading…</div>
-          <button type="button" class="bf-btn" id="analytics-refresh">Refresh</button>
+          <div class="flex flex-wrap gap-2">
+            <a class="bf-btn" id="analytics-export-json" href="#">Export JSON</a>
+            <a class="bf-btn" id="analytics-export-csv" href="#">Export CSV</a>
+            <button type="button" class="bf-btn" id="analytics-refresh">Refresh</button>
+          </div>
         </div>
         <div class="bf-panel mb-4">
           <h2 class="font-display text-lg mb-3">Event counters</h2>
@@ -843,6 +847,8 @@ const layoutHTML = `<!DOCTYPE html>
             }
           }
           document.getElementById('analytics-refresh').onclick = loadAnalytics;
+          document.getElementById('analytics-export-json').href = API + '/api/v1/analytics/export?format=json';
+          document.getElementById('analytics-export-csv').href = API + '/api/v1/analytics/export?format=csv';
           loadAnalytics();
         </script>
       {{else}}

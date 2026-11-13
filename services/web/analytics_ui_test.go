@@ -38,9 +38,13 @@ func TestAnalyticsPageRendersRollupTableNotRawJSON(t *testing.T) {
 		"/api/v1/analytics/counters",
 		"/api/v1/analytics/costs",
 		"/api/v1/analytics/failures",
+		"/api/v1/analytics/export",
 	} {
 		if !strings.Contains(layoutHTML, path) {
 			t.Fatalf("expected %s API fetch", path)
 		}
+	}
+	if !strings.Contains(layoutHTML, "analytics-export-csv") {
+		t.Fatal("expected CSV export link")
 	}
 }
