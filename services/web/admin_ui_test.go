@@ -24,4 +24,7 @@ func TestAdminPageHasRateCardEditor(t *testing.T) {
 	if strings.Contains(layoutHTML, `id="admin-out"`) {
 		t.Fatal("admin page still dumps rates JSON into #admin-out")
 	}
+	if !strings.Contains(layoutHTML, `id="power-on"`) || !strings.Contains(layoutHTML, "/api/v1/power") {
+		t.Fatal("expected Admin power controls")
+	}
 }

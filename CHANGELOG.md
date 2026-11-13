@@ -10,6 +10,7 @@ On release: move that section to a new `## [X.Y.Z] — YYYY-MM-DD`, bump [`VERSI
 ## [Unreleased]
 
 ### Added
+- Admin power On/Off controls and `GET /api/v1/power` status when `POWER_URL` is set (dry-run when unset)
 - Scheduler start stagger (`SCHEDULER_STAGGER`, optional `SCHEDULER_MAX_STARTS_PER_TICK`) so auto-assign does not slam every idle printer at once
 - Filament and Library operator pages (Spoolman spools/low-stock/tray lookup; Manyfold list/import/export)
 - Preset GET/PATCH/DELETE by id for filament and print; Presets page Delete removes tip and revision history

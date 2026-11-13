@@ -1547,7 +1547,7 @@ const layoutHTML = `<!DOCTYPE html>
           loadAnalytics();
         </script>
       {{else}}
-        <p class="bf-lede">Local accounts, stack updates, rate cards, and auth mode.</p>
+        <p class="bf-lede">Local accounts, stack updates, rate cards, power, and auth mode.</p>
         <div class="bf-panel mb-4">
           <h2 class="font-display text-lg mb-2">System updates</h2>
           <p class="text-sm text-bf-muted mb-3">Keep BambuFarmer in step with Farm Manager: after upgrading FM, update this stack. One command on the host, or request from here while a host watcher is running.</p>
@@ -1559,6 +1559,16 @@ const layoutHTML = `<!DOCTYPE html>
             <code class="text-xs text-bf-muted">./scripts/bf update --watch</code>
           </div>
           <p class="text-sm mt-2" id="sys-msg"></p>
+        </div>
+        <div class="bf-panel mb-4">
+          <h2 class="font-display text-lg mb-2">Power</h2>
+          <p class="text-sm text-bf-muted mb-3">Smart-plug webhook via <code>POWER_URL</code>. Empty URL accepts the call and does not switch.</p>
+          <div id="power-status" class="bf-status m-0 mb-3">loading…</div>
+          <div class="flex flex-wrap gap-2 items-center">
+            <button type="button" class="bf-btn bf-btn-primary" id="power-on" data-power="on">On</button>
+            <button type="button" class="bf-btn" id="power-off" data-power="off">Off</button>
+            <p class="text-sm m-0" id="power-msg"></p>
+          </div>
         </div>
         <div class="grid gap-4 md:grid-cols-2">
           <div class="bf-panel">
@@ -1699,6 +1709,36 @@ const layoutHTML = `<!DOCTYPE html>
             document.getElementById('sys-out').textContent = JSON.stringify(sys, null, 2);
             return sys;
           }
+          async function loadPower() {
+            const el = document.getElementById('power-status');
+            try {
+              const st = await bfJSON(API + '/api/v1/power', opts);
+              el.textContent = st.configured ? 'POWER_URL configured' : 'POWER_URL unset (dry-run)';
+              el.classList.toggle('live', !!st.configured);
+            } catch (e) {
+              el.textContent = String(e.message || e);
+              el.classList.remove('live');
+            }
+          }
+          document.querySelectorAll('[data-power]').forEach(btn => {
+            btn.onclick = async () => {
+              const msg = document.getElementById('power-msg');
+              msg.textContent = '';
+              try {
+                const out = await bfJSON(API + '/api/v1/power', {
+                  method: 'POST', credentials: 'include',
+                  headers: {'Content-Type': 'application/json'},
+                  body: JSON.stringify({action: btn.dataset.power}),
+                });
+                msg.textContent = out.switched
+                  ? ('Switched ' + out.action)
+                  : (out.reason || 'not switched');
+              } catch (e) {
+                msg.textContent = String(e.message || e);
+              }
+            };
+          });
+          loadPower();
           document.getElementById('sys-update-btn').onclick = async () => {
             const msg = document.getElementById('sys-msg');
             msg.className = 'text-sm mt-2';

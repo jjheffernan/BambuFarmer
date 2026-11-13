@@ -13,6 +13,29 @@ func TestSwitchEmptyURL(t *testing.T) {
 	}
 }
 
+func TestGetPowerStatus(t *testing.T) {
+	mux := http.NewServeMux()
+	Register(mux, "")
+	rr := httptest.NewRecorder()
+	mux.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/api/v1/power", nil))
+	if rr.Code != http.StatusOK {
+		t.Fatal(rr.Code)
+	}
+	var body map[string]any
+	_ = json.NewDecoder(rr.Body).Decode(&body)
+	if body["configured"] != false {
+		t.Fatalf("%+v", body)
+	}
+	mux2 := http.NewServeMux()
+	Register(mux2, "http://plug.local/switch")
+	rr2 := httptest.NewRecorder()
+	mux2.ServeHTTP(rr2, httptest.NewRequest(http.MethodGet, "/api/v1/power", nil))
+	_ = json.NewDecoder(rr2.Body).Decode(&body)
+	if body["configured"] != true {
+		t.Fatalf("%+v", body)
+	}
+}
+
 func TestSwitchPostsAction(t *testing.T) {
 	var got map[string]string
 	var method string

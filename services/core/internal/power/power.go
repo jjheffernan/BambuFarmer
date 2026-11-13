@@ -43,8 +43,15 @@ func Switch(ctx context.Context, endpoint string, client *http.Client, action st
 	return nil
 }
 
-// Register mounts POST /api/v1/power. An empty power URL accepts the call and does not POST.
+// Register mounts GET/POST /api/v1/power. An empty power URL accepts POST and does not forward.
 func Register(mux *http.ServeMux, endpoint string) {
+	configured := strings.TrimSpace(endpoint) != ""
+	mux.HandleFunc("GET /api/v1/power", func(w http.ResponseWriter, _ *http.Request) {
+		writeJSON(w, http.StatusOK, map[string]any{
+			"configured": configured,
+			"note":       "POST {\"action\":\"on\"|\"off\"} when POWER_URL is set",
+		})
+	})
 	mux.HandleFunc("POST /api/v1/power", func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
 			Action string `json:"action"`
@@ -54,7 +61,7 @@ func Register(mux *http.ServeMux, endpoint string) {
 			return
 		}
 		action := strings.ToLower(strings.TrimSpace(body.Action))
-		if strings.TrimSpace(endpoint) == "" {
+		if !configured {
 			writeJSON(w, http.StatusOK, map[string]any{"switched": false, "reason": "POWER_URL unset"})
 			return
 		}
