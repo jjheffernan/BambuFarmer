@@ -74,7 +74,7 @@ Reject: shared plugin SDK frameworks, frontend stack rewrites, fat all-in-one im
 
 | Field | Value |
 |-------|--------|
-| **Done** | P0–P5 on `after-hours/build-out`. Farm tags on snapshots; `CIRCUIT_MAX` caps concurrent jobs that share a tag |
+| **Done** | P0–P5 on `after-hours/build-out`. Analytics failures roll up `print_error` into `agg_hms_daily` |
 | **Next** | Live FM smoke stays skipped. Stay on `after-hours/build-out` |
 | **Blocked** | — |
 | **Deferred** | Live FM upload→print→cost smoke — skipped for now. Use fixture mode or `direct_printer` |

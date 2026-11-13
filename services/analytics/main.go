@@ -14,6 +14,7 @@ import (
 	"github.com/jjheffernan/BambuFarmer/packages/db"
 	"github.com/jjheffernan/BambuFarmer/packages/events"
 	"github.com/jjheffernan/BambuFarmer/packages/httpserver"
+	"github.com/jjheffernan/BambuFarmer/services/analytics/internal/fail"
 )
 
 func main() {
@@ -68,6 +69,28 @@ func main() {
 						series = append(series, map[string]any{
 							"day": day, "site_id": site, "external_sn": sn,
 							"idle_s": idle, "run_s": run, "fail_s": fail, "samples": samples,
+						})
+					}
+				}
+			}
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"series": series})
+	})
+	mux.HandleFunc("GET /api/v1/analytics/failures", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		series := []map[string]any{}
+		if pool != nil {
+			rows, err := pool.Query(r.Context(), `
+				SELECT day::text, site_id, code, count
+				FROM agg_hms_daily ORDER BY day DESC, count DESC LIMIT 100`)
+			if err == nil {
+				defer rows.Close()
+				for rows.Next() {
+					var day, site, code string
+					var n int
+					if err := rows.Scan(&day, &site, &code, &n); err == nil {
+						series = append(series, map[string]any{
+							"day": day, "site_id": site, "code": code, "count": n,
 						})
 					}
 				}
@@ -140,12 +163,12 @@ func bump(ctx context.Context, pool *pgxpool.Pool, env events.Envelope) error {
 			site = "default"
 		}
 		state, _ := env.Payload["gcode_state"].(string)
-		idle, run, fail := 0, 0, 0
+		idle, run, failSec := 0, 0, 0
 		switch state {
 		case "RUNNING", "PREPARE", "PAUSE":
 			run = 3 // poll interval approx
 		case "FAILED":
-			fail = 3
+			failSec = 3
 		default:
 			idle = 3
 		}
@@ -157,7 +180,15 @@ func bump(ctx context.Context, pool *pgxpool.Pool, env events.Envelope) error {
 				run_s = agg_utilization_daily.run_s + EXCLUDED.run_s,
 				fail_s = agg_utilization_daily.fail_s + EXCLUDED.fail_s,
 				samples = agg_utilization_daily.samples + 1`,
-			site, sn, idle, run, fail)
+			site, sn, idle, run, failSec)
+		if code := fail.Code(env.Payload); code != "" {
+			_, err = pool.Exec(ctx, `
+				INSERT INTO agg_hms_daily(day, site_id, code, count)
+				VALUES (CURRENT_DATE, $1, $2, 1)
+				ON CONFLICT (day, site_id, code) DO UPDATE SET
+					count = agg_hms_daily.count + 1`,
+				site, code)
+		}
 	}
 	if env.Type == events.TypeJobFinished {
 		jobID, _ := env.Payload["job_id"].(string)

@@ -50,6 +50,8 @@ func (p *Publisher) PublishPrinterDelta(ctx context.Context, snap api.PrinterSna
 		"state_forced":      snap.StateForced,
 		"nozzle_temper":     snap.NozzleTemper,
 		"bed_temper":        snap.BedTemper,
+		"print_error":       snap.PrintError,
+		"tags":              snap.Tags,
 	}
 	typ := events.TypePrinterStateChanged
 	if !snap.Online {

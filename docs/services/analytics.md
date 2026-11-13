@@ -47,7 +47,7 @@ Idempotent by event `id`.
 | `GET /api/v1/analytics/failures` | HMS / fail rates |
 | `GET /api/v1/analytics/export` | CSV/JSON |
 
-Stub today returns empty series.
+Utilization and failures read from Postgres rollups when events have been consumed. Empty series when the database is unset.
 
 ---
 
@@ -67,7 +67,7 @@ services/analytics/
 ## 6. MVP milestones
 
 1. Health + empty utilization (done)  
-2. Consumer writing utilization intervals  
-3. Job success/fail counts  
+2. Consumer writing utilization intervals (done)  
+3. Job success/fail counts + `print_error` → `agg_hms_daily` / failures API (done)  
 4. Cost rollups from finalized jobs  
 5. Basic charts via web
