@@ -24,4 +24,7 @@ func TestArtifactsPage(t *testing.T) {
 	if !strings.Contains(layoutHTML, "object_key") {
 		t.Fatal("expected object_key in artifact detail")
 	}
+	if !strings.Contains(layoutHTML, "data-copy-key") {
+		t.Fatal("expected artifact detail copy object_key")
+	}
 }

@@ -23,4 +23,7 @@ func TestCommercePage(t *testing.T) {
 	if !strings.Contains(layoutHTML, `id="commerce-spool-pick"`) || !strings.Contains(layoutHTML, "/api/v1/filament/spools") {
 		t.Fatal("expected commerce spool picker")
 	}
+	if !strings.Contains(layoutHTML, "commerce-copy-job") {
+		t.Fatal("expected commerce webhook copy job id")
+	}
 }
