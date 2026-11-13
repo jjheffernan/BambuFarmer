@@ -69,4 +69,7 @@ func TestFleetPageShowsAMSAndTaskHelpers(t *testing.T) {
 	if !strings.Contains(layoutHTML, "data-alert-sn") || !strings.Contains(layoutHTML, "renderAlertBanner") {
 		t.Fatal("expected alert banner Open → drawer")
 	}
+	if !strings.Contains(layoutHTML, `.get('sn')`) || !strings.Contains(layoutHTML, "drawer-copy-sn") {
+		t.Fatal("expected fleet ?sn= deep-link and Copy SN")
+	}
 }

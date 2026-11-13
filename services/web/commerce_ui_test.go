@@ -26,4 +26,7 @@ func TestCommercePage(t *testing.T) {
 	if !strings.Contains(layoutHTML, "commerce-copy-job") {
 		t.Fatal("expected commerce webhook copy job id")
 	}
+	if !strings.Contains(layoutHTML, "commerce-open-job") {
+		t.Fatal("expected commerce webhook Open job link")
+	}
 }

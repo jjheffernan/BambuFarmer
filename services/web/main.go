@@ -283,6 +283,10 @@ const layoutHTML = `<!DOCTYPE html>
             <div>
               <h2 class="font-display text-lg" id="drawer-title">Printer</h2>
               <p class="bf-card-meta m-0 font-mono text-xs" id="drawer-sn"></p>
+              <div class="flex flex-wrap gap-1.5 mt-2">
+                <button type="button" class="bf-btn" id="drawer-copy-sn">Copy SN</button>
+                <a class="bf-btn" id="drawer-jobs" href="/jobs">Jobs</a>
+              </div>
             </div>
             <button type="button" class="bf-btn" id="drawer-close">Close</button>
           </div>
@@ -458,6 +462,12 @@ const layoutHTML = `<!DOCTYPE html>
           function fillDrawer(p) {
             drawerTitle.textContent = p.name || p.external_sn || 'Printer';
             drawerSn.textContent = p.external_sn || '';
+            const jobsLink = document.getElementById('drawer-jobs');
+            if (jobsLink) {
+              jobsLink.href = p.external_sn
+                ? ('/jobs?q=' + encodeURIComponent(p.external_sn))
+                : '/jobs';
+            }
             const t = p.task || {};
             const temps = [
               ['Nozzle', p.nozzle_temper, p.nozzle_target_temper],
@@ -521,6 +531,17 @@ const layoutHTML = `<!DOCTYPE html>
           }
 
           document.getElementById('drawer-close').onclick = closeDrawer;
+          document.getElementById('drawer-copy-sn').onclick = async () => {
+            const sn = drawerSn.textContent || openSn;
+            if (!sn) return;
+            try {
+              await navigator.clipboard.writeText(sn);
+              statusEl.textContent = 'Copied ' + sn;
+              statusEl.classList.add('live');
+            } catch (_) {
+              statusEl.textContent = sn;
+            }
+          };
           drawerBackdrop.onclick = closeDrawer;
           document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && openSn) closeDrawer();
@@ -749,7 +770,17 @@ const layoutHTML = `<!DOCTYPE html>
             document.getElementById('alert-banner-body').innerHTML = '';
             alertBanner.classList.add('hidden');
           };
-          bootstrap();
+          bootstrap().then(() => {
+            const sn = (new URLSearchParams(location.search).get('sn') || '').trim();
+            if (!sn) return;
+            if (!printers.has(sn)) {
+              printers.set(sn, {external_sn: sn, name: sn, gcode_state: '?'});
+              render();
+            }
+            openDrawer(sn);
+            const card = document.getElementById('printer-' + sn);
+            if (card) card.scrollIntoView({behavior: 'smooth', block: 'nearest'});
+          });
           connectSSE();
         </script>
       {{else if eq .Active "artifacts"}}
@@ -946,7 +977,12 @@ const layoutHTML = `<!DOCTYPE html>
               msg.textContent = String(e.message || e);
             }
           };
-          loadArtifacts();
+          loadArtifacts().then(() => {
+            const id = (new URLSearchParams(location.search).get('artifact') || '').trim();
+            if (!id) return;
+            loadArtifactDetail(id);
+            document.getElementById('artifact-detail-panel').scrollIntoView({behavior: 'smooth', block: 'nearest'});
+          });
         </script>
       {{else if eq .Active "jobs"}}
         <p class="bf-lede">Upload a <code>.gcode.3mf</code>, enqueue against core. Target a printer SN when known; leave blank to queue unassigned.</p>
@@ -1179,6 +1215,7 @@ const layoutHTML = `<!DOCTYPE html>
                 '<td class="' + (j.error ? 'text-bf-danger text-xs' : 'text-bf-muted') + '">' +
                   esc(j.error || '—') + '</td>' +
                 '<td><button type="button" class="bf-btn" data-copy="' + esc(j.id) + '">Copy id</button> ' +
+                  '<button type="button" class="bf-btn" data-copy-link="' + esc(j.id) + '">Copy link</button> ' +
                   '<button type="button" class="bf-btn" data-detail="' + esc(j.id) + '">Detail</button> ' +
                   '<button type="button" class="bf-btn" data-history="' + esc(j.id) + '">History</button> ' +
                   '<button type="button" class="bf-btn" data-reprint="' + esc(j.id) + '">Reprint</button>' +
@@ -1226,13 +1263,18 @@ const layoutHTML = `<!DOCTYPE html>
               const j = await bfJSON(API + '/api/v1/jobs/' + encodeURIComponent(id));
               const art = j.artifact_id
                 ? (esc(j.artifact_id) +
+                  ' <a class="bf-btn" href="/artifacts?artifact=' + encodeURIComponent(j.artifact_id) + '">Open</a>' +
                   ' <a class="bf-btn" href="' + API + '/api/v1/artifacts/' + encodeURIComponent(j.artifact_id) +
                   '/content" target="_blank" rel="noopener">Download</a>')
+                : esc('—');
+              const snCell = j.external_sn
+                ? (esc(j.external_sn) +
+                  ' <a class="bf-btn" href="/?sn=' + encodeURIComponent(j.external_sn) + '">Fleet</a>')
                 : esc('—');
               detailFields.innerHTML = [
                 detailRow('Name', j.name),
                 detailRow('State', j.state),
-                detailRow('Printer SN', j.external_sn),
+                '<div><dt class="text-bf-muted text-xs">Printer SN</dt><dd class="m-0 font-mono text-xs break-all">' + snCell + '</dd></div>',
                 '<div><dt class="text-bf-muted text-xs">Artifact</dt><dd class="m-0 font-mono text-xs break-all">' + art + '</dd></div>',
                 detailRow('File id', j.external_file_id || j.file_id),
                 detailRow('Queue pos', j.queue_pos),
@@ -1383,6 +1425,18 @@ const layoutHTML = `<!DOCTYPE html>
                 jobsStatus.classList.add('live');
               } catch (_) {
                 jobsStatus.textContent = copy.dataset.copy;
+              }
+              return;
+            }
+            const copyLink = ev.target.closest('[data-copy-link]');
+            if (copyLink) {
+              const url = location.origin + '/jobs?job=' + encodeURIComponent(copyLink.dataset.copyLink);
+              try {
+                await navigator.clipboard.writeText(url);
+                jobsStatus.textContent = 'Copied link';
+                jobsStatus.classList.add('live');
+              } catch (_) {
+                jobsStatus.textContent = url;
               }
               return;
             }
@@ -1578,11 +1632,15 @@ const layoutHTML = `<!DOCTYPE html>
             };
           }
 
-          loadJobs();
-          loadJobCreatePickers();
-          connectJobsSSE();
           (async () => {
             const params = new URLSearchParams(location.search);
+            const q = (params.get('q') || '').trim();
+            const state = (params.get('state') || '').trim();
+            if (q) document.getElementById('jobs-q').value = q;
+            if (state) document.getElementById('jobs-state').value = state;
+            await loadJobs();
+            loadJobCreatePickers();
+            connectJobsSSE();
             const job = (params.get('job') || '').trim();
             if (!job) return;
             await loadJobDetail(job);
@@ -2559,7 +2617,8 @@ const layoutHTML = `<!DOCTYPE html>
               });
               if (out.queued && out.job_id) {
                 msg.innerHTML = 'Queued job <code class="font-mono text-xs">' + esc(out.job_id) +
-                  '</code> <button type="button" class="bf-btn" id="commerce-copy-job">Copy id</button>';
+                  '</code> <button type="button" class="bf-btn" id="commerce-copy-job">Copy id</button>' +
+                  ' <a class="bf-btn" id="commerce-open-job" href="/jobs?job=' + encodeURIComponent(out.job_id) + '">Open</a>';
                 document.getElementById('commerce-copy-job').onclick = async () => {
                   try { await navigator.clipboard.writeText(out.job_id); msg.append(' · copied'); }
                   catch (_) { msg.append(' · ' + out.job_id); }

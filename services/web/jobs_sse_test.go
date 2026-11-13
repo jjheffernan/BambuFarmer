@@ -80,6 +80,12 @@ func TestJobsPageUsesSSENotIntervalPoll(t *testing.T) {
 	if !strings.Contains(layoutHTML, `params.get('job')`) {
 		t.Fatal("jobs page missing ?job= deep-link")
 	}
+	if !strings.Contains(layoutHTML, `params.get('q')`) || !strings.Contains(layoutHTML, `params.get('state')`) {
+		t.Fatal("jobs page missing ?q=/?state= bootstrap")
+	}
+	if !strings.Contains(layoutHTML, "data-copy-link") || !strings.Contains(layoutHTML, `/?sn=`) {
+		t.Fatal("jobs missing Copy link or Fleet cross-link")
+	}
 	for _, ev := range []string{
 		"job.queued",
 		"job.assigned",

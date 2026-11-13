@@ -10,14 +10,12 @@ On release: move that section to a new `## [X.Y.Z] — YYYY-MM-DD`, bump [`VERSI
 ## [Unreleased]
 
 ### Added
+- Fleet `/?sn=` deep-link; Artifacts `?artifact=`; Jobs honor `?q=`/`?state=`; job detail Fleet/Artifacts links; drawer Copy SN; commerce Open job; Jobs Copy link
 - Jobs deep-link `?job=` opens Detail (optional `history=1`); human-readable job timestamps; Fleet alert Open → drawer
 - Filament Copy spool id / tray lookup copy; Admin setup readout includes `rate_card`
 - Shell Change password for LAN users (including viewers); Jobs live % from `job.progress`; job detail started/finished + artifact download
 - Fleet offline / layer / print_error on cards; Commerce webhook Copy job id; Artifacts Copy object_key
 - Admin install readout (`GET /api/v1/setup`) beside setup reset
-
-### Fixed
-- Preset edit PATCH merges the loaded tip so JSON/models/notes are not wiped by the form fields
 - Fleet card control errors via bfJSON, HMS chips, and dismissible alert banner; shell shows site name
 - Jobs Copy id; Slice `slice.*` SSE toasts; OIDC SSO button on `/login` when `AUTH_MODE=oidc`; Filament low-stock row highlight
 - Jobs Cancel prompts for a reason (defaults to operator cancel)
@@ -75,6 +73,9 @@ On release: move that section to a new `## [X.Y.Z] — YYYY-MM-DD`, bump [`VERSI
 - Slice lifecycle events (`slice.queued` / `slice.succeeded` / `slice.failed`) on `bf.events.slice` when the slicer has `REDIS_URL`; gateway SSE and analytics counters include the stream
 - Slice plugin invokes operator-supplied `ORCA_BIN` when set (`input_path` required; optional settings/filament JSON paths); empty `ORCA_BIN` still records the job without running a slicer
 - Printer `hms[]` from MQTT/FM push_status is formatted as `XXXX_XXXX_XXXX_XXXX` codes on snapshots and printer events; analytics failures roll up each HMS code alongside `print_error`
+
+### Fixed
+- Preset edit PATCH merges the loaded tip so JSON/models/notes are not wiped by the form fields
 - Analytics export (`GET /api/v1/analytics/export`) returns utilization, costs, and failures as JSON or CSV (`format`, `kind`); Analytics page links download both
 - Analytics page charts for daily utilization, costs, and failure codes (CSS bars + tables from existing APIs)
 - Analytics costs (`GET /api/v1/analytics/costs`) roll up `job.costed` material, machine, and labor into `agg_cost_daily`
