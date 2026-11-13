@@ -48,4 +48,7 @@ func TestFleetPageShowsAMSAndTaskHelpers(t *testing.T) {
 	if !strings.Contains(layoutHTML, `id="fleet-online"`) || !strings.Contains(layoutHTML, `id="fleet-model"`) {
 		t.Fatal("expected fleet online/model filters")
 	}
+	if !strings.Contains(layoutHTML, `id="fleet-state"`) || !strings.Contains(layoutHTML, "fleetState") {
+		t.Fatal("expected fleet gcode_state filter")
+	}
 }

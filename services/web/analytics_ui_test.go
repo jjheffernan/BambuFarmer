@@ -56,4 +56,7 @@ func TestAnalyticsPageRendersRollupTableNotRawJSON(t *testing.T) {
 	if !strings.Contains(layoutHTML, `id="analytics-kind"`) || !strings.Contains(layoutHTML, "kind") {
 		t.Fatal("expected analytics export kind picker")
 	}
+	if !strings.Contains(layoutHTML, "group_by") || !strings.Contains(layoutHTML, "groupBy === 'printer'") {
+		t.Fatal("expected utilization table to honor group_by")
+	}
 }

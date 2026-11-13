@@ -199,6 +199,14 @@ const layoutHTML = `<!DOCTYPE html>
           <select class="bf-input max-w-[10rem]" id="fleet-model">
             <option value="">All models</option>
           </select>
+          <select class="bf-input max-w-[10rem]" id="fleet-state">
+            <option value="">All gcode states</option>
+            <option value="IDLE">IDLE</option>
+            <option value="RUNNING">RUNNING</option>
+            <option value="PAUSE">PAUSE</option>
+            <option value="FAILED">FAILED</option>
+            <option value="FINISH">FINISH</option>
+          </select>
           <div class="flex flex-wrap gap-2" id="tag-chips">
             <span class="bf-chip on" data-tag="">All tags</span>
           </div>
@@ -233,6 +241,7 @@ const layoutHTML = `<!DOCTYPE html>
           let fleetQ = '';
           let fleetOnline = '';
           let fleetModel = '';
+          let fleetState = '';
           let openSn = '';
           let liveviewTimer = null;
           const statusEl = document.getElementById('sse-status');
@@ -268,6 +277,10 @@ const layoutHTML = `<!DOCTYPE html>
           };
           document.getElementById('fleet-model').onchange = (ev) => {
             fleetModel = String(ev.target.value || '');
+            render();
+          };
+          document.getElementById('fleet-state').onchange = (ev) => {
+            fleetState = String(ev.target.value || '');
             render();
           };
           const tagChips = document.getElementById('tag-chips');
@@ -491,6 +504,7 @@ const layoutHTML = `<!DOCTYPE html>
               if (fleetOnline === 'true' && !p.online) return false;
               if (fleetOnline === 'false' && p.online) return false;
               if (fleetModel && String(p.model || '') !== fleetModel) return false;
+              if (fleetState && String(p.gcode_state || '').toUpperCase() !== fleetState) return false;
               if (fleetQ) {
                 const hay = ((p.name || '') + ' ' + (p.external_sn || '') + ' ' + (p.model || '')).toLowerCase();
                 if (hay.indexOf(fleetQ) < 0) return false;
@@ -839,6 +853,12 @@ const layoutHTML = `<!DOCTYPE html>
               <input class="bf-input" id="job-sn" name="external_sn" placeholder="optional — triggers start when set"/>
             </div>
             <div>
+              <label class="bf-field" for="job-model-pick">Target model</label>
+              <select class="bf-input" id="job-model-pick">
+                <option value="">— pick or type below —</option>
+              </select>
+            </div>
+            <div>
               <label class="bf-field" for="job-model">Target model <span class="text-bf-muted">(optional)</span></label>
               <input class="bf-input" id="job-model" name="target_model" placeholder="P1S, X1C, …"/>
             </div>
@@ -926,7 +946,9 @@ const layoutHTML = `<!DOCTYPE html>
               <tr>
                 <th>Name</th>
                 <th>State</th>
+                <th>#</th>
                 <th>Printer</th>
+                <th>Target</th>
                 <th>Artifact</th>
                 <th>Est.</th>
                 <th>Cost</th>
@@ -934,7 +956,7 @@ const layoutHTML = `<!DOCTYPE html>
                 <th></th>
               </tr>
             </thead>
-            <tbody><tr><td colspan="8" class="bf-empty">loading…</td></tr></tbody>
+            <tbody><tr><td colspan="10" class="bf-empty">loading…</td></tr></tbody>
           </table>
         </div>
         <script>
@@ -985,14 +1007,24 @@ const layoutHTML = `<!DOCTYPE html>
               jobsStatus.textContent = 'Updated ' + new Date().toLocaleTimeString();
               jobsStatus.classList.add('live');
               if (!jobs || !jobs.length) {
-                jobsTb.innerHTML = '<tr><td colspan="8" class="bf-empty">No jobs yet — create one above.</td></tr>';
+                jobsTb.innerHTML = '<tr><td colspan="10" class="bf-empty">No jobs yet — create one above.</td></tr>';
                 return;
               }
-              jobsTb.innerHTML = jobs.map(j => '<tr>' +
+              jobsTb.innerHTML = jobs.map(j => {
+                const qPos = (j.state === 'queued' && (j.queue_pos || j.queue_pos === 0))
+                  ? String(j.queue_pos)
+                  : '—';
+                const after = j.after_job_id
+                  ? ('after ' + String(j.after_job_id).slice(0, 8))
+                  : '';
+                const target = [j.target_model, after].filter(Boolean).join(' · ') || '—';
+                return '<tr>' +
                 '<td><div class="font-medium">' + esc(j.name || j.id) + '</div>' +
                   '<div class="text-bf-muted text-xs font-mono">' + esc(j.id) + '</div></td>' +
                 '<td><span class="' + stateClass(j.state) + '">' + esc(j.state || '') + '</span></td>' +
+                '<td class="font-mono text-xs">' + esc(qPos) + '</td>' +
                 '<td class="text-bf-muted font-mono text-xs">' + esc(j.external_sn || '—') + '</td>' +
+                '<td class="text-bf-muted text-xs">' + esc(target) + '</td>' +
                 '<td class="text-bf-muted font-mono text-xs">' + esc(j.artifact_id || '—') + '</td>' +
                 '<td class="text-bf-muted">' + esc(fmtEst(j)) + '</td>' +
                 '<td class="text-bf-muted">' + esc(fmtCost(j)) + '</td>' +
@@ -1012,11 +1044,12 @@ const layoutHTML = `<!DOCTYPE html>
                       ' <button type="button" class="bf-btn" data-queue="later" data-job="' + esc(j.id) + '">Later</button>'
                     : '') +
                 '</td>' +
-              '</tr>').join('');
+              '</tr>';
+              }).join('');
             } catch (e) {
               jobsStatus.textContent = 'Error';
               jobsStatus.classList.remove('live');
-              jobsTb.innerHTML = '<tr><td colspan="8" class="text-bf-danger">' + esc(e.message || e) + '</td></tr>';
+              jobsTb.innerHTML = '<tr><td colspan="10" class="text-bf-danger">' + esc(e.message || e) + '</td></tr>';
             }
           }
 
@@ -1110,13 +1143,21 @@ const layoutHTML = `<!DOCTYPE html>
               const printers = await bfJSON(API + '/api/v1/printers');
               const snSel = document.getElementById('job-sn-pick');
               const snOpts = ['<option value="">— pick or type SN below —</option>'];
+              const models = new Set();
               (printers || []).forEach(p => {
                 const sn = p.external_sn || p.id;
                 if (!sn) return;
                 const label = (p.name || sn) + (p.model ? ' · ' + p.model : '') + ' · ' + sn;
                 snOpts.push('<option value="' + esc(sn) + '" data-model="' + esc(p.model || '') + '">' + esc(label) + '</option>');
+                if (p.model) models.add(String(p.model));
               });
               snSel.innerHTML = snOpts.join('');
+              const modelSel = document.getElementById('job-model-pick');
+              const curModel = document.getElementById('job-model').value.trim();
+              modelSel.innerHTML = '<option value="">— pick or type below —</option>' +
+                [...models].sort((a, b) => a.localeCompare(b)).map(m =>
+                  '<option value="' + esc(m) + '"' + (curModel === m ? ' selected' : '') + '>' + esc(m) + '</option>'
+                ).join('');
             } catch (_) {}
             try {
               const jobs = await bfJSON(API + '/api/v1/jobs');
@@ -1152,7 +1193,14 @@ const layoutHTML = `<!DOCTYPE html>
             document.getElementById('job-sn').value = sel.value;
             const opt = sel.options[sel.selectedIndex];
             const modelEl = document.getElementById('job-model');
-            if (!modelEl.value.trim() && opt && opt.dataset.model) modelEl.value = opt.dataset.model;
+            if (!modelEl.value.trim() && opt && opt.dataset.model) {
+              modelEl.value = opt.dataset.model;
+              document.getElementById('job-model-pick').value = opt.dataset.model;
+            }
+          };
+          document.getElementById('job-model-pick').onchange = () => {
+            const sel = document.getElementById('job-model-pick');
+            if (sel.value) document.getElementById('job-model').value = sel.value;
           };
           document.getElementById('job-after-pick').onchange = () => {
             const sel = document.getElementById('job-after-pick');
@@ -2417,8 +2465,16 @@ const layoutHTML = `<!DOCTYPE html>
           }
           function renderUtilization(series) {
             const rows = (series && series.series) || [];
+            const groupBy = (series && series.group_by) || document.getElementById('analytics-group').value || 'printer';
+            const thead = document.querySelector('#analytics-util-table thead tr');
+            if (thead) {
+              thead.innerHTML = '<th>Day</th><th>Site</th>' +
+                (groupBy === 'printer' ? '<th>Printer</th>' : '') +
+                '<th>Idle</th><th>Run</th><th>Fail</th><th>Util %</th><th>Samples</th>';
+            }
+            const cols = groupBy === 'printer' ? 8 : 7;
             if (!rows.length) {
-              utilBody.innerHTML = '<tr><td colspan="8" class="bf-empty">No daily rollups yet</td></tr>';
+              utilBody.innerHTML = '<tr><td colspan="' + cols + '" class="bf-empty">No daily rollups yet</td></tr>';
               utilBars.innerHTML = '<p class="bf-empty m-0">No utilization chart yet</p>';
               return;
             }
@@ -2426,7 +2482,7 @@ const layoutHTML = `<!DOCTYPE html>
               '<tr>' +
               '<td class="font-mono text-xs">' + (r.day || '—') + '</td>' +
               '<td>' + (r.site_id || '—') + '</td>' +
-              '<td class="font-mono text-xs">' + (r.external_sn || '—') + '</td>' +
+              (groupBy === 'printer' ? ('<td class="font-mono text-xs">' + (r.external_sn || '—') + '</td>') : '') +
               '<td class="font-mono text-xs">' + fmtDuration(r.idle_s) + '</td>' +
               '<td class="font-mono text-xs">' + fmtDuration(r.run_s) + '</td>' +
               '<td class="font-mono text-xs">' + fmtDuration(r.fail_s) + '</td>' +
@@ -2439,7 +2495,9 @@ const layoutHTML = `<!DOCTYPE html>
               const run = Number(r.run_s) || 0;
               const fail = Number(r.fail_s) || 0;
               const total = idle + run + fail || 1;
-              const label = (r.day || '') + ' ' + (r.external_sn || r.site_id || '');
+              let label = r.day || '';
+              if (groupBy === 'printer') label += ' ' + (r.external_sn || '');
+              else if (groupBy === 'site') label += ' ' + (r.site_id || '');
               return barRow(label.trim(), [
                 { pct: (100 * run) / total, color: 'var(--color-bf-accent, #3dd68c)', title: 'run ' + fmtDuration(run) },
                 { pct: (100 * idle) / total, color: 'rgb(100 116 139 / 0.55)', title: 'idle ' + fmtDuration(idle) },
@@ -2646,6 +2704,13 @@ const layoutHTML = `<!DOCTYPE html>
           <h2 class="font-display text-lg mb-2">Job transition</h2>
           <p class="text-sm text-bf-muted mb-3">Lab/fixture recovery via <code>POST /api/v1/jobs/{id}/transition</code>. Illegal moves return <code>invalid_transition</code>.</p>
           <form id="job-transition-form" class="grid gap-x-4 gap-y-1 md:grid-cols-3 max-w-3xl">
+            <div class="md:col-span-3">
+              <label class="bf-field" for="jt-pick">Recent job</label>
+              <select class="bf-input" id="jt-pick">
+                <option value="">— pick or type id below —</option>
+              </select>
+              <p class="text-xs text-bf-muted mt-1" id="jt-current">Current state: —</p>
+            </div>
             <div>
               <label class="bf-field" for="jt-id">Job id</label>
               <input class="bf-input font-mono text-xs" id="jt-id" required placeholder="job uuid"/>
@@ -2668,6 +2733,7 @@ const layoutHTML = `<!DOCTYPE html>
               <input class="bf-input" id="jt-reason" placeholder="operator recovery"/>
             </div>
             <div class="md:col-span-3 flex flex-wrap gap-2 items-center mt-2">
+              <button type="button" class="bf-btn" id="jt-refresh">Refresh jobs</button>
               <button type="submit" class="bf-btn bf-btn-primary">Transition</button>
               <p class="text-sm self-center" id="jt-msg"></p>
             </div>
@@ -3019,6 +3085,45 @@ const layoutHTML = `<!DOCTYPE html>
           }
           document.getElementById('scheduler-refresh').onclick = loadScheduler;
           loadScheduler();
+          async function loadTransitionJobs() {
+            const sel = document.getElementById('jt-pick');
+            try {
+              const jobs = await bfJSON(API + '/api/v1/jobs', opts);
+              const optsHtml = ['<option value="">— pick or type id below —</option>'];
+              (jobs || []).slice(0, 50).forEach(j => {
+                if (!j.id) return;
+                const label = (j.name || j.id) + ' · ' + (j.state || '') + ' · ' + String(j.id).slice(0, 8);
+                optsHtml.push('<option value="' + String(j.id).replace(/"/g, '&quot;') + '" data-state="' +
+                  String(j.state || '').replace(/"/g, '&quot;') + '">' +
+                  String(label).replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</option>');
+              });
+              sel.innerHTML = optsHtml.join('');
+            } catch (e) {
+              document.getElementById('jt-current').textContent = String(e.message || e);
+            }
+          }
+          async function showTransitionCurrent(id) {
+            const el = document.getElementById('jt-current');
+            if (!id) { el.textContent = 'Current state: —'; return; }
+            try {
+              const j = await bfJSON(API + '/api/v1/jobs/' + encodeURIComponent(id), opts);
+              el.textContent = 'Current state: ' + (j.state || '?') + (j.name ? (' · ' + j.name) : '');
+            } catch (e) {
+              el.textContent = String(e.message || e);
+            }
+          }
+          document.getElementById('jt-pick').onchange = () => {
+            const sel = document.getElementById('jt-pick');
+            if (!sel.value) return;
+            document.getElementById('jt-id').value = sel.value;
+            const opt = sel.options[sel.selectedIndex];
+            document.getElementById('jt-current').textContent =
+              'Current state: ' + ((opt && opt.dataset.state) || '…');
+            showTransitionCurrent(sel.value);
+          };
+          document.getElementById('jt-id').onchange = () => showTransitionCurrent(document.getElementById('jt-id').value.trim());
+          document.getElementById('jt-refresh').onclick = loadTransitionJobs;
+          loadTransitionJobs();
           document.getElementById('job-transition-form').onsubmit = async (ev) => {
             ev.preventDefault();
             const msg = document.getElementById('jt-msg');
@@ -3042,6 +3147,8 @@ const layoutHTML = `<!DOCTYPE html>
               });
               msg.className = 'text-bf-accent text-sm self-center';
               msg.textContent = 'Now ' + (out.state || document.getElementById('jt-state').value);
+              await showTransitionCurrent(id);
+              await loadTransitionJobs();
             } catch (e) {
               msg.className = 'text-bf-danger text-sm self-center';
               msg.textContent = String(e.message || e);

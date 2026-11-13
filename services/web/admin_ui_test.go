@@ -61,6 +61,9 @@ func TestAdminPageHasRateCardEditor(t *testing.T) {
 	if !strings.Contains(layoutHTML, `id="job-transition-form"`) || !strings.Contains(layoutHTML, "/transition") {
 		t.Fatal("expected Admin job transition form")
 	}
+	if !strings.Contains(layoutHTML, `id="jt-pick"`) || !strings.Contains(layoutHTML, "loadTransitionJobs") {
+		t.Fatal("expected Admin job transition picker")
+	}
 	if !strings.Contains(layoutHTML, "/api/v1/admin/scheduler") || !strings.Contains(layoutHTML, `id="scheduler-out"`) {
 		t.Fatal("expected Admin scheduler readout")
 	}
