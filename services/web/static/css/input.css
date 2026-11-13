@@ -72,7 +72,8 @@
   .bf-chip {
     @apply inline-flex items-center border border-bf-border rounded-full
       px-3 py-1 text-xs text-bf-muted cursor-pointer select-none
-      transition-colors hover:border-bf-muted;
+      transition-colors hover:border-bf-muted
+      focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-bf-accent;
   }
   .bf-chip.on {
     @apply border-bf-accent text-bf-accent bg-bf-accent/10;
@@ -104,11 +105,38 @@
   .bf-btn {
     @apply inline-flex items-center justify-center rounded-bf border border-bf-border
       bg-bf-0 text-bf-text px-2.5 py-1.5 text-xs cursor-pointer
-      transition-colors hover:bg-bf-3 hover:border-bf-muted;
+      transition-colors hover:bg-bf-3 hover:border-bf-muted
+      focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-bf-accent;
   }
   .bf-btn-primary {
     @apply bg-bf-accent text-[#04140a] border-bf-accent font-semibold
       hover:bg-bf-accent-dim hover:text-bf-text;
+  }
+  .bf-btn-danger {
+    @apply border-bf-danger/60 text-bf-danger hover:bg-bf-danger/15 hover:border-bf-danger;
+  }
+  .bf-flash {
+    @apply fixed top-3 right-3 z-[60] max-w-sm rounded-bf border border-bf-border
+      bg-bf-1 text-bf-text text-sm px-3 py-2 shadow-[0_8px_24px_rgb(0_0_0/0.35)];
+  }
+  .bf-flash-ok {
+    @apply border-bf-accent/50 text-bf-accent;
+  }
+  .bf-flash-error {
+    @apply border-bf-danger/50 text-bf-danger;
+  }
+  .job-more {
+    @apply relative inline-block align-middle;
+  }
+  .job-more > summary {
+    @apply list-none;
+  }
+  .job-more > summary::-webkit-details-marker {
+    display: none;
+  }
+  .job-more-menu {
+    @apply absolute right-0 z-20 mt-1 min-w-[9rem] flex flex-col gap-1
+      bg-bf-1 border border-bf-border rounded-bf p-2 shadow-[0_8px_24px_rgb(0_0_0/0.35)];
   }
   .bf-status {
     @apply text-sm text-bf-muted mb-3;

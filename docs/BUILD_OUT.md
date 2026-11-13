@@ -74,8 +74,8 @@ Reject: shared plugin SDK frameworks, frontend stack rewrites, fat all-in-one im
 
 | Field | Value |
 |-------|--------|
-| **Done** | P0–P6 on `after-hours/build-out`. Deep-link parity (`/?sn=`, `?artifact=`, jobs filters) |
-| **Next** | Thin affordances only — UI mostly saturated. Stay on `after-hours/build-out` |
+| **Done** | P0–P6 on `after-hours/build-out`. UX: bfFlash, Stop confirm, Jobs More menu |
+| **Next** | Create-job progressive disclosure / nav groups / Admin jump links as needed |
 | **Blocked** | — |
 | **Deferred** | Live FM upload→print→cost smoke — skipped for now. Use fixture mode or `direct_printer` |
 | **Do not** | Commit third-party product source trees; migrate off Go; bundle the Orca binary into the image |

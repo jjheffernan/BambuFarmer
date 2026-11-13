@@ -86,6 +86,9 @@ func TestJobsPageUsesSSENotIntervalPoll(t *testing.T) {
 	if !strings.Contains(layoutHTML, "data-copy-link") || !strings.Contains(layoutHTML, `/?sn=`) {
 		t.Fatal("jobs missing Copy link or Fleet cross-link")
 	}
+	if !strings.Contains(layoutHTML, "job-more") || !strings.Contains(layoutHTML, "job-more-menu") {
+		t.Fatal("jobs row missing More menu for secondary actions")
+	}
 	for _, ev := range []string{
 		"job.queued",
 		"job.assigned",

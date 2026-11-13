@@ -10,7 +10,11 @@ On release: move that section to a new `## [X.Y.Z] — YYYY-MM-DD`, bump [`VERSI
 ## [Unreleased]
 
 ### Added
+- Shared `bfFlash` toast for copy/control feedback; Jobs row primary actions + More menu; `bf-btn-danger` + Stop confirm
 - Fleet `/?sn=` deep-link; Artifacts `?artifact=`; Jobs honor `?q=`/`?state=`; job detail Fleet/Artifacts links; drawer Copy SN; commerce Open job; Jobs Copy link
+
+### Changed
+- Removed unused htmx CDN from the web shell; focus-visible rings on buttons/chips
 - Jobs deep-link `?job=` opens Detail (optional `history=1`); human-readable job timestamps; Fleet alert Open → drawer
 - Filament Copy spool id / tray lookup copy; Admin setup readout includes `rate_card`
 - Shell Change password for LAN users (including viewers); Jobs live % from `job.progress`; job detail started/finished + artifact download

@@ -72,4 +72,7 @@ func TestFleetPageShowsAMSAndTaskHelpers(t *testing.T) {
 	if !strings.Contains(layoutHTML, `.get('sn')`) || !strings.Contains(layoutHTML, "drawer-copy-sn") {
 		t.Fatal("expected fleet ?sn= deep-link and Copy SN")
 	}
+	if !strings.Contains(layoutHTML, "bf-btn-danger") || !strings.Contains(layoutHTML, `opt === 'stop'`) {
+		t.Fatal("expected Stop confirm + danger styling")
+	}
 }

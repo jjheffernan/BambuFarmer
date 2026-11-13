@@ -93,7 +93,6 @@ const layoutHTML = `<!DOCTYPE html>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&family=Syne:wght@600;700&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="/static/css/app.css"/>
-  <script src="https://unpkg.com/htmx.org@2.0.4"></script>
   <script>
     // Parse JSON API responses; surface non-JSON / error bodies clearly.
     async function bfJSON(url, init) {
@@ -113,9 +112,20 @@ const layoutHTML = `<!DOCTYPE html>
       }
       return data;
     }
+    let bfFlashTimer = null;
+    function bfFlash(msg, kind) {
+      const el = document.getElementById('bf-flash');
+      if (!el) return;
+      el.textContent = String(msg || '');
+      el.className = 'bf-flash' + (kind === 'error' ? ' bf-flash-error' : kind === 'ok' ? ' bf-flash-ok' : '');
+      el.hidden = false;
+      clearTimeout(bfFlashTimer);
+      bfFlashTimer = setTimeout(() => { el.hidden = true; }, 3200);
+    }
   </script>
 </head>
 <body>
+  <div id="bf-flash" class="bf-flash" hidden role="status" aria-live="polite"></div>
   <div class="bf-shell">
     <aside class="bf-aside">
       <div class="bf-brand">BambuFarmer<span id="bf-site-label">LAN farm ops</span></div>
@@ -135,7 +145,7 @@ const layoutHTML = `<!DOCTYPE html>
         <p id="bf-user-label" class="hidden"></p>
         <button type="button" id="bf-logout" class="bf-btn hidden w-full">Log out</button>
         <details class="hidden" id="shell-pw">
-          <summary class="cursor-pointer text-bf-ink">Change password</summary>
+          <summary class="cursor-pointer text-bf-text">Change password</summary>
           <form id="shell-pw-form" class="mt-2 space-y-1">
             <input class="bf-input text-xs" type="password" id="shell-pw-cur" placeholder="Current" autocomplete="current-password" required/>
             <input class="bf-input text-xs" type="password" id="shell-pw-new" placeholder="New" autocomplete="new-password" required/>
@@ -271,7 +281,7 @@ const layoutHTML = `<!DOCTYPE html>
           <span id="bulk-count" class="text-sm text-bf-muted">0 selected</span>
           <button type="button" class="bf-btn" data-bulk="pause">Pause</button>
           <button type="button" class="bf-btn" data-bulk="resume">Resume</button>
-          <button type="button" class="bf-btn" data-bulk="stop">Stop</button>
+          <button type="button" class="bf-btn bf-btn-danger" data-bulk="stop">Stop</button>
           <button type="button" class="bf-btn" data-bulk="bed_clean">Bed clean</button>
           <button type="button" class="bf-btn" id="bulk-clear">Clear</button>
           <span id="bulk-msg" class="text-sm text-bf-muted"></span>
@@ -536,10 +546,9 @@ const layoutHTML = `<!DOCTYPE html>
             if (!sn) return;
             try {
               await navigator.clipboard.writeText(sn);
-              statusEl.textContent = 'Copied ' + sn;
-              statusEl.classList.add('live');
+              bfFlash('Copied ' + sn, 'ok');
             } catch (_) {
-              statusEl.textContent = sn;
+              bfFlash(sn);
             }
           };
           drawerBackdrop.onclick = closeDrawer;
@@ -556,6 +565,7 @@ const layoutHTML = `<!DOCTYPE html>
           async function postBulk(action) {
             const serials = [...selected];
             if (!serials.length) return;
+            if (action === 'stop' && !confirm('Stop print on ' + serials.length + ' printer(s)?')) return;
             bulkMsg.textContent = 'Sending…';
             try {
               const out = await bfJSON(API + '/api/v1/printers/actions', {
@@ -566,9 +576,12 @@ const layoutHTML = `<!DOCTYPE html>
               });
               const ok = (out.accepted || []).length;
               const skip = (out.skipped || []).length;
-              bulkMsg.textContent = action + ': ' + ok + ' accepted' + (skip ? (', ' + skip + ' skipped') : '');
+              const line = action + ': ' + ok + ' accepted' + (skip ? (', ' + skip + ' skipped') : '');
+              bulkMsg.textContent = line;
+              bfFlash(line, skip && !ok ? 'error' : 'ok');
             } catch (e) {
               bulkMsg.textContent = String(e.message || e);
+              bfFlash(String(e.message || e), 'error');
             }
           }
 
@@ -637,7 +650,7 @@ const layoutHTML = `<!DOCTYPE html>
                 '<div class="flex flex-wrap gap-1.5 mt-3">' +
                 '<button type="button" class="bf-btn" data-sn="' + sn + '" data-opt="pause">Pause</button>' +
                 '<button type="button" class="bf-btn" data-sn="' + sn + '" data-opt="resume">Resume</button>' +
-                '<button type="button" class="bf-btn" data-sn="' + sn + '" data-opt="stop">Stop</button>' +
+                '<button type="button" class="bf-btn bf-btn-danger" data-sn="' + sn + '" data-opt="stop">Stop</button>' +
                 '<button type="button" class="bf-btn" data-sn="' + sn + '" data-opt="bed_clean">Bed clean</button>' +
                 '</div></article>';
             }).join('');
@@ -652,9 +665,10 @@ const layoutHTML = `<!DOCTYPE html>
             });
             grid.querySelectorAll('button.bf-btn[data-opt]').forEach(btn => {
               btn.addEventListener('click', async () => {
-                const note = (t) => {
+                if (btn.dataset.opt === 'stop' && !confirm('Stop print on ' + btn.dataset.sn + '?')) return;
+                const note = (t, kind) => {
                   if (selected.size) bulkMsg.textContent = t;
-                  else { statusEl.textContent = t; statusEl.classList.remove('live'); }
+                  bfFlash(t, kind);
                 };
                 note(btn.dataset.opt + ' · ' + btn.dataset.sn + '…');
                 try {
@@ -664,9 +678,9 @@ const layoutHTML = `<!DOCTYPE html>
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({opt: btn.dataset.opt})
                   });
-                  note(btn.dataset.opt + ' · ' + btn.dataset.sn + ' ok');
+                  note(btn.dataset.opt + ' · ' + btn.dataset.sn + ' ok', 'ok');
                 } catch (e) {
-                  note(String(e.message || e));
+                  note(String(e.message || e), 'error');
                 }
               });
             });
@@ -876,10 +890,9 @@ const layoutHTML = `<!DOCTYPE html>
                 btn.onclick = async () => {
                   try {
                     await navigator.clipboard.writeText(btn.dataset.copy);
-                    artStatus.textContent = 'Copied ' + btn.dataset.copy;
-                    artStatus.classList.add('live');
+                    bfFlash('Copied ' + btn.dataset.copy, 'ok');
                   } catch (_) {
-                    artStatus.textContent = btn.dataset.copy;
+                    bfFlash(btn.dataset.copy);
                   }
                 };
               });
@@ -939,10 +952,9 @@ const layoutHTML = `<!DOCTYPE html>
                 btn.onclick = async () => {
                   try {
                     await navigator.clipboard.writeText(btn.dataset.copyKey);
-                    artStatus.textContent = 'Copied object_key';
-                    artStatus.classList.add('live');
+                    bfFlash('Copied object_key', 'ok');
                   } catch (_) {
-                    artStatus.textContent = btn.dataset.copyKey;
+                    bfFlash(btn.dataset.copyKey);
                   }
                 };
               });
@@ -1214,21 +1226,26 @@ const layoutHTML = `<!DOCTYPE html>
                 '<td class="text-bf-muted">' + esc(fmtCost(j)) + '</td>' +
                 '<td class="' + (j.error ? 'text-bf-danger text-xs' : 'text-bf-muted') + '">' +
                   esc(j.error || '—') + '</td>' +
-                '<td><button type="button" class="bf-btn" data-copy="' + esc(j.id) + '">Copy id</button> ' +
-                  '<button type="button" class="bf-btn" data-copy-link="' + esc(j.id) + '">Copy link</button> ' +
+                '<td class="whitespace-nowrap">' +
                   '<button type="button" class="bf-btn" data-detail="' + esc(j.id) + '">Detail</button> ' +
-                  '<button type="button" class="bf-btn" data-history="' + esc(j.id) + '">History</button> ' +
-                  '<button type="button" class="bf-btn" data-reprint="' + esc(j.id) + '">Reprint</button>' +
                   (['queued','assigned'].indexOf(j.state) >= 0
-                    ? ' <button type="button" class="bf-btn" data-dispatch="' + esc(j.id) + '" data-sn="' + esc(j.external_sn || '') + '">Dispatch</button>'
+                    ? '<button type="button" class="bf-btn bf-btn-primary" data-dispatch="' + esc(j.id) + '" data-sn="' + esc(j.external_sn || '') + '">Dispatch</button> '
                     : '') +
                   (['queued','assigned','dispatched','running','paused'].indexOf(j.state) >= 0
-                    ? ' <button type="button" class="bf-btn" data-cancel="' + esc(j.id) + '">Cancel</button>'
+                    ? '<button type="button" class="bf-btn bf-btn-danger" data-cancel="' + esc(j.id) + '">Cancel</button> '
                     : '') +
+                  '<details class="job-more">' +
+                  '<summary class="bf-btn">More</summary>' +
+                  '<div class="job-more-menu">' +
+                  '<button type="button" class="bf-btn w-full justify-start" data-copy="' + esc(j.id) + '">Copy id</button>' +
+                  '<button type="button" class="bf-btn w-full justify-start" data-copy-link="' + esc(j.id) + '">Copy link</button>' +
+                  '<button type="button" class="bf-btn w-full justify-start" data-history="' + esc(j.id) + '">History</button>' +
+                  '<button type="button" class="bf-btn w-full justify-start" data-reprint="' + esc(j.id) + '">Reprint</button>' +
                   (j.state === 'queued'
-                    ? ' <button type="button" class="bf-btn" data-queue="earlier" data-job="' + esc(j.id) + '">Earlier</button>' +
-                      ' <button type="button" class="bf-btn" data-queue="later" data-job="' + esc(j.id) + '">Later</button>'
+                    ? '<button type="button" class="bf-btn w-full justify-start" data-queue="earlier" data-job="' + esc(j.id) + '">Earlier</button>' +
+                      '<button type="button" class="bf-btn w-full justify-start" data-queue="later" data-job="' + esc(j.id) + '">Later</button>'
                     : '') +
+                  '</div></details>' +
                 '</td>' +
               '</tr>';
               }).join('');
@@ -1421,10 +1438,9 @@ const layoutHTML = `<!DOCTYPE html>
             if (copy) {
               try {
                 await navigator.clipboard.writeText(copy.dataset.copy);
-                jobsStatus.textContent = 'Copied ' + copy.dataset.copy;
-                jobsStatus.classList.add('live');
+                bfFlash('Copied ' + copy.dataset.copy, 'ok');
               } catch (_) {
-                jobsStatus.textContent = copy.dataset.copy;
+                bfFlash(copy.dataset.copy);
               }
               return;
             }
@@ -1433,10 +1449,9 @@ const layoutHTML = `<!DOCTYPE html>
               const url = location.origin + '/jobs?job=' + encodeURIComponent(copyLink.dataset.copyLink);
               try {
                 await navigator.clipboard.writeText(url);
-                jobsStatus.textContent = 'Copied link';
-                jobsStatus.classList.add('live');
+                bfFlash('Copied link', 'ok');
               } catch (_) {
-                jobsStatus.textContent = url;
+                bfFlash(url);
               }
               return;
             }
@@ -2094,10 +2109,9 @@ const layoutHTML = `<!DOCTYPE html>
                   btn.onclick = async () => {
                     try {
                       await navigator.clipboard.writeText(btn.dataset.copySpool);
-                      filStatus.textContent = 'Copied ' + btn.dataset.copySpool;
-                      filStatus.classList.add('live');
+                      bfFlash('Copied ' + btn.dataset.copySpool, 'ok');
                     } catch (_) {
-                      filStatus.textContent = btn.dataset.copySpool;
+                      bfFlash(btn.dataset.copySpool);
                     }
                   };
                 });
@@ -2122,9 +2136,9 @@ const layoutHTML = `<!DOCTYPE html>
                 document.getElementById('filament-copy-tray').onclick = async () => {
                   try {
                     await navigator.clipboard.writeText(String(data.spool_id));
-                    msg.append(' · copied');
+                    bfFlash('Copied ' + data.spool_id, 'ok');
                   } catch (_) {
-                    msg.append(' · ' + data.spool_id);
+                    bfFlash(String(data.spool_id));
                   }
                 };
               } else {
@@ -2620,8 +2634,12 @@ const layoutHTML = `<!DOCTYPE html>
                   '</code> <button type="button" class="bf-btn" id="commerce-copy-job">Copy id</button>' +
                   ' <a class="bf-btn" id="commerce-open-job" href="/jobs?job=' + encodeURIComponent(out.job_id) + '">Open</a>';
                 document.getElementById('commerce-copy-job').onclick = async () => {
-                  try { await navigator.clipboard.writeText(out.job_id); msg.append(' · copied'); }
-                  catch (_) { msg.append(' · ' + out.job_id); }
+                  try {
+                    await navigator.clipboard.writeText(out.job_id);
+                    bfFlash('Copied ' + out.job_id, 'ok');
+                  } catch (_) {
+                    bfFlash(out.job_id);
+                  }
                 };
               } else {
                 msg.textContent = out.reason || 'not queued';
