@@ -13,12 +13,43 @@ import (
 
 // Scheduler periodically assigns queued jobs to idle printers and emits start_print.
 type Scheduler struct {
-	Pool       *pgxpool.Pool
-	Bus        *events.Bus
-	SiteID     string
-	Interval   time.Duration
-	CircuitMax int // 0 = no circuit tag limit
-	Log        *slog.Logger
+	Pool             *pgxpool.Pool
+	Bus              *events.Bus
+	SiteID           string
+	Interval         time.Duration
+	Stagger          time.Duration // when set, at most one start per tick; tick period ≥ Stagger
+	MaxStartsPerTick int           // 0 = unlimited (unless Stagger set → 1)
+	CircuitMax       int           // 0 = no circuit tag limit
+	Log              *slog.Logger
+}
+
+// startsCap is how many jobs may start in one Tick (0 = unlimited).
+func (s *Scheduler) startsCap() int {
+	if s == nil {
+		return 0
+	}
+	if s.MaxStartsPerTick > 0 {
+		return s.MaxStartsPerTick
+	}
+	if s.Stagger > 0 {
+		return 1
+	}
+	return 0
+}
+
+// tickInterval is the poll period, never shorter than Stagger when set.
+func (s *Scheduler) tickInterval() time.Duration {
+	interval := time.Duration(0)
+	if s != nil {
+		interval = s.Interval
+	}
+	if interval <= 0 {
+		interval = 3 * time.Second
+	}
+	if s != nil && s.Stagger > interval {
+		return s.Stagger
+	}
+	return interval
 }
 
 // Run ticks until ctx cancel.
@@ -26,10 +57,7 @@ func (s *Scheduler) Run(ctx context.Context) {
 	if s == nil || s.Pool == nil {
 		return
 	}
-	interval := s.Interval
-	if interval <= 0 {
-		interval = 3 * time.Second
-	}
+	interval := s.tickInterval()
 	log := s.Log
 	if log == nil {
 		log = slog.Default()
@@ -48,7 +76,7 @@ func (s *Scheduler) Run(ctx context.Context) {
 	}
 }
 
-// Tick assigns as many queued jobs as idle printers allow.
+// Tick assigns queued jobs to idle printers (optionally capped for stagger).
 func (s *Scheduler) Tick(ctx context.Context) error {
 	queued, err := db.ListQueuedJobs(ctx, s.Pool, s.SiteID, 50)
 	if err != nil {
@@ -76,7 +104,12 @@ func (s *Scheduler) Tick(ctx context.Context) error {
 		}
 	}
 
+	capN := s.startsCap()
+	started := 0
 	for _, job := range queued {
+		if capN > 0 && started >= capN {
+			break
+		}
 		prevState := ""
 		if job.AfterJobID != "" {
 			if prev, err := db.GetJob(ctx, s.Pool, s.SiteID, job.AfterJobID); err == nil {
@@ -95,6 +128,7 @@ func (s *Scheduler) Tick(ctx context.Context) error {
 			continue
 		}
 		used[sn] = true
+		started++
 		if err := PublishStartPrintWithPool(ctx, s.Bus, s.Pool, s.SiteID, assigned); err != nil {
 			slog.Warn("publish start_print", "err", err, "job_id", assigned.ID)
 		}

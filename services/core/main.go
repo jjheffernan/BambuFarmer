@@ -68,7 +68,17 @@ func main() {
 		}
 	}
 	if pool != nil {
-		sched := &jobs.Scheduler{Pool: pool, Bus: bus, SiteID: cfg.SiteID, CircuitMax: circuitMax()}
+		sched := &jobs.Scheduler{
+			Pool:             pool,
+			Bus:              bus,
+			SiteID:           cfg.SiteID,
+			CircuitMax:       circuitMax(),
+			Stagger:          schedulerStagger(),
+			MaxStartsPerTick: schedulerMaxStarts(),
+		}
+		if sched.Stagger > 0 {
+			slog.Info("scheduler stagger", "stagger", sched.Stagger, "max_starts_per_tick", sched.startsCap())
+		}
 		go sched.Run(ctx)
 	}
 
@@ -126,6 +136,32 @@ func main() {
 // circuitMax reads CIRCUIT_MAX. Empty or invalid means no circuit tag limit.
 func circuitMax() int {
 	raw := strings.TrimSpace(os.Getenv("CIRCUIT_MAX"))
+	if raw == "" {
+		return 0
+	}
+	n, err := strconv.Atoi(raw)
+	if err != nil || n < 0 {
+		return 0
+	}
+	return n
+}
+
+// schedulerStagger reads SCHEDULER_STAGGER (e.g. 5s). Empty = no stagger.
+func schedulerStagger() time.Duration {
+	raw := strings.TrimSpace(os.Getenv("SCHEDULER_STAGGER"))
+	if raw == "" {
+		return 0
+	}
+	d, err := time.ParseDuration(raw)
+	if err != nil || d < 0 {
+		return 0
+	}
+	return d
+}
+
+// schedulerMaxStarts reads SCHEDULER_MAX_STARTS_PER_TICK. 0/empty = unlimited (unless stagger).
+func schedulerMaxStarts() int {
+	raw := strings.TrimSpace(os.Getenv("SCHEDULER_MAX_STARTS_PER_TICK"))
 	if raw == "" {
 		return 0
 	}
