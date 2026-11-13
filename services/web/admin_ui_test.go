@@ -58,4 +58,7 @@ func TestAdminPageHasRateCardEditor(t *testing.T) {
 	if !strings.Contains(layoutHTML, "/api/v1/edge/tags") || !strings.Contains(layoutHTML, `id="edge-tags"`) {
 		t.Fatal("expected Admin farm tags panel")
 	}
+	if !strings.Contains(layoutHTML, `id="job-transition-form"`) || !strings.Contains(layoutHTML, "/transition") {
+		t.Fatal("expected Admin job transition form")
+	}
 }

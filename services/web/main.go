@@ -2397,6 +2397,37 @@ const layoutHTML = `<!DOCTYPE html>
           <div id="edge-tags" class="bf-empty">loading…</div>
           <button type="button" class="bf-btn mt-3" id="edge-tags-refresh">Refresh tags</button>
         </div>
+        <div class="bf-panel mb-4">
+          <h2 class="font-display text-lg mb-2">Job transition</h2>
+          <p class="text-sm text-bf-muted mb-3">Lab/fixture recovery via <code>POST /api/v1/jobs/{id}/transition</code>. Illegal moves return <code>invalid_transition</code>.</p>
+          <form id="job-transition-form" class="grid gap-x-4 gap-y-1 md:grid-cols-3 max-w-3xl">
+            <div>
+              <label class="bf-field" for="jt-id">Job id</label>
+              <input class="bf-input font-mono text-xs" id="jt-id" required placeholder="job uuid"/>
+            </div>
+            <div>
+              <label class="bf-field" for="jt-state">Target state</label>
+              <select class="bf-input" id="jt-state" required>
+                <option value="queued">queued</option>
+                <option value="assigned">assigned</option>
+                <option value="dispatched">dispatched</option>
+                <option value="running">running</option>
+                <option value="paused">paused</option>
+                <option value="succeeded">succeeded</option>
+                <option value="failed">failed</option>
+                <option value="cancelled">cancelled</option>
+              </select>
+            </div>
+            <div>
+              <label class="bf-field" for="jt-reason">Reason</label>
+              <input class="bf-input" id="jt-reason" placeholder="operator recovery"/>
+            </div>
+            <div class="md:col-span-3 flex flex-wrap gap-2 items-center mt-2">
+              <button type="submit" class="bf-btn bf-btn-primary">Transition</button>
+              <p class="text-sm self-center" id="jt-msg"></p>
+            </div>
+          </form>
+        </div>
         <div class="grid gap-4 md:grid-cols-2">
           <div class="bf-panel">
             <h2 class="font-display text-lg mb-3">Users</h2>
@@ -2732,6 +2763,34 @@ const layoutHTML = `<!DOCTYPE html>
           loadStack();
           loadSite();
           loadEdgeTags();
+          document.getElementById('job-transition-form').onsubmit = async (ev) => {
+            ev.preventDefault();
+            const msg = document.getElementById('jt-msg');
+            msg.className = 'text-sm self-center';
+            msg.textContent = '';
+            const id = document.getElementById('jt-id').value.trim();
+            if (!id) {
+              msg.className = 'text-bf-danger text-sm self-center';
+              msg.textContent = 'job id required';
+              return;
+            }
+            if (!confirm('Force transition job ' + id + ' to ' + document.getElementById('jt-state').value + '?')) return;
+            try {
+              const out = await bfJSON(API + '/api/v1/jobs/' + encodeURIComponent(id) + '/transition', {
+                method: 'POST', credentials: 'include',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                  state: document.getElementById('jt-state').value,
+                  reason: document.getElementById('jt-reason').value.trim() || 'admin recovery',
+                }),
+              });
+              msg.className = 'text-bf-accent text-sm self-center';
+              msg.textContent = 'Now ' + (out.state || document.getElementById('jt-state').value);
+            } catch (e) {
+              msg.className = 'text-bf-danger text-sm self-center';
+              msg.textContent = String(e.message || e);
+            }
+          };
           document.querySelectorAll('[data-power]').forEach(btn => {
             btn.onclick = async () => {
               const msg = document.getElementById('power-msg');
