@@ -74,9 +74,9 @@ Reject: shared plugin SDK frameworks, frontend stack rewrites, fat all-in-one im
 
 | Field | Value |
 |-------|--------|
-| **Done** | [#16](https://github.com/jjheffernan/BambuFarmer/pull/16) on `dev`; after-hours branch + demo torn down; docs/HTMX staleness pass |
-| **Next** | Live FM smoke when LAN available; UX ladder (nav groups / Admin jump links / fleet filter collapse); OIDC code exchange |
+| **Done** | Mobile web + PWA foundation (manifest, SW shell cache, safe-area/touch, Fleet more-filters) |
+| **Next** | Live FM smoke when LAN available; UX ladder (nav groups / Admin jump links); OIDC code exchange |
 | **Gaps** | OIDC code exchange stub; CDP stub; unread `EDGE_TOKEN`/`FARM_MODE`; DESIGN_SPEC §11 historical HTMX narrative |
 | **Blocked** | — |
-| **Deferred** | Live FM upload→print→cost smoke — skipped for now. Use fixture mode or `direct_printer` |
+| **Deferred** | Live FM smoke; Capacitor / store shells for iOS & Android |
 | **Do not** | Commit third-party product source trees; migrate off Go; bundle the Orca binary into the image |

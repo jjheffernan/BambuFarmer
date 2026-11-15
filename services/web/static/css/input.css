@@ -24,9 +24,12 @@
 @layer base {
   html {
     @apply antialiased;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
   }
   body {
     @apply bg-bf-0 text-bf-text font-ui min-h-screen;
+    touch-action: manipulation;
     background-image:
       radial-gradient(900px 480px at 0% -10%, rgb(0 174 66 / 0.12), transparent 55%),
       radial-gradient(700px 400px at 100% 0%, rgb(58 160 255 / 0.06), transparent 50%);
@@ -40,14 +43,17 @@
   .bf-shell {
     @apply min-h-screen grid grid-cols-1 md:grid-cols-[15rem_1fr]
       transition-[grid-template-columns] duration-200;
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
   }
   .bf-shell.bf-nav-collapsed {
     @apply md:grid-cols-[3.25rem_1fr];
   }
   .bf-aside {
     @apply bg-bf-1/95 border-b md:border-b-0 md:border-r border-bf-border
-      px-4 py-5 flex flex-col gap-6 backdrop-blur-sm
+      px-4 py-5 flex flex-col gap-6 backdrop-blur-sm sticky top-0 z-20
       transition-[padding] duration-200;
+    padding-top: max(1.25rem, env(safe-area-inset-top));
   }
   .bf-aside-top {
     @apply flex items-start justify-between gap-2;
@@ -86,7 +92,8 @@
     @apply bg-bf-2 text-bf-accent;
   }
   .bf-main {
-    @apply px-4 py-6 md:px-8 md:py-8 max-w-6xl;
+    @apply px-4 py-6 md:px-8 md:py-8 max-w-6xl min-w-0;
+    padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
   }
   .bf-title {
     @apply font-display text-2xl md:text-3xl font-semibold tracking-tight m-0;
@@ -126,6 +133,9 @@
     @apply fixed inset-y-0 right-0 z-50 w-full max-w-md border-l border-bf-border
       bg-bf-1 p-5 overflow-y-auto shadow-[-8px_0_24px_rgb(0_0_0/0.35)]
       translate-x-full transition-transform duration-200;
+    padding-top: max(1.25rem, env(safe-area-inset-top));
+    padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
+    padding-right: max(1.25rem, env(safe-area-inset-right));
   }
   .bf-drawer.open {
     @apply translate-x-0;
@@ -144,8 +154,10 @@
     @apply border-bf-danger/60 text-bf-danger hover:bg-bf-danger/15 hover:border-bf-danger;
   }
   .bf-flash {
-    @apply fixed top-3 right-3 z-[60] max-w-sm rounded-bf border border-bf-border
+    @apply fixed z-[60] max-w-sm rounded-bf border border-bf-border
       bg-bf-1 text-bf-text text-sm px-3 py-2 shadow-[0_8px_24px_rgb(0_0_0/0.35)];
+    top: max(0.75rem, env(safe-area-inset-top));
+    right: max(0.75rem, env(safe-area-inset-right));
   }
   .bf-flash-ok {
     @apply border-bf-accent/50 text-bf-accent;
@@ -279,5 +291,57 @@
   }
   .bf-actions {
     @apply flex flex-wrap gap-2 mt-5;
+  }
+
+  /* Mobile touch / iOS zoom / table containment */
+  .bf-filters-more {
+    @apply w-full mb-4;
+  }
+  .bf-filters-more > summary {
+    @apply list-none cursor-pointer text-sm text-bf-muted py-2 select-none;
+  }
+  .bf-filters-more > summary::-webkit-details-marker {
+    display: none;
+  }
+  .bf-filters-more > summary::before {
+    content: "▸ ";
+    @apply text-bf-muted;
+  }
+  .bf-filters-more[open] > summary::before {
+    content: "▾ ";
+  }
+  @media (min-width: 768px) {
+    .bf-filters-more > summary {
+      @apply hidden;
+    }
+  }
+  @media (max-width: 767px) {
+    .bf-btn,
+    .bf-nav a,
+    .bf-chip,
+    .bf-row-toggle,
+    .bf-file {
+      min-height: 2.75rem;
+    }
+    .bf-btn,
+    .bf-chip {
+      @apply px-3 py-2;
+    }
+    .bf-nav a {
+      @apply py-3;
+    }
+    .bf-input,
+    .bf-input select,
+    select.bf-input,
+    textarea.bf-input {
+      font-size: 16px;
+    }
+    .bf-table {
+      @apply text-xs;
+    }
+    .bf-wizard {
+      padding-top: max(2.5rem, env(safe-area-inset-top));
+      padding-bottom: max(2.5rem, env(safe-area-inset-bottom));
+    }
   }
 }

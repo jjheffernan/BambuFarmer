@@ -24,4 +24,19 @@ func TestShellFlashAndNoHTMX(t *testing.T) {
 	if !strings.Contains(layoutHTML, "bf-disclose") || !strings.Contains(layoutHTML, "bf-row-detail") {
 		t.Fatal("expected collapsible disclose / row detail markup")
 	}
+	if !strings.Contains(layoutHTML, "viewport-fit=cover") {
+		t.Fatal("expected viewport-fit=cover for notched phones")
+	}
+	if !strings.Contains(layoutHTML, `href="/static/manifest.webmanifest"`) {
+		t.Fatal("expected web app manifest link")
+	}
+	if !strings.Contains(layoutHTML, "/static/icons/apple-touch-icon.png") {
+		t.Fatal("expected apple-touch-icon")
+	}
+	if !strings.Contains(layoutHTML, "serviceWorker.register('/static/sw.js'") {
+		t.Fatal("expected service worker registration")
+	}
+	if !strings.Contains(layoutHTML, "apple-mobile-web-app-capable") {
+		t.Fatal("expected apple-mobile-web-app-capable meta")
+	}
 }

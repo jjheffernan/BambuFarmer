@@ -12,8 +12,8 @@
 |------|----------------|
 | HTML routes + design tokens | Business rules |
 | Client-side SSE handlers + forms | Direct FM calls |
-| Compiled CSS (`static/css/app.css`, `go:embed`) | Auth IdP (gateway cookies/tokens) |
-| Shared UI helpers (`bfJSON`, `bfFlash`, `bfBindFile`) | |
+| Compiled CSS + PWA assets (`static/`, `go:embed`) | Auth IdP (gateway cookies/tokens) |
+| Shared UI helpers (`bfJSON`, `bfFlash`, `bfBindFile`) | Native store shells (Capacitor later) |
 
 Prefer browsing via **gateway** (`:18080`) so API + UI share origin. Direct `:13000` remains for debug.
 
@@ -45,10 +45,19 @@ Prefer browsing via **gateway** (`:18080`) so API + UI share origin. Direct `:13
 - Bulk action bar with multi-select  
 - No browser polling of printers — gateway SSE only  
 - Dense forms use progressive disclosure; dense tables use expandable rows  
+- Mobile: safe-area insets, ~44px touch targets, 16px inputs (no iOS zoom), Fleet secondary filters behind “More filters”
 
 Tokens live in Tailwind `@theme` (`static/css/input.css`) as `bf-*` colors/fonts, matching DESIGN_SPEC §11.4.
 
 **CSS build:** edit `static/css/input.css`, then `make web-css` (or `cd services/web && npm run build:css`). Commit the minified `app.css` — the binary embeds it; no Tailwind CDN at runtime.
+
+### Mobile / PWA
+
+- Manifest: `/static/manifest.webmanifest` (`standalone`, theme `#0e1114`)
+- Icons: `/static/icons/` (apple-touch + 192/512 maskable + SVG)
+- Service worker: `/static/sw.js` caches shell static assets only — **never** `/api/*`
+- Head: `viewport-fit=cover`, `theme-color`, Apple web-app meta on layout / login / setup
+- **Later:** Capacitor (or similar) WebView shells for App Store / Play — same web surface; not in-repo yet
 
 ---
 
@@ -62,6 +71,9 @@ services/web/
     embed.go       # GET /static/…
     css/input.css  # Tailwind source
     css/app.css    # compiled (embedded)
+    manifest.webmanifest
+    sw.js
+    icons/
   package.json     # Tailwind CLI (dev)
   *_ui_test.go
 ```
@@ -84,3 +96,4 @@ Templ migration remains optional; current pages are inline `html/template`.
 4. Job composer + expandable job rows (done)
 5. Analytics charts (done)
 6. Admin rate card editor ($/hr, $/kg, kg/hr) (done)
+7. Mobile web + PWA foundation (done; Capacitor later)

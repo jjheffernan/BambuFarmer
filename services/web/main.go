@@ -87,8 +87,16 @@ const layoutHTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+  <meta name="theme-color" content="#0e1114"/>
+  <meta name="color-scheme" content="dark"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
   <title>{{.Title}} · BambuFarmer</title>
+  <link rel="manifest" href="/static/manifest.webmanifest"/>
+  <link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png"/>
+  <link rel="icon" href="/static/icons/icon.svg" type="image/svg+xml"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&family=Syne:wght@600;700&display=swap" rel="stylesheet"/>
@@ -173,6 +181,11 @@ const layoutHTML = `<!DOCTYPE html>
       if (form) form.addEventListener('reset', () => setTimeout(sync, 0));
       sync();
     }
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/static/sw.js', { scope: '/' }).catch(() => {});
+      });
+    }
   </script>
 </head>
 <body>
@@ -216,7 +229,9 @@ const layoutHTML = `<!DOCTYPE html>
       (function () {
         const shell = document.getElementById('bf-shell');
         const btn = document.getElementById('bf-nav-toggle');
+        const nav = document.getElementById('bf-nav');
         const KEY = 'bf-nav-collapsed';
+        const narrow = () => window.matchMedia('(max-width: 767px)').matches;
         function apply(collapsed) {
           shell.classList.toggle('bf-nav-collapsed', collapsed);
           btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
@@ -227,11 +242,18 @@ const layoutHTML = `<!DOCTYPE html>
         let collapsed = false;
         try { collapsed = localStorage.getItem(KEY) === '1'; } catch (_) {}
         // Prefer collapsed on narrow viewports for first visit.
-        if (!localStorage.getItem(KEY) && window.matchMedia('(max-width: 767px)').matches) {
+        if (!localStorage.getItem(KEY) && narrow()) {
           collapsed = true;
         }
         apply(collapsed);
         btn.onclick = () => apply(!shell.classList.contains('bf-nav-collapsed'));
+        if (nav) {
+          nav.addEventListener('click', (ev) => {
+            if (!narrow()) return;
+            if (!ev.target.closest('a')) return;
+            apply(true);
+          });
+        }
       })();
       (async () => {
         const API = {{printf "%q" .APIBase}};
@@ -322,35 +344,38 @@ const layoutHTML = `<!DOCTYPE html>
           </div>
         </div>
         <div class="flex flex-wrap gap-2 mb-3" id="bucket-chips">
-          <span class="bf-chip on" data-bucket="all">All</span>
-          <span class="bf-chip" data-bucket="ready_to_start">Ready to Start</span>
-          <span class="bf-chip" data-bucket="attention_needed">Attention Needed</span>
-          <span class="bf-chip" data-bucket="completed_task">Completed</span>
-          <span class="bf-chip" data-bucket="not_in_task">Not in Task</span>
-          <span class="bf-chip" data-bucket="printing">Printing</span>
+          <button type="button" class="bf-chip on" data-bucket="all" aria-pressed="true">All</button>
+          <button type="button" class="bf-chip" data-bucket="ready_to_start" aria-pressed="false">Ready to Start</button>
+          <button type="button" class="bf-chip" data-bucket="attention_needed" aria-pressed="false">Attention Needed</button>
+          <button type="button" class="bf-chip" data-bucket="completed_task" aria-pressed="false">Completed</button>
+          <button type="button" class="bf-chip" data-bucket="not_in_task" aria-pressed="false">Not in Task</button>
+          <button type="button" class="bf-chip" data-bucket="printing" aria-pressed="false">Printing</button>
         </div>
-        <div class="flex flex-wrap items-center gap-2 mb-4">
-          <input class="bf-input max-w-xs" id="fleet-q" type="search" placeholder="Search name, SN, model"/>
-          <select class="bf-input max-w-[10rem]" id="fleet-online">
-            <option value="">Online/offline</option>
-            <option value="true">Online only</option>
-            <option value="false">Offline only</option>
-          </select>
-          <select class="bf-input max-w-[10rem]" id="fleet-model">
-            <option value="">All models</option>
-          </select>
-          <select class="bf-input max-w-[10rem]" id="fleet-state">
-            <option value="">All gcode states</option>
-            <option value="IDLE">IDLE</option>
-            <option value="RUNNING">RUNNING</option>
-            <option value="PAUSE">PAUSE</option>
-            <option value="FAILED">FAILED</option>
-            <option value="FINISH">FINISH</option>
-          </select>
-          <div class="flex flex-wrap gap-2" id="tag-chips">
-            <span class="bf-chip on" data-tag="">All tags</span>
+        <details class="bf-filters-more" id="fleet-filters-more">
+          <summary class="md:hidden">More filters</summary>
+          <div class="flex flex-wrap items-center gap-2 mb-4">
+            <input class="bf-input max-w-xs" id="fleet-q" type="search" placeholder="Search name, SN, model"/>
+            <select class="bf-input max-w-[10rem]" id="fleet-online">
+              <option value="">Online/offline</option>
+              <option value="true">Online only</option>
+              <option value="false">Offline only</option>
+            </select>
+            <select class="bf-input max-w-[10rem]" id="fleet-model">
+              <option value="">All models</option>
+            </select>
+            <select class="bf-input max-w-[10rem]" id="fleet-state">
+              <option value="">All gcode states</option>
+              <option value="IDLE">IDLE</option>
+              <option value="RUNNING">RUNNING</option>
+              <option value="PAUSE">PAUSE</option>
+              <option value="FAILED">FAILED</option>
+              <option value="FINISH">FINISH</option>
+            </select>
+            <div class="flex flex-wrap gap-2" id="tag-chips">
+              <button type="button" class="bf-chip on" data-tag="" aria-pressed="true">All tags</button>
+            </div>
           </div>
-        </div>
+        </details>
         <div id="bulk-bar" class="hidden sticky top-0 z-10 mb-3 flex flex-wrap items-center gap-2 border border-bf-border rounded-bf bg-bf-2/95 px-3 py-2 backdrop-blur">
           <span id="bulk-count" class="text-sm text-bf-muted">0 selected</span>
           <button type="button" class="bf-btn" data-bulk="pause">Pause</button>
@@ -403,10 +428,22 @@ const layoutHTML = `<!DOCTYPE html>
           const recentAlerts = [];
           const LIVEVIEW_MS = 3000;
 
+          (function syncFleetFiltersOpen() {
+            const el = document.getElementById('fleet-filters-more');
+            if (!el) return;
+            const mq = window.matchMedia('(min-width: 768px)');
+            const apply = () => { el.open = mq.matches; };
+            apply();
+            mq.addEventListener('change', apply);
+          })();
           document.querySelectorAll('#bucket-chips .bf-chip').forEach(chip => {
             chip.addEventListener('click', () => {
-              document.querySelectorAll('#bucket-chips .bf-chip').forEach(c => c.classList.remove('on'));
+              document.querySelectorAll('#bucket-chips .bf-chip').forEach(c => {
+                c.classList.remove('on');
+                c.setAttribute('aria-pressed', 'false');
+              });
               chip.classList.add('on');
+              chip.setAttribute('aria-pressed', 'true');
               filter = chip.dataset.bucket;
               render();
             });
@@ -431,8 +468,12 @@ const layoutHTML = `<!DOCTYPE html>
           tagChips.addEventListener('click', (ev) => {
             const chip = ev.target.closest('[data-tag]');
             if (!chip) return;
-            tagChips.querySelectorAll('.bf-chip').forEach(c => c.classList.remove('on'));
+            tagChips.querySelectorAll('.bf-chip').forEach(c => {
+              c.classList.remove('on');
+              c.setAttribute('aria-pressed', 'false');
+            });
             chip.classList.add('on');
+            chip.setAttribute('aria-pressed', 'true');
             tagFilter = chip.dataset.tag || '';
             render();
           });
@@ -442,9 +483,12 @@ const layoutHTML = `<!DOCTYPE html>
             printers.forEach(p => (p.tags || []).forEach(t => { if (t) tags.add(String(t)); }));
             const sorted = [...tags].sort((a, b) => a.localeCompare(b));
             const cur = tagFilter;
-            let html = '<span class="bf-chip' + (cur === '' ? ' on' : '') + '" data-tag="">All tags</span>';
+            let html = '<button type="button" class="bf-chip' + (cur === '' ? ' on' : '') +
+              '" data-tag="" aria-pressed="' + (cur === '' ? 'true' : 'false') + '">All tags</button>';
             sorted.forEach(t => {
-              html += '<span class="bf-chip' + (cur === t ? ' on' : '') + '" data-tag="' + esc(t) + '">' + esc(t) + '</span>';
+              html += '<button type="button" class="bf-chip' + (cur === t ? ' on' : '') +
+                '" data-tag="' + esc(t) + '" aria-pressed="' + (cur === t ? 'true' : 'false') + '">' +
+                esc(t) + '</button>';
             });
             tagChips.innerHTML = html;
           }
@@ -3815,8 +3859,16 @@ const loginHTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+  <meta name="theme-color" content="#0e1114"/>
+  <meta name="color-scheme" content="dark"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
   <title>Login · BambuFarmer</title>
+  <link rel="manifest" href="/static/manifest.webmanifest"/>
+  <link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png"/>
+  <link rel="icon" href="/static/icons/icon.svg" type="image/svg+xml"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Syne:wght@600;700&display=swap" rel="stylesheet"/>

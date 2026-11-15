@@ -75,4 +75,10 @@ func TestFleetPageShowsAMSAndTaskHelpers(t *testing.T) {
 	if !strings.Contains(layoutHTML, "bf-btn-danger") || !strings.Contains(layoutHTML, `opt === 'stop'`) {
 		t.Fatal("expected Stop confirm + danger styling")
 	}
+	if !strings.Contains(layoutHTML, `id="fleet-filters-more"`) || !strings.Contains(layoutHTML, "More filters") {
+		t.Fatal("expected collapsible fleet secondary filters")
+	}
+	if !strings.Contains(layoutHTML, `aria-pressed="true"`) || !strings.Contains(layoutHTML, `data-bucket="all"`) {
+		t.Fatal("expected fleet bucket chips as buttons with aria-pressed")
+	}
 }

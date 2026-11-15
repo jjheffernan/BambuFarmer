@@ -12,6 +12,9 @@ func TestLoginPageSupportsOIDC(t *testing.T) {
 	if !strings.Contains(loginHTML, "auth_mode") || !strings.Contains(loginHTML, "/api/v1/auth/me") {
 		t.Fatal("expected login page to probe auth mode")
 	}
+	if !strings.Contains(loginHTML, "viewport-fit=cover") || !strings.Contains(loginHTML, `href="/static/manifest.webmanifest"`) {
+		t.Fatal("expected login PWA meta + manifest")
+	}
 }
 
 func TestShellPasswordChange(t *testing.T) {

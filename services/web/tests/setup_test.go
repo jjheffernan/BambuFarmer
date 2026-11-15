@@ -26,4 +26,7 @@ func TestSetupRouteRegistered(t *testing.T) {
 	if !strings.Contains(body, "/static/css/app.css") {
 		t.Fatalf("setup page missing shared stylesheet link")
 	}
+	if !strings.Contains(body, "viewport-fit=cover") || !strings.Contains(body, "/static/manifest.webmanifest") {
+		t.Fatalf("setup page missing PWA viewport/manifest")
+	}
 }
