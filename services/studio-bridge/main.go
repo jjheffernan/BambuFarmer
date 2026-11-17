@@ -1,6 +1,6 @@
 // Command studio-bridge is the optional Studio/Orca receive plugin (compose profile: studio-bridge).
-// Receive mode: HTTP ingest + drop-folder → core artifact (and optional job). Protocol VP (SSDP/MQTT/FTPS) is later.
-// Proxy mode is deferred (LAN printers only) — status reports that clearly.
+// Receive: HTTP ingest + drop-folder + optional LAN VP (bind/MQTT/FTPS) → core artifact/job → fm_native.
+// Proxy mode is deferred (LAN printers only).
 package main
 
 import (
@@ -19,6 +19,7 @@ import (
 	"github.com/jjheffernan/BambuFarmer/packages/events"
 	"github.com/jjheffernan/BambuFarmer/packages/httpserver"
 	"github.com/jjheffernan/BambuFarmer/services/studio-bridge/internal/bridge"
+	"github.com/jjheffernan/BambuFarmer/services/studio-bridge/internal/vp"
 )
 
 func main() {
@@ -32,6 +33,7 @@ func main() {
 	policy := bridge.ParsePolicy(getenv("STUDIO_BRIDGE_POLICY", "queue"))
 	dropDir := strings.TrimSpace(os.Getenv("STUDIO_BRIDGE_DROP_DIR"))
 	redisURL := os.Getenv("REDIS_URL")
+	vpcfg := vp.LoadConfig()
 
 	var bus *events.Bus
 	if redisURL != "" {
@@ -44,6 +46,19 @@ func main() {
 		}
 	}
 
+	ingestPlate := func(c context.Context, filename string, body []byte) error {
+		res, err := bridge.Ingest(c, coreURL, policy, bridge.Request{
+			Filename: filename,
+			Body:     body,
+			Name:     strings.TrimSuffix(strings.TrimSuffix(filepath.Base(filename), filepath.Ext(filename)), ".gcode"),
+		}, nil)
+		if err != nil {
+			return err
+		}
+		emit(c, bus, siteID, res)
+		return nil
+	}
+
 	if dropDir != "" {
 		go bridge.WatchDropDir(ctx, bridge.WatchOptions{
 			Dir:      dropDir,
@@ -52,6 +67,17 @@ func main() {
 			Interval: 5 * time.Second,
 			Log:      slog.Default(),
 		})
+	}
+
+	if vpcfg.Enabled && mode != "proxy" {
+		tlsCfg, err := vp.LoadOrCreateTLS(vpcfg.CertDir)
+		if err != nil {
+			slog.Warn("vp tls cert", "err", err)
+		} else {
+			vp.StartBind(ctx, vpcfg, slog.Default())
+			go vp.StartFTPS(ctx, vpcfg, tlsCfg, ingestPlate, slog.Default())
+			go vp.StartMQTT(ctx, vpcfg, tlsCfg, slog.Default())
+		}
 	}
 
 	mux := httpserver.NewMux(service)
@@ -65,7 +91,8 @@ func main() {
 			"events":      bus != nil,
 			"drop_dir":    dropDir,
 			"proxy_ready": false,
-			"note":        statusNote(mode),
+			"vp":          vpcfg.StatusMap(),
+			"note":        statusNote(mode, vpcfg.Enabled),
 		})
 	})
 	mux.HandleFunc("POST /api/v1/studio-bridge/ingest", func(w http.ResponseWriter, r *http.Request) {
@@ -99,11 +126,14 @@ func main() {
 	}
 }
 
-func statusNote(mode string) string {
+func statusNote(mode string, vpOn bool) string {
 	if mode == "proxy" {
-		return "Proxy mode is deferred (LAN/direct_printer only). Set STUDIO_BRIDGE_MODE=receive for HTTP ingest + drop folder → core artifact/job → fm_native."
+		return "Proxy mode is deferred (LAN/direct_printer only). Set STUDIO_BRIDGE_MODE=receive."
 	}
-	return "Receive MVP: POST /api/v1/studio-bridge/ingest (multipart file) or STUDIO_BRIDGE_DROP_DIR watch. SSDP/MQTT/FTPS virtual printer is a later slice. Prints still go through Farm Manager."
+	if vpOn {
+		return "Receive + VP: bind :3000/:3002, FTPS :990 (bblp + access code), MQTT :8883 idle report. STOR → core artifact/job → fm_native. Add printer in Studio by IP/access code; slicer CA trust may be required."
+	}
+	return "Receive: POST /api/v1/studio-bridge/ingest or drop folder. Set STUDIO_BRIDGE_VP=1 for LAN virtual printer (bind/FTPS/MQTT)."
 }
 
 func parseIngest(r *http.Request) (bridge.Request, error) {

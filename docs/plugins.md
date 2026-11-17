@@ -25,7 +25,7 @@ Optional profiled service — **not** a `ControlPlane` kind. HTTP/drop ingest (V
 
 | Mode | Status | Notes |
 |------|--------|-------|
-| `receive` | Shipped (ingest) | `POST …/ingest` + drop dir; SSDP/MQTT/FTPS later |
+| `receive` | Shipped | HTTP/drop + optional VP (`STUDIO_BRIDGE_VP=1`: bind/FTPS/MQTT) |
 | `proxy` | Deferred | LAN/`direct_printer` only; not for FM-claimed fleet |
 
 See [`services/studio-bridge.md`](./services/studio-bridge.md).

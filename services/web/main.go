@@ -3417,7 +3417,7 @@ const layoutHTML = `<!DOCTYPE html>
         </div>
         <div class="bf-panel mb-4">
           <h2 class="font-display text-lg mb-2">Studio bridge</h2>
-          <p class="text-sm text-bf-muted mb-3">Optional receive plugin (<code>compose --profile studio-bridge</code>). Drop or POST a <code>.gcode.3mf</code> → core artifact/job → FM print. Virtual-printer protocol (SSDP/MQTT/FTPS) is a later slice; proxy mode is deferred.</p>
+          <p class="text-sm text-bf-muted mb-3">Optional receive plugin (<code>compose --profile studio-bridge</code>). Drop/POST a plate, or enable <code>STUDIO_BRIDGE_VP=1</code> and add the host in Studio (IP + access code → FTPS/MQTT). Prints still go through FM.</p>
           <div id="studio-bridge-status" class="bf-status m-0 mb-3">loading…</div>
           <pre class="bf-pre text-xs m-0 mb-3" id="studio-bridge-out">…</pre>
           <form id="studio-bridge-ingest" class="grid gap-3 md:grid-cols-2 max-w-2xl">

@@ -84,9 +84,9 @@ Reject: shared plugin SDK frameworks, frontend stack rewrites, fat all-in-one im
 
 | Field | Value |
 |-------|--------|
-| **Done** | Studio-bridge slices 1–2: profiled service, status, HTTP ingest + drop watch → core artifact/job; Admin panel |
-| **Next** | Studio-bridge slice 3 (bind/MQTT/FTPS VP) when ready; Live FM 3.2 smoke; UX ladder; OIDC |
+| **Done** | Studio-bridge slices 1–3: HTTP/drop + LAN VP (bind/FTPS/MQTT → ingest → FM) |
+| **Next** | Studio CA trust / SSDP (slice 5); AMS/target hints (slice 4); Live FM 3.2 smoke; UX ladder; OIDC |
 | **Gaps** | OIDC code exchange stub; CDP stub; unread `EDGE_TOKEN`/`FARM_MODE`; DESIGN_SPEC §11 historical HTMX narrative |
 | **Blocked** | Live FM 3.2 smoke until LAN FM available |
-| **Deferred** | Capacitor; FM network-status API; studio-bridge proxy mode; full slicer SSDP discovery |
+| **Deferred** | Capacitor; FM network-status API; studio-bridge proxy mode |
 | **Do not** | Commit third-party product source (Bambuddy/FULU/Orca trees); migrate off Go; bundle Orca; replace FM Client; proxy FM-bound printers as if they were LAN `:8883` |

@@ -289,7 +289,7 @@ services:
       - "18086:8080"
 
   # Optional Studio/Orca receive plugin: compose --profile studio-bridge up -d
-  # HTTP ingest + drop folder → core artifact/job. SSDP/MQTT/FTPS VP is a later slice.
+  # HTTP/drop ingest always on. Set STUDIO_BRIDGE_VP=1 for LAN VP (bind/FTPS/MQTT).
   studio-bridge:
     profiles: ["studio-bridge"]
     image: localhost/bambufarmer-studio-bridge:dev
@@ -305,15 +305,33 @@ services:
       STUDIO_BRIDGE_MODE: ${STUDIO_BRIDGE_MODE:-receive}
       STUDIO_BRIDGE_POLICY: ${STUDIO_BRIDGE_POLICY:-queue}
       STUDIO_BRIDGE_DROP_DIR: /data/studio-drop
+      STUDIO_BRIDGE_VP: ${STUDIO_BRIDGE_VP:-0}
+      STUDIO_BRIDGE_VP_SN: ${STUDIO_BRIDGE_VP_SN:-BFVP00000000000}
+      STUDIO_BRIDGE_VP_NAME: ${STUDIO_BRIDGE_VP_NAME:-BambuFarmer VP}
+      STUDIO_BRIDGE_VP_MODEL: ${STUDIO_BRIDGE_VP_MODEL:-BL-P001}
+      STUDIO_BRIDGE_VP_ACCESS_CODE: ${STUDIO_BRIDGE_VP_ACCESS_CODE:-12345678}
+      STUDIO_BRIDGE_CERT_DIR: /data/studio-bridge/certs
+      STUDIO_BRIDGE_FTPS_ADDR: ${STUDIO_BRIDGE_FTPS_ADDR:-:990}
+      STUDIO_BRIDGE_MQTT_ADDR: ${STUDIO_BRIDGE_MQTT_ADDR:-:8883}
+      STUDIO_BRIDGE_BIND_ADDRS: ${STUDIO_BRIDGE_BIND_ADDRS:-:3000,:3002}
       ARTIFACTS_DIR: /data/artifacts
     volumes:
       - artifacts:/data/artifacts
       - studio_drop:/data/studio-drop
+      - studio_bridge_certs:/data/studio-bridge/certs
+    cap_add:
+      - NET_BIND_SERVICE
     ports:
       - "18087:8080"
+      - "990:990"
+      - "8883:8883"
+      - "3000:3000"
+      - "3002:3002"
+      - "50000-50009:50000-50009"
 
 volumes:
   pgdata:
   miniodata:
   artifacts:
   studio_drop:
+  studio_bridge_certs:
