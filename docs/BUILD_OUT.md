@@ -25,7 +25,7 @@ Canonical architecture: [`DESIGN_SPEC.md`](./DESIGN_SPEC.md) · plugins: [`plugi
 | Filament / AMS / Spoolman | `integrations` + presets |
 | Notifications | `core` + `NOTIFY_URL` (job finish + alerts) |
 | Power / automation | `core` + `POWER_URL` (dry-run when unset) |
-| Auth (LAN done; OIDC stubs; LDAP later) | `gateway` |
+| Auth (LAN done; OIDC code flow; LDAP later) | `gateway` |
 | Shop orders → print → pack/ship | `services/commerce` (profile; webhook + echo) |
 | Direct printer (in-process) | `direct_printer` + `DIRECT_PRINTERS` |
 | In-app / Orca slice | `services/slicer` (profile; Orca not bundled) |
@@ -84,9 +84,9 @@ Reject: shared plugin SDK frameworks, frontend stack rewrites, fat all-in-one im
 
 | Field | Value |
 |-------|--------|
-| **Done** | Studio-bridge slices 1–6: receive VP + SSDP/CA + plate hints + LAN TCP proxy |
-| **Next** | Live FM 3.2 smoke; UX ladder; OIDC; multi-VP ops if needed |
-| **Gaps** | OIDC code exchange stub; CDP stub; unread `EDGE_TOKEN`/`FARM_MODE`; DESIGN_SPEC §11 historical HTMX narrative |
+| **Done** | Studio-bridge 1–6; OIDC code exchange + session; nav groups + Admin jump links |
+| **Next** | Live FM 3.2 smoke; multi-VP ops if needed; CSRF/rate-limit later |
+| **Gaps** | CDP stub; unread `EDGE_TOKEN`/`FARM_MODE`; DESIGN_SPEC §11 historical HTMX narrative |
 | **Blocked** | Live FM 3.2 smoke until LAN FM available |
 | **Deferred** | Capacitor; FM network-status API; multi-VP identities |
 | **Do not** | Commit third-party product source (Bambuddy/FULU/Orca trees); migrate off Go; bundle Orca; replace FM Client; proxy FM-bound printers as if they were LAN `:8883` |

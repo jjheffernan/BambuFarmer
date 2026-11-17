@@ -196,17 +196,29 @@ const layoutHTML = `<!DOCTYPE html>
         <div class="bf-brand">BambuFarmer<span id="bf-site-label">LAN farm ops</span></div>
         <button type="button" class="bf-btn bf-nav-toggle" id="bf-nav-toggle" aria-controls="bf-nav" aria-expanded="true" title="Collapse menu">☰</button>
       </div>
-      <nav class="bf-nav" id="bf-nav">
-        <a href="/" {{if eq .Active "fleet"}}class="active"{{end}}>Fleet</a>
-        <a href="/jobs" {{if eq .Active "jobs"}}class="active"{{end}}>Jobs</a>
-        <a href="/artifacts" {{if eq .Active "artifacts"}}class="active"{{end}}>Artifacts</a>
-        <a href="/presets" {{if eq .Active "presets"}}class="active"{{end}}>Presets</a>
-        <a href="/filament" {{if eq .Active "filament"}}class="active"{{end}}>Filament</a>
-        <a href="/library" {{if eq .Active "library"}}class="active"{{end}}>Library</a>
-        <a href="/slice" {{if eq .Active "slice"}}class="active"{{end}}>Slice</a>
-        <a href="/commerce" {{if eq .Active "commerce"}}class="active"{{end}}>Commerce</a>
-        <a href="/analytics" {{if eq .Active "analytics"}}class="active"{{end}}>Analytics</a>
-        <a href="/admin" {{if eq .Active "admin"}}class="active"{{end}}>Admin</a>
+      <nav class="bf-nav" id="bf-nav" aria-label="Primary">
+        <div class="bf-nav-group">
+          <span class="bf-nav-label">Ops</span>
+          <a href="/" {{if eq .Active "fleet"}}class="active"{{end}}>Fleet</a>
+          <a href="/jobs" {{if eq .Active "jobs"}}class="active"{{end}}>Jobs</a>
+          <a href="/artifacts" {{if eq .Active "artifacts"}}class="active"{{end}}>Artifacts</a>
+        </div>
+        <div class="bf-nav-group">
+          <span class="bf-nav-label">Materials</span>
+          <a href="/presets" {{if eq .Active "presets"}}class="active"{{end}}>Presets</a>
+          <a href="/filament" {{if eq .Active "filament"}}class="active"{{end}}>Filament</a>
+          <a href="/library" {{if eq .Active "library"}}class="active"{{end}}>Library</a>
+        </div>
+        <div class="bf-nav-group">
+          <span class="bf-nav-label">Plugins</span>
+          <a href="/slice" {{if eq .Active "slice"}}class="active"{{end}}>Slice</a>
+          <a href="/commerce" {{if eq .Active "commerce"}}class="active"{{end}}>Commerce</a>
+        </div>
+        <div class="bf-nav-group">
+          <span class="bf-nav-label">System</span>
+          <a href="/analytics" {{if eq .Active "analytics"}}class="active"{{end}}>Analytics</a>
+          <a href="/admin" {{if eq .Active "admin"}}class="active"{{end}}>Admin</a>
+        </div>
       </nav>
       <div class="mt-auto text-xs text-bf-muted space-y-2 bf-aside-foot">
         <p id="bf-user-label" class="hidden"></p>
@@ -3349,7 +3361,21 @@ const layoutHTML = `<!DOCTYPE html>
         </script>
       {{else}}
         <p class="bf-lede">Local accounts, stack updates, rate cards, power, and auth mode.</p>
-        <div class="bf-panel mb-4">
+        <nav class="bf-jump mb-4" id="admin-jump" aria-label="Admin sections">
+          <a href="#admin-updates">Updates</a>
+          <a href="#admin-setup">Setup</a>
+          <a href="#admin-power">Power</a>
+          <a href="#admin-notify">Notify</a>
+          <a href="#admin-site">Site</a>
+          <a href="#admin-stack">Stack</a>
+          <a href="#admin-studio">Studio bridge</a>
+          <a href="#admin-tags">Tags</a>
+          <a href="#admin-scheduler">Scheduler</a>
+          <a href="#admin-transition">Job transition</a>
+          <a href="#admin-users">Users</a>
+          <a href="#admin-rates">Rates</a>
+        </nav>
+        <div class="bf-panel mb-4" id="admin-updates">
           <h2 class="font-display text-lg mb-2">System updates</h2>
           <p class="text-sm text-bf-muted mb-3">Keep BambuFarmer in step with Farm Manager: after upgrading FM, update this stack. One command on the host, or request from here while a host watcher is running.</p>
           <pre class="bf-pre text-xs mb-3" id="sys-out">loading…</pre>
@@ -3361,7 +3387,7 @@ const layoutHTML = `<!DOCTYPE html>
           </div>
           <p class="text-sm mt-2" id="sys-msg"></p>
         </div>
-        <div class="bf-panel mb-4">
+        <div class="bf-panel mb-4" id="admin-setup">
           <h2 class="font-display text-lg mb-2">Lab · setup</h2>
           <p class="text-sm text-bf-muted mb-3">Install state from <code>GET /api/v1/setup</code>. Reset re-opens the wizard (does not delete users or jobs).</p>
           <pre class="bf-pre text-xs mb-3" id="setup-out">loading…</pre>
@@ -3371,7 +3397,7 @@ const layoutHTML = `<!DOCTYPE html>
             <p class="text-sm m-0" id="setup-reset-msg"></p>
           </div>
         </div>
-        <div class="bf-panel mb-4">
+        <div class="bf-panel mb-4" id="admin-power">
           <h2 class="font-display text-lg mb-2">Power</h2>
           <p class="text-sm text-bf-muted mb-3">Smart-plug webhook via <code>POWER_URL</code>. Empty URL accepts the call and does not switch.</p>
           <div id="power-status" class="bf-status m-0 mb-3">loading…</div>
@@ -3381,7 +3407,7 @@ const layoutHTML = `<!DOCTYPE html>
             <p class="text-sm m-0" id="power-msg"></p>
           </div>
         </div>
-        <div class="bf-panel mb-4">
+        <div class="bf-panel mb-4" id="admin-notify">
           <h2 class="font-display text-lg mb-2">Notify</h2>
           <p class="text-sm text-bf-muted mb-3">Typed webhooks via <code>NOTIFY_URL</code> (<code>job.finished</code>, <code>alert.raised</code>). Empty URL accepts the test and does not POST. Fleet/job metrics also via analytics CSV and Redis Streams; optional Prometheus scrape notes on service health endpoints.</p>
           <div id="notify-status" class="bf-status m-0 mb-3">loading…</div>
@@ -3390,7 +3416,7 @@ const layoutHTML = `<!DOCTYPE html>
             <p class="text-sm m-0" id="notify-msg"></p>
           </div>
         </div>
-        <div class="bf-panel mb-4">
+        <div class="bf-panel mb-4" id="admin-site">
           <h2 class="font-display text-lg mb-2">Site</h2>
           <p class="text-sm text-bf-muted mb-3">Display name and timezone for the farm site (single-site MVP).</p>
           <form id="site-form" class="grid gap-x-4 gap-y-1 md:grid-cols-2 max-w-xl">
@@ -3409,13 +3435,13 @@ const layoutHTML = `<!DOCTYPE html>
             </div>
           </form>
         </div>
-        <div class="bf-panel mb-4">
+        <div class="bf-panel mb-4" id="admin-stack">
           <h2 class="font-display text-lg mb-2">Stack &amp; plugins</h2>
           <p class="text-sm text-bf-muted mb-3">Core version plus optional compose profiles (slicer, commerce, studio-bridge) and integration URLs.</p>
           <div id="stack-status" class="flex flex-wrap gap-2 text-sm">loading…</div>
           <button type="button" class="bf-btn mt-3" id="stack-refresh">Refresh</button>
         </div>
-        <div class="bf-panel mb-4">
+        <div class="bf-panel mb-4" id="admin-studio">
           <h2 class="font-display text-lg mb-2">Studio bridge</h2>
           <p class="text-sm text-bf-muted mb-3">Optional plugin (<code>compose --profile studio-bridge</code>). Receive: drop/POST or VP (<code>STUDIO_BRIDGE_VP=1</code>) → core → FM. Proxy: <code>STUDIO_BRIDGE_MODE=proxy</code> + <code>STUDIO_BRIDGE_PROXY_TARGET</code> (LAN printers only). Download CA for slicer TLS trust.</p>
           <div id="studio-bridge-status" class="bf-status m-0 mb-3">loading…</div>
@@ -3444,19 +3470,19 @@ const layoutHTML = `<!DOCTYPE html>
             </div>
           </form>
         </div>
-        <div class="bf-panel mb-4">
+        <div class="bf-panel mb-4" id="admin-tags">
           <h2 class="font-display text-lg mb-2">Farm tags</h2>
           <p class="text-sm text-bf-muted mb-3">Circuit/group labels from edge (<code>GET /api/v1/edge/tags</code>). Empty when the plane has no tag source.</p>
           <div id="edge-tags" class="bf-empty">loading…</div>
           <button type="button" class="bf-btn mt-3" id="edge-tags-refresh">Refresh tags</button>
         </div>
-        <div class="bf-panel mb-4">
+        <div class="bf-panel mb-4" id="admin-scheduler">
           <h2 class="font-display text-lg mb-2">Scheduler</h2>
           <p class="text-sm text-bf-muted mb-3">Dispatch pacing from env (<code>CIRCUIT_MAX</code>, <code>SCHEDULER_STAGGER</code>, <code>SCHEDULER_MAX_STARTS_PER_TICK</code>).</p>
           <pre class="bf-pre text-xs m-0" id="scheduler-out">loading…</pre>
           <button type="button" class="bf-btn mt-3" id="scheduler-refresh">Refresh</button>
         </div>
-        <div class="bf-panel mb-4">
+        <div class="bf-panel mb-4" id="admin-transition">
           <h2 class="font-display text-lg mb-2">Job transition</h2>
           <p class="text-sm text-bf-muted mb-3">Lab/fixture recovery via <code>POST /api/v1/jobs/{id}/transition</code>. Illegal moves return <code>invalid_transition</code>.</p>
           <form id="job-transition-form" class="grid gap-x-4 gap-y-1 md:grid-cols-3 max-w-3xl">
@@ -3495,7 +3521,7 @@ const layoutHTML = `<!DOCTYPE html>
             </div>
           </form>
         </div>
-        <div class="grid gap-4 md:grid-cols-2">
+        <div class="grid gap-4 md:grid-cols-2" id="admin-users">
           <div class="bf-panel">
             <h2 class="font-display text-lg mb-3">Users</h2>
             <div id="users-list" class="bf-empty text-left">loading…</div>
@@ -3528,7 +3554,7 @@ const layoutHTML = `<!DOCTYPE html>
                 <p class="text-sm mt-2" id="pw-msg"></p>
               </form>
             </div>
-            <div>
+            <div id="admin-rates">
               <h2 class="font-display text-lg mb-3">Rate card</h2>
               <p class="text-sm text-bf-muted mb-3">Site costing defaults for job estimates and finish actuals.</p>
               <p class="text-xs text-bf-muted mb-3" id="admin-me">Session…</p>

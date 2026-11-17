@@ -84,12 +84,24 @@
   .bf-brand span {
     @apply block font-ui font-medium text-bf-muted text-xs mt-1 tracking-normal;
   }
+  .bf-nav-group {
+    @apply mb-3;
+  }
+  .bf-nav-label {
+    @apply block text-[0.65rem] uppercase tracking-wider text-bf-muted/80 px-3 mb-1;
+  }
   .bf-nav a {
     @apply block rounded-bf px-3 py-2.5 mb-1 text-bf-muted no-underline
       transition-colors duration-150 hover:bg-bf-2 hover:text-bf-text;
   }
   .bf-nav a.active {
     @apply bg-bf-2 text-bf-accent;
+  }
+  .bf-jump {
+    @apply flex flex-wrap gap-x-3 gap-y-1 text-sm;
+  }
+  .bf-jump a {
+    @apply text-bf-muted no-underline hover:text-bf-accent;
   }
   .bf-main {
     @apply px-4 py-6 md:px-8 md:py-8 max-w-6xl min-w-0;

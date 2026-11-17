@@ -18,6 +18,8 @@ On release: move that section to a new `## [X.Y.Z] — YYYY-MM-DD`, bump [`VERSI
 - BUILD_OUT P7 + studio-bridge: receive VP + optional LAN proxy (not FM-bound printers)
 
 ### Added
+- OIDC authorization-code login on gateway (`AUTH_MODE=oidc`): issuer discovery, token exchange, ID-token verify, local user upsert + session; first SSO user is admin
+- Shell nav groups (Ops / Materials / Plugins / System) and Admin section jump links
 - Optional `studio-bridge` plugin (`compose --profile studio-bridge`): `GET …/status`, `POST …/ingest`, drop-folder watch → core artifact/job; Admin ingest UI; gateway `STUDIO_BRIDGE_URL`
 - Studio-bridge LAN VP (`STUDIO_BRIDGE_VP=1`): SSDP `:2021`, bind `:3000`/`:3002`, FTPS `:990` (`bblp`+access code → ingest), MQTT `:8883` idle report; `GET …/ca.pem` + Admin CA download
 - Studio-bridge plate hints: extract `printer_model` / filament types from `.3mf` into `target_model` (explicit form field and `STUDIO_BRIDGE_TARGET_MODEL` still win)

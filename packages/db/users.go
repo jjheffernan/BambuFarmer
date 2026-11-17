@@ -18,6 +18,40 @@ const (
 	RoleViewer   = "viewer"
 )
 
+// UpsertOIDCUser finds or creates an SSO account. Existing roles are kept;
+// display name is refreshed. New users get roles (default viewer/operator/admin).
+// Password is a random unusable hash (local login disabled for these accounts).
+func UpsertOIDCUser(ctx context.Context, pool *pgxpool.Pool, username, displayName string, roles []string) (api.User, error) {
+	username = strings.TrimSpace(username)
+	if username == "" {
+		return api.User{}, Validation("username required")
+	}
+	if u, err := GetUserByUsername(ctx, pool, username); err == nil {
+		dn := strings.TrimSpace(displayName)
+		if dn == "" {
+			dn = u.DisplayName
+		}
+		if dn == "" {
+			dn = username
+		}
+		if dn != u.DisplayName {
+			_, _ = pool.Exec(ctx, `UPDATE users SET display_name=$1, updated_at=now() WHERE id=$2`, dn, u.ID)
+			u.DisplayName = dn
+		}
+		if !u.Active {
+			return api.User{}, api.Unauthorized("account disabled")
+		}
+		return u, nil
+	}
+	if len(roles) == 0 {
+		roles = []string{RoleViewer}
+	}
+	// Random password — OIDC users cannot use local login.
+	b := make([]byte, 32)
+	_, _ = rand.Read(b)
+	return CreateUser(ctx, pool, username, hex.EncodeToString(b), displayName, roles)
+}
+
 // CreateUser inserts a local account. password is plaintext (hashed here).
 func CreateUser(ctx context.Context, pool *pgxpool.Pool, username, password, displayName string, roles []string) (api.User, error) {
 	username = strings.TrimSpace(username)

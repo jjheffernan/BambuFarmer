@@ -18,6 +18,12 @@ func TestShellFlashAndNoHTMX(t *testing.T) {
 	if !strings.Contains(layoutHTML, `id="bf-nav-toggle"`) || !strings.Contains(layoutHTML, "bf-nav-collapsed") {
 		t.Fatal("expected collapsible nav toggle")
 	}
+	if !strings.Contains(layoutHTML, "bf-nav-group") || !strings.Contains(layoutHTML, "bf-nav-label") {
+		t.Fatal("expected nav groups")
+	}
+	if !strings.Contains(layoutHTML, `id="admin-jump"`) || !strings.Contains(layoutHTML, "#admin-studio") {
+		t.Fatal("expected Admin jump links")
+	}
 	if !strings.Contains(layoutHTML, "function bfBindFile") || !strings.Contains(layoutHTML, "bf-file") {
 		t.Fatal("expected shared bfBindFile drop zone")
 	}

@@ -21,7 +21,7 @@
 
 | Path | Backend |
 |------|---------|
-| `GET/POST /api/v1/auth/*` | local (LAN login / password; OIDC stubs) |
+| `GET/POST /api/v1/auth/*` | local (LAN login / password; OIDC code flow) |
 | `/api/v1/presets/*`, `/api/v1/jobs/*`, `/api/v1/artifacts/*`, … | core |
 | `/api/v1/printers/*` | core projection + edge liveview |
 | `/api/v1/analytics/*` | analytics |
@@ -38,7 +38,7 @@
 | Mode | Behavior |
 |------|----------|
 | `lan` | Local username/password via core user store; insecure; LAN bind only; boot warning |
-| `oidc` | Intended OIDC code flow — **authorize/callback still stubs** (login button + stub JSON only) |
+| `oidc` | Authorization-code redirect; discovery via issuer; upserts local user + session cookie |
 | `local_insecure` | Alias of `lan` |
 
 **LAN vs OIDC / URL’d placement, secrets inventory:** [`../DEPLOYMENT_MODES.md`](../DEPLOYMENT_MODES.md).
@@ -69,5 +69,5 @@ From repo-root `.env` (see [`.env.example`](../../.env.example)): `AUTH_MODE`, `
 1. Proxy + LAN session (done)  
 2. Real LAN user store in Postgres via core (done)  
 3. SSE stream for printer/job events (done)  
-4. OIDC code exchange (**stub** — wire IdP client next)  
+4. OIDC code exchange (done — discovery + token + ID-token verify + session)  
 5. Rate limiting / CSRF for cookie sessions (later)

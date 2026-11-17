@@ -13,7 +13,7 @@ Canonical secrets template: [`.env.example`](../.env.example) → copy to **`.en
 | `AUTH_MODE` | `lan` (alias: `local_insecure`) | `oidc` |
 | Who authenticates operators | Local username/password in BambuFarmer | External IdP (Authentik, Keycloak, Google Workspace, …) |
 | Public URL / reverse proxy | **Not required** — and **must not** be exposed to the public internet | **Required** — HTTPS URL + redirect URIs |
-| IdP / OIDC_* secrets | Unused | Required for SSO (`OIDC_*`); **code exchange still stubbed in gateway** |
+| IdP / OIDC_* secrets | Unused | Required for SSO (`OIDC_*`); gateway does discovery + code exchange |
 | Gateway bind | Private LAN / VPN / localhost only | Behind TLS reverse proxy (or gateway TLS later) |
 | Boot behavior | Loud warning: insecure LAN mode | No LAN warning; fail closed if OIDC misconfigured |
 | Default for | Lab, shop floor, air‑gapped / no IdP farms | Multi-user orgs, remote access, anything with a real hostname |
@@ -46,8 +46,8 @@ Alias: `AUTH_MODE=local_insecure` ≡ `lan`.
 
 - Operators sign in via your IdP (`AUTH_MODE=oidc`).
 - Stack is reachable at a **real HTTPS URL** (or internal URL your IdP can redirect to).
-- Session/JWT still issued by **gateway**; core/edge do not speak OIDC.
-- Set all `OIDC_*` values in `.env` (see template). Leave them empty in LAN mode.
+- Gateway discovers the issuer, redirects to authorize, exchanges the code, verifies the ID token, upserts a local user, and sets the usual `bf_session` cookie. Core/edge do not speak OIDC.
+- Set all `OIDC_*` values in `.env` (see template). Redirect URI must be `…/api/v1/auth/oidc/callback`. First SSO login becomes **admin**; later users get `OIDC_DEFAULT_ROLE` (or admin if their groups match `OIDC_ADMIN_GROUPS`). Leave OIDC_* empty in LAN mode.
 
 Use this whenever:
 

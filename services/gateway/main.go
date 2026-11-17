@@ -47,8 +47,29 @@ func main() {
 	databaseURL := os.Getenv("DATABASE_URL")
 	oidcIssuer := os.Getenv("OIDC_ISSUER")
 	oidcClientID := os.Getenv("OIDC_CLIENT_ID")
+	oidcClientSecret := os.Getenv("OIDC_CLIENT_SECRET")
 	oidcRedirect := os.Getenv("OIDC_REDIRECT_URL")
+	oidcDefaultRole := getenv("OIDC_DEFAULT_ROLE", "viewer")
+	oidcAdminGroups := splitCSV(os.Getenv("OIDC_ADMIN_GROUPS"))
 	secureCookies := envBool("SESSION_SECURE", false)
+
+	var oidcClient *auth.OIDCClient
+	if authMode == "oidc" {
+		c, err := auth.NewOIDCClient(ctx, auth.OIDCConfig{
+			Issuer:       oidcIssuer,
+			ClientID:     oidcClientID,
+			ClientSecret: oidcClientSecret,
+			RedirectURL:  oidcRedirect,
+			DefaultRole:  oidcDefaultRole,
+			AdminGroups:  oidcAdminGroups,
+		})
+		if err != nil {
+			slog.Error("OIDC client init failed", "err", err)
+			os.Exit(1)
+		}
+		oidcClient = c
+		slog.Info("OIDC client ready", "issuer", oidcIssuer, "redirect", oidcRedirect)
+	}
 
 	var pool *pgxpool.Pool
 	if databaseURL != "" {
@@ -197,40 +218,59 @@ func main() {
 		writeJSON(w, map[string]string{"status": "ok"})
 	})
 
-	// OIDC stubs (Phase 0): real exchange lands later.
 	mux.HandleFunc("GET /api/v1/auth/oidc/login", func(w http.ResponseWriter, r *http.Request) {
 		if authMode != "oidc" {
 			httpserver.WriteError(w, api.BadRequest("OIDC login only when AUTH_MODE=oidc"))
 			return
 		}
-		if oidcIssuer == "" || oidcClientID == "" || oidcRedirect == "" {
-			httpserver.WriteError(w, api.NotConfigured("OIDC_ISSUER / OIDC_CLIENT_ID / OIDC_REDIRECT_URL required"))
+		if oidcClient == nil {
+			httpserver.WriteError(w, api.NotConfigured("OIDC client not ready"))
 			return
 		}
-		target := fmt.Sprintf("%s?client_id=%s&redirect_uri=%s&response_type=code&scope=openid%%20profile",
-			strings.TrimRight(oidcIssuer, "/")+"/protocol/openid-connect/auth",
-			url.QueryEscape(oidcClientID),
-			url.QueryEscape(oidcRedirect),
-		)
-		writeJSON(w, map[string]any{
-			"status":    "stub",
-			"auth_url":  target,
-			"note":      "OIDC authorize URL stub — complete code exchange not implemented yet",
-			"auth_mode": "oidc",
-		})
+		if sessionSecret == "" {
+			httpserver.WriteError(w, api.NotConfigured("SESSION_SECRET not set"))
+			return
+		}
+		if err := oidcClient.BeginLogin(w, r, secureCookies); err != nil {
+			httpserver.WriteError(w, api.Internal("OIDC login start failed: "+err.Error()))
+		}
 	})
 	mux.HandleFunc("GET /api/v1/auth/oidc/callback", func(w http.ResponseWriter, r *http.Request) {
 		if authMode != "oidc" {
 			httpserver.WriteError(w, api.BadRequest("OIDC callback only when AUTH_MODE=oidc"))
 			return
 		}
-		code := r.URL.Query().Get("code")
-		writeJSON(w, map[string]any{
-			"status":    "stub",
-			"code":      code != "",
-			"note":      "token exchange not implemented — wire IdP client next",
-			"auth_mode": "oidc",
-		})
+		if oidcClient == nil || pool == nil {
+			httpserver.WriteError(w, api.NotConfigured("OIDC / database not ready"))
+			return
+		}
+		if sessionSecret == "" {
+			httpserver.WriteError(w, api.NotConfigured("SESSION_SECRET not set"))
+			return
+		}
+		claims, err := oidcClient.FinishLogin(r.Context(), r)
+		auth.ClearOIDCState(w, secureCookies)
+		if err != nil {
+			httpserver.WriteError(w, api.Unauthorized("OIDC login failed: "+err.Error()))
+			return
+		}
+		username := claims.Username()
+		if username == "" {
+			httpserver.WriteError(w, api.Unauthorized("OIDC token missing subject/username"))
+			return
+		}
+		n, _ := db.CountUsers(r.Context(), pool)
+		roles := oidcClient.DefaultRoles(claims, n)
+		u, err := db.UpsertOIDCUser(r.Context(), pool, username, claims.DisplayName(), roles)
+		if err != nil {
+			httpserver.WriteError(w, err)
+			return
+		}
+		if err := auth.IssueSession(w, sessionSecret, u.ID, secureCookies); err != nil {
+			httpserver.WriteError(w, api.Internal("session issue failed"))
+			return
+		}
+		http.Redirect(w, r, "/", http.StatusFound)
 	})
 
 	mux.HandleFunc("GET /api/v1/events/stream", hub.ServeHTTP)
@@ -516,6 +556,17 @@ func getenv(k, d string) string {
 		return v
 	}
 	return d
+}
+
+func splitCSV(s string) []string {
+	var out []string
+	for _, p := range strings.Split(s, ",") {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
 }
 
 func mustURL(raw string) *url.URL {

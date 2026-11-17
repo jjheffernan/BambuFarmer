@@ -30,11 +30,13 @@ type GateOptions struct {
 	SecureCookies bool
 }
 
-// Protect wraps next: when LAN mode, install completed, and users exist, require a valid session
-// except for the public allowlist.
+// Protect wraps next: when LAN or OIDC mode, require a valid session except for the public allowlist.
+// LAN: skips until install completes and at least one local user exists (bootstrap).
+// OIDC: always requires session once install completes (first SSO login creates the admin).
 func Protect(opts GateOptions, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if opts.AuthMode != "lan" || opts.Pool == nil {
+		mode := NormalizeMode(opts.AuthMode)
+		if (mode != "lan" && mode != "oidc") || opts.Pool == nil {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -50,10 +52,12 @@ func Protect(opts GateOptions, next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
-		n, err := db.CountUsers(r.Context(), opts.Pool)
-		if err != nil || n == 0 {
-			next.ServeHTTP(w, r)
-			return
+		if mode == "lan" {
+			n, err := db.CountUsers(r.Context(), opts.Pool)
+			if err != nil || n == 0 {
+				next.ServeHTTP(w, r)
+				return
+			}
 		}
 
 		uid, err := ParseSession(r, opts.Secret)
