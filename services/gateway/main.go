@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -405,6 +406,8 @@ func main() {
 		InstallDone:   installDone,
 		SecureCookies: secureCookies,
 	}, handler)
+	handler = auth.CSRF(handler)
+	handler = auth.LoginRateLimit(envInt("LOGIN_RATE_LIMIT", 20), handler)
 
 	srv := &http.Server{
 		Addr:              httpserver.DefaultAddr(),
@@ -578,6 +581,18 @@ func getenv(k, d string) string {
 		return v
 	}
 	return d
+}
+
+func envInt(k string, d int) int {
+	v := strings.TrimSpace(os.Getenv(k))
+	if v == "" {
+		return d
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil {
+		return d
+	}
+	return n
 }
 
 func splitCSV(s string) []string {

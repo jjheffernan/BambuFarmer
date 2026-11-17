@@ -8,7 +8,7 @@
 
 **Per-service design shapes:** [`docs/services/`](./services/README.md) — including Farm Manager research for edge ([`edge-farm-manager.md`](./services/edge-farm-manager.md)).
 
-**Implementation note (2026-11-13):** The web UI ships as Go `html/template` + vanilla JS + SSE + Tailwind. HTMX was removed; templ migration remains optional. Sections below that still say “HTMX” describe the original Plan A — treat [`docs/services/web.md`](./services/web.md) as the live UI contract. Live Farm Manager smoke is still deferred (fixture/unit cover the loop).
+**Implementation note (2026-11-17):** The web UI ships as Go `html/template` + vanilla JS + SSE + Tailwind (no HTMX). §11 below is updated to the as-shipped stack; older HTMX/Leptos comparison text is historical only. Live contract: [`docs/services/web.md`](./services/web.md). Live Farm Manager smoke remains deferred (fixture/unit cover the loop).
 
 ### Locked decisions
 
@@ -505,7 +505,7 @@ Pricing tables and quote/actual calculation live in **core**. Analytics *reads* 
 - Filament burn-down vs Spoolman remaining
 - Group-level stats (aligns with Farm Manager v3 printer grouping)
 
-**Serving:** REST aggregates for HTMX analytics screens (and JSON for charts); optional Prometheus metrics on all services for ops (separate from business analytics).
+**Serving:** REST aggregates for analytics UI (JSON for tables/charts); optional Prometheus metrics on all services for ops (separate from business analytics).
 
 **Scale note:** analytics can run its own read replica or DuckDB/export sidecar later without changing core.
 
@@ -575,39 +575,31 @@ Farm Manager Client is a dense, real-time Electron ops console ([features](https
 | Multi-user local accounts | Our roles + OIDC / LAN mode |
 | High update rate across many printers | Fine-grained reactive UI; avoid full-page HTML swaps |
 
-### 11.2 Frontend decision (locked: Go + HTMX)
+### 11.2 Frontend decision (as shipped: Go + vanilla JS)
 
-We previously compared **Go + templ + HTMX** vs **Rust + Leptos**. Leptos scored higher on dense live fleet UX; HTMX scored higher on ship speed, CI simplicity, and one-language ops.
-
-**v0.5 decision: unify on Go** — edge and web both move to Go so the whole system shares one toolchain. HTMX is Plan A. Leptos is retired as a contingency (not maintained as Plan B).
+**Locked:** unify on Go for edge and web. Early drafts compared **templ+HTMX** vs **Leptos**; neither shipped. The live UI is Go `html/template` + vanilla JS + SSE + Tailwind (see [`services/web.md`](./services/web.md)).
 
 | Factor | Outcome |
 |--------|---------|
-| Toolchain / CI | Single Go module graph; no WASM |
-| Shared DTOs | One `packages/` Go module for events + API types across edge, core, web |
-| Fleet live updates | SSE → HTMX `sse` / OOB swaps of card rows + status chips; throttle morphs |
-| Multi-select bulk ops | Alpine (or small vanilla JS) for selection set; actions POST to gateway |
-| Liveview | `<img>` poll/SSE refresh of JPEG; video deferred |
-| Risk accepted | At very large fleets, full-table morphs may need virtualized table or coarser update intervals |
+| Toolchain / CI | Single Go module graph; no WASM / no SPA framework |
+| Shared DTOs | `packages/api` + `packages/events` across edge, core, gateway, web |
+| Fleet live updates | Gateway SSE → client JS upserts cards / drawers (no HTML fragment swaps) |
+| Multi-select bulk ops | Vanilla JS selection set; actions `POST` via `bfJSON` |
+| Liveview | `<img>` refresh of JPEG from edge; video deferred |
+| templ / HTMX | Optional future; not required for MVP |
 
-#### Historical comparison (kept for context)
+#### Historical note (Plan A comparison — not implemented)
 
-| Workload | HTMX | Leptos | Notes |
-|----------|------|--------|-------|
-| Dense per-cell updates | SSE partial swaps | Signal store | Leptos smoother; HTMX OK with row-level targets |
-| Bulk select + optimistic UI | Alpine assist | Native | Accept small Alpine surface |
-| Admin CRUD | Excellent | Heavier | Favors HTMX |
-| Shared types with Go edge | Native Go | Would need dual stack | Favors HTMX after Go edge lock |
-| Compile on small VMs | Light | WASM toolchain | Favors HTMX |
+An earlier table favored HTMX for Admin CRUD and Leptos for dense cell updates. That choice was superseded by the vanilla JS shell that now powers Fleet/Jobs/Admin.
 
-### 11.3 Go + HTMX stack (Plan A)
+### 11.3 Go + vanilla JS stack (as shipped)
 
-- **Server:** Go (`net/http` or chi) + [templ](https://templ.guide/) components
-- **Interactivity:** HTMX for navigation, forms, SSE-driven fragment updates; Alpine.js only for selection/checkbox state and dropdowns
-- **Auth:** session cookie from gateway (same-origin or trusted proxy); web may be combined with gateway in small deploys
-- **Data:** initial HTML from server; live fleet/jobs via `GET /api/v1/events/stream` (SSE) triggering HTMX swaps of `#printer-{id}`, `#status-nav`, job rows
-- **Shared types:** Go packages under `packages/events`, `packages/api` imported by edge, core, gateway, web
-- **Styling:** CSS variables; dark industrial Farm-inspired theme; original icons/assets only
+- **Server:** Go `net/http` + `html/template` (embedded) in `services/web`
+- **Interactivity:** vanilla JS helpers (`bfJSON`, `bfFlash`, SSE listeners); no HTMX/Alpine
+- **Auth:** session cookie from gateway (SameSite=Lax; CSRF origin check on mutating requests with a session)
+- **Data:** initial HTML from web; live fleet/jobs via `GET /api/v1/events/stream` (SSE)
+- **Shared types:** Go packages under `packages/events`, `packages/api`
+- **Styling:** Tailwind + design tokens; Farm-inspired theme
 - **No browser polling of Farm Manager** — only SSE from our gateway
 
 ### 11.4 Visual design tokens (initial)
@@ -655,7 +647,7 @@ Status color mapping: `IDLE` muted · `RUNNING` info · `PAUSE`/`FAILED` warn/da
 | farm-edge | **Go** | mTLS/MQTT/Redis; same language as the rest of the stack |
 | integrations | **Go** | Spoolman/Manyfold HTTP glue |
 | analytics | **Go** | Dedicated service; SQL rollups; optional DuckDB later |
-| web-frontend | **Go + templ + HTMX** | Unified Go; SSE fragment updates; tiny Alpine only where needed |
+| web-frontend | **Go + html/template + vanilla JS** | Unified Go; SSE → JS UI updates |
 | slicer | **Go** + **OrcaSlicer** binary | Post-MVP sidecar; CLI wrapper only |
 | DB | **Postgres 16+** | System of record |
 | Bus / cache | **Redis** (Streams + optional session/cache) | One small container; easy on Podman/Proxmox |

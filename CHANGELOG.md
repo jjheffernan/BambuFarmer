@@ -16,6 +16,10 @@ On release: move that section to a new `## [X.Y.Z] — YYYY-MM-DD`, bump [`VERSI
 
 ### Security
 - Optional `EDGE_TOKEN`: gateway injects `X-Edge-Token` on edge proxy; edge rejects API calls without it when set
+- Gateway CSRF: same-origin check on mutating requests that carry a session cookie; login rate limit (`LOGIN_RATE_LIMIT`, default 20/min/IP)
+
+### Changed
+- DESIGN_SPEC §11 documents as-shipped Go `html/template` + vanilla JS + SSE (HTMX/Leptos comparison marked historical)
 
 ### Fixed
 - Farm Manager errors now carry path/status/body hints (auth vs API drift vs unreachable); edge status reports `version_status` / `version_hint` / `tested_max` (below-min vs newer-than-smoke-tested)
