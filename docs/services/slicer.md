@@ -35,9 +35,17 @@ Preset `process_json` / `printer_json` from core feed `--load-settings`.
   - `print_preset_id` / `filament_preset_id` → fetch from `CORE_URL`, write JSON under `SLICE_WORK_DIR/.slice-presets/`, then feed those paths (explicit path fields win)
 - Empty `ORCA_BIN` returns `sliced: false` and does not invoke a slicer
 - When `ORCA_BIN` is set, runs the CLI (`--arrange 1 --slice 0 --export-3mf …`) and returns `sliced: true` only if exit 0 and the output file exists
-- When `REDIS_URL` is set, publishes `slice.queued` then `slice.succeeded` or `slice.failed` on `bf.events.slice`
+- On success with `CORE_URL` set: uploads the `.gcode.3mf` to core `POST /api/v1/artifacts` and returns `artifact_id` + `create_job_path` (`/jobs?artifact=…`)
+- When `REDIS_URL` is set, publishes `slice.queued` then `slice.succeeded` or `slice.failed` on `bf.events.slice` (includes `artifact_id` when registered)
 - `GET /api/v1/slice/status` — `orca_configured`, `core_url`, `events`, `work_dir`
 - The Orca CLI is operator-supplied and is not bundled in the image
+
+### Studio bypass workflow
+
+1. Slice offline in Studio/Orca (or BF Slice page with farm presets).  
+2. Artifact lands in core (auto from slicer, or upload on Artifacts).  
+3. Create job → queue/scheduler → edge `fm_native` → Farm Manager → printers.  
+No Studio LAN bind to FM-claimed printers required.
 
 ---
 

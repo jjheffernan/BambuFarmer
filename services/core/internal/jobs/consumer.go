@@ -115,7 +115,8 @@ func applyFinished(ctx context.Context, pool *pgxpool.Pool, bus *events.Bus, sit
 		return err
 	}
 	if err := notify.PostFinished(ctx, os.Getenv("NOTIFY_URL"), nil, notify.Finished{
-		JobID: jobID, State: db.JobSucceeded, Grams: grams, SpoolID: spoolID,
+		Type: notify.TypeJobFinished, JobID: jobID, State: db.JobSucceeded,
+		ExternalSN: job.ExternalSN, Grams: grams, SpoolID: spoolID, SiteID: siteID,
 	}); err != nil {
 		slog.Warn("notify webhook", "err", err, "job_id", jobID)
 	}

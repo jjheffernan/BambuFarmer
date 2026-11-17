@@ -3,6 +3,7 @@ package db
 import (
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestJobListWhereEmpty(t *testing.T) {
@@ -27,4 +28,25 @@ func TestJobListWhereIgnoresAllState(t *testing.T) {
 	if strings.Contains(where, "state=") || len(args) != 1 {
 		t.Fatalf("%q %#v", where, args)
 	}
+}
+
+func TestJobListWhereSNAndTime(t *testing.T) {
+	from := mustParseTime(t, "2026-01-01T00:00:00Z")
+	to := mustParseTime(t, "2026-02-01T00:00:00Z")
+	where, args := jobListWhere("default", JobListFilter{ExternalSN: "SN1", From: &from, To: &to})
+	if !strings.Contains(where, `external_sn=$2`) || !strings.Contains(where, `>= $3`) || !strings.Contains(where, `< $4`) {
+		t.Fatal(where)
+	}
+	if args[1] != "SN1" {
+		t.Fatalf("%#v", args)
+	}
+}
+
+func mustParseTime(t *testing.T, s string) time.Time {
+	t.Helper()
+	ts, err := time.Parse(time.RFC3339, s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return ts
 }

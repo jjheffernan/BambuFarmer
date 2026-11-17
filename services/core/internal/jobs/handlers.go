@@ -1,8 +1,12 @@
 package jobs
 
 import (
+	"encoding/csv"
 	"encoding/json"
 	"net/http"
+	"strconv"
+	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jjheffernan/BambuFarmer/packages/api"
@@ -15,10 +19,8 @@ import (
 func Register(mux *http.ServeMux, pool *pgxpool.Pool, bus *events.Bus, siteID string) {
 	mux.HandleFunc("GET /api/v1/jobs", func(w http.ResponseWriter, r *http.Request) {
 		httpx.RequireDB(w, pool, func() {
-			items, err := db.ListJobs(r.Context(), pool, siteID, 50, db.JobListFilter{
-				Query: r.URL.Query().Get("q"),
-				State: r.URL.Query().Get("state"),
-			})
+			f, limit := parseJobListFilter(r)
+			items, err := db.ListJobs(r.Context(), pool, siteID, limit, f)
 			if err != nil {
 				httpx.WriteError(w, err)
 				return
@@ -26,7 +28,36 @@ func Register(mux *http.ServeMux, pool *pgxpool.Pool, bus *events.Bus, siteID st
 			if items == nil {
 				items = []api.Job{}
 			}
+			if strings.EqualFold(r.URL.Query().Get("format"), "csv") {
+				writeJobsCSV(w, items)
+				return
+			}
 			httpx.WriteJSON(w, items)
+		})
+	})
+	mux.HandleFunc("GET /api/v1/jobs/history", func(w http.ResponseWriter, r *http.Request) {
+		httpx.RequireDB(w, pool, func() {
+			f, limit := parseJobListFilter(r)
+			if f.State == "" {
+				// Print-history default: terminal + recent active states.
+				// Empty still means all; clients pass state when narrowing.
+			}
+			if limit < 100 {
+				limit = 200
+			}
+			items, err := db.ListJobs(r.Context(), pool, siteID, limit, f)
+			if err != nil {
+				httpx.WriteError(w, err)
+				return
+			}
+			if items == nil {
+				items = []api.Job{}
+			}
+			if strings.EqualFold(r.URL.Query().Get("format"), "csv") {
+				writeJobsCSV(w, items)
+				return
+			}
+			httpx.WriteJSON(w, map[string]any{"jobs": items, "count": len(items)})
 		})
 	})
 	mux.HandleFunc("POST /api/v1/jobs", func(w http.ResponseWriter, r *http.Request) {
@@ -129,6 +160,23 @@ func Register(mux *http.ServeMux, pool *pgxpool.Pool, bus *events.Bus, siteID st
 			httpx.WriteJSON(w, job)
 		})
 	})
+	mux.HandleFunc("POST /api/v1/jobs/{id}/reassign", func(w http.ResponseWriter, r *http.Request) {
+		httpx.RequireDB(w, pool, func() {
+			var body struct {
+				ExternalSN string `json:"external_sn"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				httpx.WriteError(w, api.BadRequest("invalid JSON body"))
+				return
+			}
+			job, err := ReassignOne(r.Context(), pool, siteID, r.PathValue("id"), body.ExternalSN, "api")
+			if err != nil {
+				httpx.WriteError(w, err)
+				return
+			}
+			httpx.WriteJSON(w, job)
+		})
+	})
 	mux.HandleFunc("POST /api/v1/jobs/{id}/transition", func(w http.ResponseWriter, r *http.Request) {
 		httpx.RequireDB(w, pool, func() {
 			var body struct {
@@ -151,6 +199,81 @@ func Register(mux *http.ServeMux, pool *pgxpool.Pool, bus *events.Bus, siteID st
 			httpx.WriteJSON(w, job)
 		})
 	})
+}
+
+func parseJobListFilter(r *http.Request) (db.JobListFilter, int) {
+	q := r.URL.Query()
+	f := db.JobListFilter{
+		Query:      q.Get("q"),
+		State:      q.Get("state"),
+		ExternalSN: firstNonEmpty(q.Get("external_sn"), q.Get("sn")),
+	}
+	if from, err := parseDayOrTime(q.Get("from")); err == nil && from != nil {
+		f.From = from
+	}
+	if to, err := parseDayOrTime(q.Get("to")); err == nil && to != nil {
+		// Inclusive end day: bump date-only to next midnight.
+		if len(q.Get("to")) == 10 {
+			n := to.Add(24 * time.Hour)
+			f.To = &n
+		} else {
+			f.To = to
+		}
+	}
+	limit := 50
+	if n, err := strconv.Atoi(q.Get("limit")); err == nil && n > 0 {
+		limit = n
+		if limit > 500 {
+			limit = 500
+		}
+	}
+	return f, limit
+}
+
+func firstNonEmpty(vals ...string) string {
+	for _, v := range vals {
+		if strings.TrimSpace(v) != "" {
+			return strings.TrimSpace(v)
+		}
+	}
+	return ""
+}
+
+func parseDayOrTime(s string) (*time.Time, error) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return nil, nil
+	}
+	if t, err := time.Parse(time.RFC3339, s); err == nil {
+		return &t, nil
+	}
+	if t, err := time.ParseInLocation("2006-01-02", s, time.UTC); err == nil {
+		return &t, nil
+	}
+	return nil, api.BadRequest("invalid from/to time")
+}
+
+func writeJobsCSV(w http.ResponseWriter, items []api.Job) {
+	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
+	w.Header().Set("Content-Disposition", `attachment; filename="print-history.csv"`)
+	cw := csv.NewWriter(w)
+	_ = cw.Write([]string{"id", "name", "state", "external_sn", "artifact_id", "est_seconds", "est_grams", "cost_estimate", "cost_actual", "currency", "created_at", "started_at", "finished_at", "error"})
+	for _, j := range items {
+		_ = cw.Write([]string{
+			j.ID, j.Name, j.State, j.ExternalSN, j.ArtifactID,
+			strconv.Itoa(j.EstSeconds), strconv.FormatFloat(j.EstGrams, 'f', -1, 64),
+			strconv.FormatFloat(j.CostEstimate, 'f', -1, 64), strconv.FormatFloat(j.CostActual, 'f', -1, 64),
+			j.Currency, j.CreatedAt.Format(time.RFC3339), fmtTime(j.StartedAt), fmtTime(j.FinishedAt), j.Error,
+		})
+	}
+	cw.Flush()
+}
+
+func fmtTime(t *time.Time) string {
+	if t == nil || t.IsZero() {
+		return ""
+	}
+	return t.UTC().Format(time.RFC3339)
 }
 
 // respondCreated inserts a queued job, re-estimates cost, and dispatches when the target SN is idle.

@@ -5,6 +5,7 @@ import (
 	"context"
 	"io"
 	"log/slog"
+	"strings"
 	"sync"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 	"github.com/jjheffernan/BambuFarmer/services/edge/app/bus"
 	"github.com/jjheffernan/BambuFarmer/services/edge/app/config"
 	"github.com/jjheffernan/BambuFarmer/services/edge/app/delta"
+	"github.com/jjheffernan/BambuFarmer/services/edge/app/farmmanager"
 	"github.com/jjheffernan/BambuFarmer/services/edge/app/tracker"
 )
 
@@ -104,9 +106,27 @@ func (a *Agent) Connect(ctx context.Context) error {
 		a.captain = cap
 		a.lastErr = ""
 		a.mu.Unlock()
-		a.log.Info("farm connected", "kind", a.plane.Kind(), "server_id", cap.ServerID, "release", cap.Release)
+		a.log.Info("farm connected", "kind", a.plane.Kind(), "server_id", cap.ServerID, "release", cap.Release, "version", cap.Version)
+		a.warnFMVersion(cap)
 	}
 	return nil
+}
+
+func (a *Agent) warnFMVersion(cap api.CaptainInfo) {
+	min := strings.TrimSpace(a.cfg.FarmManagerMinVersion)
+	if min == "" || a.plane == nil || a.plane.Kind() != farm.KindNative {
+		return
+	}
+	got := farmmanager.PreferRelease(cap.Release, cap.Version)
+	ok, known := farmmanager.CompatibleRelease(got, min)
+	if !known {
+		a.log.Warn("farm manager version unknown; cannot verify min release", "got", got, "min_version", min)
+		return
+	}
+	if !ok {
+		a.log.Error("farm manager release below minimum — Studio bypass / O&M may be unreliable",
+			"release", got, "min_version", min, "server_id", cap.ServerID)
+	}
 }
 
 // Start begins poll + command consumer until ctx cancel.
@@ -347,6 +367,7 @@ func (a *Agent) Status() api.EdgeStatus {
 	if a.plane != nil && a.plane.Ready(context.Background()) == nil {
 		connected = true
 	}
+	pref := farmmanager.PreferRelease(a.captain.Release, a.captain.Version)
 	st := api.EdgeStatus{
 		SiteID:         a.cfg.SiteID,
 		FarmMode:       "farm_manager",
@@ -355,6 +376,8 @@ func (a *Agent) Status() api.EdgeStatus {
 		Connected:      connected,
 		ServerID:       a.captain.ServerID,
 		Release:        a.captain.Release,
+		Version:        pref,
+		MinVersion:     a.cfg.FarmManagerMinVersion,
 		DeviceCount:    a.track.Count(),
 		LastError:      a.lastErr,
 		Devices:        a.track.Snapshots(),
@@ -366,6 +389,9 @@ func (a *Agent) Status() api.EdgeStatus {
 	switch kind {
 	case farm.KindFixture:
 		st.Note = "fixture control plane — " + a.cfg.FixtureDir
+		if ok, known := farmmanager.CompatibleRelease(pref, a.cfg.FarmManagerMinVersion); known {
+			st.Compatible = &ok
+		}
 	case farm.KindNone:
 		st.Note = "no farm backend — set FARM_MANAGER_URL or EDGE_FIXTURE_DIR"
 	case farm.KindCDP:
@@ -376,6 +402,14 @@ func (a *Agent) Status() api.EdgeStatus {
 	case farm.KindNative:
 		if !connected {
 			st.Note = "fm_native awaiting session"
+		}
+		if ok, known := farmmanager.CompatibleRelease(pref, a.cfg.FarmManagerMinVersion); known {
+			st.Compatible = &ok
+			if !ok && st.Note == "" {
+				st.Note = "FM release below FARM_MANAGER_MIN_VERSION"
+			}
+		} else if connected && strings.TrimSpace(a.cfg.FarmManagerMinVersion) != "" {
+			st.Note = "FM version unknown; cannot verify min release"
 		}
 	}
 	return st

@@ -74,9 +74,9 @@ Reject: shared plugin SDK frameworks, frontend stack rewrites, fat all-in-one im
 
 | Field | Value |
 |-------|--------|
-| **Done** | Mobile web + PWA foundation (manifest, SW shell cache, safe-area/touch, Fleet more-filters) |
-| **Next** | Live FM smoke when LAN available; UX ladder (nav groups / Admin jump links); OIDC code exchange |
+| **Done** | FM 3.x version gate (`FARM_MANAGER_MIN_VERSION`, edge status `compatible`); Studio-bypass docs; job reassign + maintenance; Orca→artifact; print-history + typed notify |
+| **Next** | Live FM 3.2 LAN contract smoke (checklist in edge-farm-manager); UX ladder; OIDC code exchange |
 | **Gaps** | OIDC code exchange stub; CDP stub; unread `EDGE_TOKEN`/`FARM_MODE`; DESIGN_SPEC §11 historical HTMX narrative |
-| **Blocked** | — |
-| **Deferred** | Live FM smoke; Capacitor / store shells for iOS & Android |
-| **Do not** | Commit third-party product source trees; migrate off Go; bundle the Orca binary into the image |
+| **Blocked** | Live FM 3.2 smoke until LAN FM available |
+| **Deferred** | Capacitor / store shells for iOS & Android; FM network-status API if/when captain exposes it |
+| **Do not** | Commit third-party product source trees; migrate off Go; bundle the Orca binary into the image; replace FM Client for adopt/unbind |

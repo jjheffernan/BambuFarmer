@@ -33,7 +33,7 @@ func PostAlert(ctx context.Context, endpoint string, client *http.Client, body A
 		client = http.DefaultClient
 	}
 	if body.Type == "" {
-		body.Type = "alert.raised"
+		body.Type = TypeAlertRaised
 	}
 	raw, err := json.Marshal(body)
 	if err != nil {

@@ -624,6 +624,7 @@ const layoutHTML = `<!DOCTYPE html>
               '<div class="bf-panel p-3">' +
               '<div class="bf-card-meta m-0 mb-2">' + esc(p.model || '') + ' · ' +
               (p.online === false ? '<span class="text-bf-danger">offline</span> · ' : '') +
+              (p.maintenance ? '<span class="text-bf-warn">maintenance</span> · ' : '') +
               '<span class="state-' + esc(p.gcode_state || '') + '">' + esc(p.gcode_state || '?') + '</span>' +
               (p.mc_percent ? ' · ' + p.mc_percent + '%' : '') +
               (p.layer_num || p.total_layer_num
@@ -635,6 +636,9 @@ const layoutHTML = `<!DOCTYPE html>
                 : '') +
               '<div class="space-y-1">' + temps + '</div>' +
               (p.wifi_signal ? '<p class="bf-card-meta mt-2 mb-0">Wi‑Fi ' + esc(p.wifi_signal) + '</p>' : '') +
+              '<p class="mt-3 mb-0"><button type="button" class="bf-btn" id="drawer-maint" data-on="' +
+              (p.maintenance ? '0' : '1') + '">' +
+              (p.maintenance ? 'Clear maintenance' : 'Set maintenance') + '</button></p>' +
               '</div>' +
               '<div><h3 class="font-display text-base mb-2">Task</h3>' +
               (t.subtask_name || t.external_task_id
@@ -669,6 +673,24 @@ const layoutHTML = `<!DOCTYPE html>
               bfFlash(sn);
             }
           };
+          drawerBody.addEventListener('click', async (ev) => {
+            const btn = ev.target.closest('#drawer-maint');
+            if (!btn || !openSn) return;
+            const on = btn.dataset.on === '1';
+            try {
+              const p = await bfJSON(API + '/api/v1/printers/' + encodeURIComponent(openSn) + '/maintenance', {
+                method: 'POST',
+                credentials: 'include',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({maintenance: on})
+              });
+              upsert(Object.assign({}, printers.get(openSn) || {}, p, {maintenance: on}));
+              openDrawer(openSn);
+              bfFlash(on ? 'Maintenance on' : 'Maintenance off', 'ok');
+            } catch (e) {
+              bfFlash(String(e.message || e), 'error');
+            }
+          });
           drawerBackdrop.onclick = closeDrawer;
           document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && openSn) closeDrawer();
@@ -753,6 +775,7 @@ const layoutHTML = `<!DOCTYPE html>
                 '<button type="button" class="text-left flex-1 min-w-0 printer-open cursor-pointer" data-sn="' + sn + '">' +
                 '<span class="bf-card-name">' + esc(p.name || sn) +
                 (p.online === false ? ' <span class="text-bf-danger text-xs font-sans">offline</span>' : '') +
+                (p.maintenance ? ' <span class="text-bf-warn text-xs font-sans">maintenance</span>' : '') +
                 '</span>' +
                 '<span class="bf-card-meta block">' + esc(p.model || '') + ' · <span class="state-' + esc(p.gcode_state||'') + '">' + esc(p.gcode_state||'?') + '</span>' +
                 (p.mc_percent ? ' · ' + p.mc_percent + '%' : '') +
@@ -808,7 +831,7 @@ const layoutHTML = `<!DOCTYPE html>
           function showEdgeStatus(st) {
             if (!st) {
               edgeStatusEl.textContent = 'edge unknown';
-              edgeStatusEl.classList.remove('live');
+              edgeStatusEl.classList.remove('live', 'warn', 'bad');
               return;
             }
             const parts = [
@@ -816,11 +839,22 @@ const layoutHTML = `<!DOCTYPE html>
               st.connected ? 'connected' : 'disconnected',
               'devices=' + (st.device_count ?? (st.devices || []).length),
             ];
+            if (st.version || st.release) parts.push('FM ' + (st.version || st.release));
+            if (st.compatible === false) parts.push('incompatible');
+            else if (st.compatible == null && st.min_version && st.connected) parts.push('version?');
             if (st.last_error) parts.push(st.last_error);
             else if (st.note) parts.push(st.note);
             edgeStatusEl.textContent = parts.join(' · ');
-            edgeStatusEl.classList.toggle('live', !!st.connected);
-            edgeStatusEl.title = [st.farm_manager_url, st.server_id, st.release].filter(Boolean).join(' · ');
+            edgeStatusEl.classList.toggle('live', !!st.connected && st.compatible !== false);
+            edgeStatusEl.classList.toggle('warn', st.compatible == null && !!st.min_version && !!st.connected);
+            edgeStatusEl.classList.toggle('bad', st.compatible === false);
+            edgeStatusEl.title = [
+              st.farm_manager_url,
+              st.server_id,
+              st.release || st.version,
+              st.min_version ? ('min ' + st.min_version) : '',
+              st.compatible === false ? 'below FARM_MANAGER_MIN_VERSION' : '',
+            ].filter(Boolean).join(' · ');
           }
           async function bootstrap() {
             try {
@@ -1294,6 +1328,42 @@ const layoutHTML = `<!DOCTYPE html>
             <tbody><tr><td colspan="10" class="bf-empty">loading…</td></tr></tbody>
           </table>
         </div>
+        <details class="bf-panel mt-4 bf-disclose" id="print-history">
+          <summary class="bf-disclose-sum">
+            <span class="font-display text-lg">Print history</span>
+            <span class="text-bf-muted text-xs font-ui font-normal">FM Print Records analogue · filter SN / state / time · CSV</span>
+          </summary>
+          <div class="flex flex-wrap items-end gap-3 mb-3">
+            <label class="text-sm">SN
+              <input class="bf-input block mt-1 font-mono text-xs" id="hist-sn" placeholder="optional"/>
+            </label>
+            <label class="text-sm">State
+              <select class="bf-input block mt-1" id="hist-state">
+                <option value="">All</option>
+                <option>succeeded</option>
+                <option>failed</option>
+                <option>cancelled</option>
+                <option>running</option>
+                <option>queued</option>
+              </select>
+            </label>
+            <label class="text-sm">From
+              <input type="date" class="bf-input block mt-1" id="hist-from"/>
+            </label>
+            <label class="text-sm">To
+              <input type="date" class="bf-input block mt-1" id="hist-to"/>
+            </label>
+            <button type="button" class="bf-btn" id="hist-refresh">Load</button>
+            <a class="bf-btn" id="hist-csv" href="#">CSV</a>
+            <span class="text-sm text-bf-muted" id="hist-status"></span>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="bf-table" id="hist-table">
+              <thead><tr><th>When</th><th>Name</th><th>State</th><th>SN</th><th>Artifact</th><th>Cost</th><th></th></tr></thead>
+              <tbody><tr><td colspan="7" class="bf-empty">Set filters and Load</td></tr></tbody>
+            </table>
+          </div>
+        </details>
         <script>
           const API = {{printf "%q" .APIBase}};
           const jobsStatus = document.getElementById('jobs-status');
@@ -1403,6 +1473,9 @@ const layoutHTML = `<!DOCTYPE html>
                   '<button type="button" class="bf-btn w-full justify-start" data-copy-link="' + esc(j.id) + '">Copy link</button>' +
                   '<button type="button" class="bf-btn w-full justify-start" data-expand-job="' + esc(j.id) + '" data-expand-mode="history">History</button>' +
                   '<button type="button" class="bf-btn w-full justify-start" data-reprint="' + esc(j.id) + '">Reprint</button>' +
+                  (['queued','assigned','failed'].indexOf(j.state) >= 0
+                    ? '<button type="button" class="bf-btn w-full justify-start" data-reassign="' + esc(j.id) + '">Reassign…</button>'
+                    : '') +
                   (j.state === 'queued'
                     ? '<button type="button" class="bf-btn w-full justify-start" data-queue="earlier" data-job="' + esc(j.id) + '">Earlier</button>' +
                       '<button type="button" class="bf-btn w-full justify-start" data-queue="later" data-job="' + esc(j.id) + '">Later</button>'
@@ -1721,6 +1794,30 @@ const layoutHTML = `<!DOCTYPE html>
               }
               return;
             }
+            const reassignBtn = ev.target.closest('[data-reassign]');
+            if (reassignBtn && !reassignBtn.disabled) {
+              const pick = document.getElementById('job-sn-pick');
+              const hints = pick
+                ? [...pick.options].filter(o => o.value).slice(0, 4).map(o => o.value).join(', ')
+                : '';
+              const sn = prompt('Reassign to printer SN' + (hints ? ' (e.g. ' + hints + ')' : ''), '');
+              if (!sn || !String(sn).trim()) return;
+              reassignBtn.disabled = true;
+              try {
+                await bfJSON(API + '/api/v1/jobs/' + encodeURIComponent(reassignBtn.dataset.reassign) + '/reassign', {
+                  method: 'POST', credentials: 'include',
+                  headers: {'Content-Type': 'application/json'},
+                  body: JSON.stringify({external_sn: String(sn).trim()}),
+                });
+                jobsStatus.textContent = 'Reassigned · ' + String(sn).trim();
+                await loadJobs();
+              } catch (e) {
+                jobsStatus.textContent = String(e.message || e);
+                jobsStatus.classList.remove('live');
+                reassignBtn.disabled = false;
+              }
+              return;
+            }
             const btn = ev.target.closest('[data-reprint]');
             if (!btn || btn.disabled) return;
             btn.disabled = true;
@@ -1835,15 +1932,84 @@ const layoutHTML = `<!DOCTYPE html>
             };
           }
 
+          function histQS() {
+            const p = new URLSearchParams();
+            const sn = document.getElementById('hist-sn').value.trim();
+            const st = document.getElementById('hist-state').value.trim();
+            const from = document.getElementById('hist-from').value;
+            const to = document.getElementById('hist-to').value;
+            if (sn) p.set('sn', sn);
+            if (st) p.set('state', st);
+            if (from) p.set('from', from);
+            if (to) p.set('to', to);
+            p.set('limit', '200');
+            return p;
+          }
+          async function loadPrintHistory() {
+            const status = document.getElementById('hist-status');
+            const tb = document.querySelector('#hist-table tbody');
+            status.textContent = 'loading…';
+            const qs = histQS();
+            document.getElementById('hist-csv').href = API + '/api/v1/jobs/history?' + qs.toString() + '&format=csv';
+            try {
+              const out = await bfJSON(API + '/api/v1/jobs/history?' + qs.toString());
+              const items = (out && out.jobs) || out || [];
+              status.textContent = (out && out.count != null ? out.count : items.length) + ' rows';
+              if (!items.length) {
+                tb.innerHTML = '<tr><td colspan="7" class="bf-empty">No jobs match</td></tr>';
+                return;
+              }
+              tb.innerHTML = items.map(j => {
+                const when = j.finished_at || j.started_at || j.created_at;
+                return '<tr>' +
+                  '<td class="font-mono text-xs">' + esc(fmtWhen(when)) + '</td>' +
+                  '<td>' + esc(j.name || j.id) + '</td>' +
+                  '<td><span class="' + stateClass(j.state) + '">' + esc(j.state || '') + '</span></td>' +
+                  '<td class="font-mono text-xs">' + esc(j.external_sn || '—') + '</td>' +
+                  '<td class="font-mono text-xs">' + esc(j.artifact_id ? String(j.artifact_id).slice(0, 8) : '—') + '</td>' +
+                  '<td class="text-bf-muted">' + esc(fmtCost(j)) + '</td>' +
+                  '<td><a class="bf-btn" href="/jobs?job=' + encodeURIComponent(j.id) + '">Open</a></td>' +
+                  '</tr>';
+              }).join('');
+            } catch (e) {
+              status.textContent = String(e.message || e);
+              tb.innerHTML = '<tr><td colspan="7" class="text-bf-danger">' + esc(e.message || e) + '</td></tr>';
+            }
+          }
+          document.getElementById('hist-refresh').onclick = () => loadPrintHistory();
+
           (async () => {
             const params = new URLSearchParams(location.search);
             const q = (params.get('q') || '').trim();
             const state = (params.get('state') || '').trim();
             if (q) document.getElementById('jobs-q').value = q;
             if (state) document.getElementById('jobs-state').value = state;
+            const artifact = (params.get('artifact') || '').trim();
+            if (artifact) {
+              document.getElementById('job-artifact').value = artifact;
+              const create = document.getElementById('job-create');
+              if (create) create.open = true;
+              const nameEl = document.getElementById('job-name');
+              if (nameEl && !nameEl.value.trim()) nameEl.value = 'slice-' + artifact.slice(0, 8);
+            }
             await loadJobs();
-            loadJobCreatePickers();
+            loadJobCreatePickers().then(() => {
+              if (!artifact) return;
+              const sel = document.getElementById('job-artifact-pick');
+              if (sel) {
+                for (const o of sel.options) {
+                  if (o.value === artifact) { sel.value = artifact; break; }
+                }
+              }
+            });
             connectJobsSSE();
+            if (params.get('view') === 'history') {
+              const panel = document.getElementById('print-history');
+              if (panel) panel.open = true;
+              const sn = (params.get('sn') || '').trim();
+              if (sn) document.getElementById('hist-sn').value = sn;
+              await loadPrintHistory();
+            }
             const job = (params.get('job') || '').trim();
             if (!job) return;
             if (params.get('history') === '1') await loadJobEvents(job);
@@ -2490,7 +2656,7 @@ const layoutHTML = `<!DOCTYPE html>
           loadLibraryArtifacts();
         </script>
       {{else if eq .Active "slice"}}
-        <p class="bf-lede">Optional slicer plugin (<code>compose --profile slicer</code>). Orca is operator-supplied via <code>ORCA_BIN</code> and is not bundled.</p>
+        <p class="bf-lede">Farm slice path (Studio bypass): slice offline in Orca → register artifact → Create job → FM print. Optional plugin (<code>compose --profile slicer</code>); Orca is operator-supplied via <code>ORCA_BIN</code> and is not bundled. Prefer farm print/filament presets below.</p>
         <div class="flex flex-wrap items-center gap-3 mb-3">
           <div id="slice-status" class="bf-status m-0">loading…</div>
           <button type="button" class="bf-btn" id="slice-refresh">Refresh status</button>
@@ -2640,7 +2806,17 @@ const layoutHTML = `<!DOCTYPE html>
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify(body),
               });
-              msg.textContent = out.sliced ? ('Sliced → ' + (out.output_path || 'ok')) : (out.reason || 'not sliced');
+              if (out.sliced && out.artifact_id) {
+                msg.innerHTML = 'Sliced · artifact <code>' + String(out.artifact_id).replace(/</g,'') +
+                  '</code> · <a class="bf-btn bf-btn-primary" href="' +
+                  (out.create_job_path || ('/jobs?artifact=' + encodeURIComponent(out.artifact_id))) +
+                  '">Create job</a>';
+              } else if (out.sliced) {
+                msg.textContent = 'Sliced → ' + (out.output_path || 'ok') +
+                  (out.reason ? (' · ' + out.reason) : ' · set CORE_URL to auto-register artifact');
+              } else {
+                msg.textContent = out.reason || 'not sliced';
+              }
               sliceResult.textContent = JSON.stringify(out, null, 2);
               sliceResult.classList.remove('hidden');
             } catch (e) {
@@ -3207,7 +3383,7 @@ const layoutHTML = `<!DOCTYPE html>
         </div>
         <div class="bf-panel mb-4">
           <h2 class="font-display text-lg mb-2">Notify</h2>
-          <p class="text-sm text-bf-muted mb-3">Job-finished / alert webhook via <code>NOTIFY_URL</code>. Empty URL accepts the test and does not POST.</p>
+          <p class="text-sm text-bf-muted mb-3">Typed webhooks via <code>NOTIFY_URL</code> (<code>job.finished</code>, <code>alert.raised</code>). Empty URL accepts the test and does not POST. Fleet/job metrics also via analytics CSV and Redis Streams; optional Prometheus scrape notes on service health endpoints.</p>
           <div id="notify-status" class="bf-status m-0 mb-3">loading…</div>
           <div class="flex flex-wrap gap-2 items-center">
             <button type="button" class="bf-btn bf-btn-primary" id="notify-test">Send test</button>
@@ -3476,7 +3652,9 @@ const layoutHTML = `<!DOCTYPE html>
             const el = document.getElementById('notify-status');
             try {
               const st = await bfJSON(API + '/api/v1/notify', opts);
-              el.textContent = st.configured ? 'NOTIFY_URL configured' : 'NOTIFY_URL unset (dry-run)';
+              const events = Array.isArray(st.events) ? st.events.join(', ') : '';
+              el.textContent = (st.configured ? 'NOTIFY_URL configured' : 'NOTIFY_URL unset (dry-run)') +
+                (events ? (' · ' + events) : '');
               el.classList.toggle('live', !!st.configured);
             } catch (e) {
               el.textContent = String(e.message || e);
@@ -3536,8 +3714,13 @@ const layoutHTML = `<!DOCTYPE html>
             chips.push(stackChip('notify', !!(notify.ok && notify.data && notify.data.configured), notify.ok ? '' : notify.err));
             if (edge.ok) {
               const e = edge.data || {};
-              chips.push(stackChip('edge ' + (e.transport || e.farm_mode || ''), !!e.connected,
-                [e.note, e.last_error, 'devices=' + (e.device_count ?? '?')].filter(Boolean).join(' · ')));
+              const fmOk = e.compatible !== false;
+              const fmLabel = e.version || e.release
+                ? ('FM ' + (e.version || e.release) + (e.compatible === false ? ' !' : (e.compatible == null ? ' ?' : '')))
+                : ('edge ' + (e.transport || e.farm_mode || ''));
+              chips.push(stackChip(fmLabel, !!e.connected && fmOk,
+                [e.transport, e.min_version ? ('min ' + e.min_version) : '', e.note, e.last_error,
+                  'devices=' + (e.device_count ?? '?')].filter(Boolean).join(' · ')));
             } else {
               chips.push(stackChip('edge', false, edge.err));
             }

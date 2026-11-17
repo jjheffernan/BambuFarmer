@@ -13,11 +13,13 @@ import (
 
 // Result is the slice-job response. The Orca binary is not bundled.
 type Result struct {
-	Sliced     bool   `json:"sliced"`
-	Name       string `json:"name,omitempty"`
-	Reason     string `json:"reason,omitempty"`
-	OutputPath string `json:"output_path,omitempty"`
-	ExitCode   int    `json:"exit_code,omitempty"`
+	Sliced        bool   `json:"sliced"`
+	Name          string `json:"name,omitempty"`
+	Reason        string `json:"reason,omitempty"`
+	OutputPath    string `json:"output_path,omitempty"`
+	ExitCode      int    `json:"exit_code,omitempty"`
+	ArtifactID    string `json:"artifact_id,omitempty"`
+	CreateJobPath string `json:"create_job_path,omitempty"` // e.g. /jobs?artifact=<id>
 }
 
 // Request is one slice attempt.

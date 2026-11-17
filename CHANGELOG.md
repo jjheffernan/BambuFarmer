@@ -14,8 +14,15 @@ On release: move that section to a new `## [X.Y.Z] — YYYY-MM-DD`, bump [`VERSI
 - `.env.example` documents `DIRECT_PRINTERS`, `AMS_SLOT_MAP`, `POWER_URL`, and `FARM_MQTT_URL`; marks unused `EDGE_TOKEN` / `FARM_MODE`
 - Removed unused speculative commerce DTOs (`ShopConnection`, `CommerceOrder`)
 - Fleet secondary filters collapse behind “More filters” on narrow screens; bucket/tag chips are real buttons
+- Farm Manager research docs: Studio LAN sync conflict, BF as farm O&M / Studio bypass, Orca→artifact→print path, min FM 3.x
 
 ### Added
+- Edge FM version gate: `FARM_MANAGER_MIN_VERSION` (default `03.00.00.00`), `GET /api/v1/edge/status` `version` / `min_version` / `compatible`, Fleet badge + boot warning; fixtures use 3.2-shaped captain release
+- Job reassign (`POST /api/v1/jobs/{id}/reassign`) for queued/assigned/failed; scheduler auto-migrates when preferred SN is offline or in maintenance
+- Printer maintenance flag (`POST /api/v1/printers/{sn}/maintenance`); Fleet badge + drawer toggle; excluded from idle/scheduler (also honors FM tag `maintenance`)
+- Orca slice success auto-registers a core artifact (`CORE_URL`) and returns Create-job deep link; Slice UI copy for Studio bypass + farm presets
+- Print history (`GET /api/v1/jobs/history` + Jobs panel) with SN/state/time filters and CSV; typed `NOTIFY_URL` events (`job.finished`, `alert.raised`)
+- FM 3.2 live smoke checklist (`fixtures/fm/SMOKE_FM32.md` + edge-farm-manager docs); fixtures captain release `03.02.00.00`
 - Mobile web + PWA foundation: installable manifest/icons, shell-only service worker, safe-area + touch targets, `viewport-fit=cover` on layout/login/setup
 - Jobs/Artifacts collapsible create panels and expandable table detail rows; create-job progressive disclosure (plate source / targeting / estimates)
 - Shared `bfBindFile` drop zones for plate upload (Jobs + Artifacts) with clear + filename feedback

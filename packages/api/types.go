@@ -63,17 +63,18 @@ type PresetBundle struct {
 
 // PrinterSummary is a normalized fleet list item.
 type PrinterSummary struct {
-	ID         string   `json:"id"`
-	SiteID     string   `json:"site_id"`
-	ExternalSN string   `json:"external_sn"`
-	Name       string   `json:"name"`
-	Model      string   `json:"model"`
-	Online     bool     `json:"online"`
-	GcodeState string   `json:"gcode_state"`
-	MCPercent  int      `json:"mc_percent"`
-	RemainingS int      `json:"mc_remaining_time"`
-	Bucket     string   `json:"bucket,omitempty"` // attention bucket (FM nav mirror)
-	Tags       []string `json:"tags,omitempty"`   // farm tags / circuit groups
+	ID          string   `json:"id"`
+	SiteID      string   `json:"site_id"`
+	ExternalSN  string   `json:"external_sn"`
+	Name        string   `json:"name"`
+	Model       string   `json:"model"`
+	Online      bool     `json:"online"`
+	GcodeState  string   `json:"gcode_state"`
+	MCPercent   int      `json:"mc_percent"`
+	RemainingS  int      `json:"mc_remaining_time"`
+	Bucket      string   `json:"bucket,omitempty"` // attention bucket (FM nav mirror)
+	Tags        []string `json:"tags,omitempty"`   // farm tags / circuit groups
+	Maintenance bool     `json:"maintenance,omitempty"` // BF ops flag; scheduler skips
 }
 
 // PrinterSnapshot is the edge-normalized device view (FM report_status subset).
@@ -171,6 +172,9 @@ type EdgeStatus struct {
 	Connected      bool             `json:"connected"`
 	ServerID       string           `json:"server_id,omitempty"`
 	Release        string           `json:"release,omitempty"`
+	Version        string           `json:"version,omitempty"` // captain version / preferred release for gates
+	MinVersion     string           `json:"min_version,omitempty"`
+	Compatible     *bool            `json:"compatible,omitempty"` // nil = unknown / N/A (fixture, no FM)
 	DeviceCount    int              `json:"device_count"`
 	LastPollAt     *time.Time       `json:"last_poll_at,omitempty"`
 	LastError      string           `json:"last_error,omitempty"`

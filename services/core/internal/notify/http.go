@@ -13,7 +13,8 @@ func Register(mux *http.ServeMux, endpoint string) {
 	mux.HandleFunc("GET /api/v1/notify", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{
 			"configured": configured,
-			"note":       "POST /api/v1/notify/test when NOTIFY_URL is set",
+			"events":     []string{TypeJobFinished, TypeAlertRaised},
+			"note":       "NOTIFY_URL receives typed JSON (type=job.finished|alert.raised). POST /api/v1/notify/test. Prometheus: scrape service /metrics if exposed; job/fleet signals also via Redis Streams + analytics export.",
 		})
 	})
 	mux.HandleFunc("POST /api/v1/notify/test", func(w http.ResponseWriter, r *http.Request) {
@@ -21,12 +22,12 @@ func Register(mux *http.ServeMux, endpoint string) {
 			writeJSON(w, http.StatusOK, map[string]any{"sent": false, "reason": "NOTIFY_URL unset"})
 			return
 		}
-		body := Finished{JobID: "notify-test", State: "test"}
+		body := Finished{Type: TypeJobFinished, JobID: "notify-test", State: "test"}
 		if err := PostFinished(r.Context(), endpoint, nil, body); err != nil {
 			writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
 			return
 		}
-		writeJSON(w, http.StatusOK, map[string]any{"sent": true, "job_id": body.JobID, "state": body.State})
+		writeJSON(w, http.StatusOK, map[string]any{"sent": true, "type": body.Type, "job_id": body.JobID, "state": body.State})
 	})
 }
 

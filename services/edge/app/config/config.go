@@ -15,6 +15,7 @@ type Config struct {
 	FarmManagerTransport string // fm_native | cdp
 	FarmManagerUser      string
 	FarmManagerPassword  string
+	FarmManagerMinVersion string // dotted release gate (e.g. 03.00.00.00); empty skips
 	TLSInsecure          bool // lab only: skip verify when using https:// FM URL
 	CertDir              string
 	CDPURL               string
@@ -32,11 +33,12 @@ type Config struct {
 func Load() Config {
 	return Config{
 		SiteID:               getenv("SITE_ID", "default"),
-		FarmManagerURL:       strings.TrimRight(os.Getenv("FARM_MANAGER_URL"), "/"),
-		FarmManagerTransport: getenv("FARM_MANAGER_TRANSPORT", "fm_native"),
-		FarmManagerUser:      os.Getenv("FARM_MANAGER_USER"),
-		FarmManagerPassword:  os.Getenv("FARM_MANAGER_PASSWORD"),
-		TLSInsecure:          envBool("FARM_MANAGER_TLS_INSECURE", false),
+		FarmManagerURL:        strings.TrimRight(os.Getenv("FARM_MANAGER_URL"), "/"),
+		FarmManagerTransport:  getenv("FARM_MANAGER_TRANSPORT", "fm_native"),
+		FarmManagerUser:       os.Getenv("FARM_MANAGER_USER"),
+		FarmManagerPassword:   os.Getenv("FARM_MANAGER_PASSWORD"),
+		FarmManagerMinVersion: getenv("FARM_MANAGER_MIN_VERSION", "03.00.00.00"),
+		TLSInsecure:           envBool("FARM_MANAGER_TLS_INSECURE", false),
 		CertDir:              os.Getenv("EDGE_CERT_DIR"),
 		CDPURL:               os.Getenv("CDP_URL"),
 		PollInterval:         envDuration("FARM_MANAGER_POLL_INTERVAL", 3*time.Second),

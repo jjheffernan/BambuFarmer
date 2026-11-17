@@ -82,6 +82,17 @@ func main() {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 			return
 		}
+		if res.Sliced {
+			if id, regErr := slice.RegisterArtifact(r.Context(), coreURL, res.OutputPath, res.Name, nil); regErr != nil {
+				slog.Warn("slice artifact register failed", "err", regErr, "output", res.OutputPath)
+				if res.Reason == "" {
+					res.Reason = "sliced but artifact register failed: " + regErr.Error()
+				}
+			} else if id != "" {
+				res.ArtifactID = id
+				res.CreateJobPath = "/jobs?artifact=" + id
+			}
+		}
 		slice.Emit(r.Context(), bus, siteID, req, res)
 		writeJSON(w, http.StatusOK, res)
 	})
@@ -92,7 +103,7 @@ func main() {
 			"core_url":        strings.TrimSpace(coreURL) != "",
 			"events":          bus != nil,
 			"work_dir":        workDir,
-			"note":            "POST /api/v1/slice/jobs may pass print_preset_id / filament_preset_id (CORE_URL) or printer_json/process_json/filament_json paths. ORCA_BIN and REDIS_URL are optional. The Orca binary is not bundled.",
+			"note":            "Successful slices auto-register a core artifact when CORE_URL is set (Create job deep link). Presets via print_preset_id / filament_preset_id. Orca binary is not bundled.",
 		})
 	})
 	if err := httpserver.ListenAndServe(httpserver.Options{

@@ -241,6 +241,12 @@
     @apply inline-block w-1.5 h-1.5 rounded-full bg-bf-accent mr-2 align-middle;
     box-shadow: 0 0 0 3px rgb(0 174 66 / 0.25);
   }
+  .bf-status.warn {
+    @apply text-bf-warn;
+  }
+  .bf-status.bad {
+    @apply text-bf-danger;
+  }
   .state-RUNNING, .state-PREPARE { @apply text-bf-accent; }
   .state-PAUSE, .state-FAILED { @apply text-bf-danger; }
   .state-FINISH { @apply text-bf-warn; }

@@ -34,6 +34,7 @@ var jobTransitions = map[string]map[string]bool{
 	JobDispatched: {JobRunning: true, JobPaused: true, JobSucceeded: true, JobFailed: true, JobCancelled: true},
 	JobRunning:    {JobPaused: true, JobSucceeded: true, JobFailed: true, JobCancelled: true},
 	JobPaused:     {JobRunning: true, JobSucceeded: true, JobFailed: true, JobCancelled: true},
+	JobFailed:     {JobQueued: true}, // reassign / operator requeue
 }
 
 // CanTransitionJob reports whether from→to is a legal job state change.
@@ -135,8 +136,11 @@ const jobSelectSQL = `
 
 // JobListFilter narrows ListJobs. Empty fields mean no extra constraint.
 type JobListFilter struct {
-	Query string // name, id, printer SN, or artifact id
-	State string
+	Query      string // name, id, printer SN, or artifact id
+	State      string
+	ExternalSN string // exact printer SN (print-history filter)
+	From       *time.Time
+	To         *time.Time
 }
 
 // ListJobs returns recent jobs for a site, optionally filtered.
@@ -161,6 +165,18 @@ func jobListWhere(siteID string, f JobListFilter) (string, []any) {
 	if st := strings.TrimSpace(f.State); st != "" && !strings.EqualFold(st, "all") {
 		args = append(args, st)
 		where += fmt.Sprintf(` AND state=$%d`, len(args))
+	}
+	if sn := strings.TrimSpace(f.ExternalSN); sn != "" {
+		args = append(args, sn)
+		where += fmt.Sprintf(` AND external_sn=$%d`, len(args))
+	}
+	if f.From != nil && !f.From.IsZero() {
+		args = append(args, f.From.UTC())
+		where += fmt.Sprintf(` AND COALESCE(finished_at, created_at) >= $%d`, len(args))
+	}
+	if f.To != nil && !f.To.IsZero() {
+		args = append(args, f.To.UTC())
+		where += fmt.Sprintf(` AND COALESCE(finished_at, created_at) < $%d`, len(args))
 	}
 	if q := strings.TrimSpace(f.Query); q != "" {
 		args = append(args, "%"+escapeLike(q)+"%")
@@ -267,13 +283,15 @@ func scanJobs(rows interface {
 	return out, rows.Err()
 }
 
-// ListIdlePrinters returns online IDLE printers with no busy job.
+// ListIdlePrinters returns online IDLE printers with no busy job (excludes maintenance).
 func ListIdlePrinters(ctx context.Context, pool *pgxpool.Pool, siteID string) ([]api.PrinterSummary, error) {
 	rows, err := pool.Query(ctx, `
-		SELECT p.id, p.site_id, p.external_sn, p.name, p.model, p.online, p.gcode_state, p.mc_percent, p.mc_remaining_time, COALESCE(p.last_snapshot::text, '')
+		SELECT p.id, p.site_id, p.external_sn, p.name, p.model, p.online, p.gcode_state, p.mc_percent, p.mc_remaining_time,
+		       COALESCE(p.maintenance, FALSE), COALESCE(p.last_snapshot::text, '')
 		FROM printers p
 		WHERE p.site_id=$1
 		  AND p.online = TRUE
+		  AND COALESCE(p.maintenance, FALSE) = FALSE
 		  AND (p.gcode_state = '' OR upper(p.gcode_state) = 'IDLE')
 		  AND NOT EXISTS (
 			SELECT 1 FROM jobs j
@@ -290,10 +308,13 @@ func ListIdlePrinters(ctx context.Context, pool *pgxpool.Pool, siteID string) ([
 	for rows.Next() {
 		var p api.PrinterSummary
 		var snap string
-		if err := rows.Scan(&p.ID, &p.SiteID, &p.ExternalSN, &p.Name, &p.Model, &p.Online, &p.GcodeState, &p.MCPercent, &p.RemainingS, &snap); err != nil {
+		if err := rows.Scan(&p.ID, &p.SiteID, &p.ExternalSN, &p.Name, &p.Model, &p.Online, &p.GcodeState, &p.MCPercent, &p.RemainingS, &p.Maintenance, &snap); err != nil {
 			return nil, err
 		}
 		p.Tags = tagsFromSnapshot(snap)
+		if hasMaintenanceTag(p.Tags) {
+			continue
+		}
 		out = append(out, p)
 	}
 	return out, rows.Err()
@@ -463,7 +484,8 @@ func NewID() string { return newID() }
 // ListPrinters returns projected printers.
 func ListPrinters(ctx context.Context, pool *pgxpool.Pool, siteID string) ([]api.PrinterSummary, error) {
 	rows, err := pool.Query(ctx, `
-		SELECT id, site_id, external_sn, name, model, online, gcode_state, mc_percent, mc_remaining_time, COALESCE(last_snapshot::text, '')
+		SELECT id, site_id, external_sn, name, model, online, gcode_state, mc_percent, mc_remaining_time,
+		       COALESCE(maintenance, FALSE), COALESCE(last_snapshot::text, '')
 		FROM printers WHERE site_id=$1 ORDER BY name, external_sn`, siteID)
 	if err != nil {
 		return nil, err
@@ -473,10 +495,13 @@ func ListPrinters(ctx context.Context, pool *pgxpool.Pool, siteID string) ([]api
 	for rows.Next() {
 		var p api.PrinterSummary
 		var snap string
-		if err := rows.Scan(&p.ID, &p.SiteID, &p.ExternalSN, &p.Name, &p.Model, &p.Online, &p.GcodeState, &p.MCPercent, &p.RemainingS, &snap); err != nil {
+		if err := rows.Scan(&p.ID, &p.SiteID, &p.ExternalSN, &p.Name, &p.Model, &p.Online, &p.GcodeState, &p.MCPercent, &p.RemainingS, &p.Maintenance, &snap); err != nil {
 			return nil, err
 		}
 		p.Tags = tagsFromSnapshot(snap)
+		if hasMaintenanceTag(p.Tags) {
+			p.Maintenance = true
+		}
 		out = append(out, p)
 	}
 	return out, rows.Err()

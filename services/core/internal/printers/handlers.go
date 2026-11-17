@@ -48,4 +48,25 @@ func Register(mux *http.ServeMux, pool *pgxpool.Pool, bus *events.Bus, siteID st
 		}
 		httpx.WriteJSON(w, res)
 	})
+	mux.HandleFunc("POST /api/v1/printers/{sn}/maintenance", func(w http.ResponseWriter, r *http.Request) {
+		httpx.RequireDB(w, pool, func() {
+			var body struct {
+				Maintenance *bool `json:"maintenance"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				httpx.WriteError(w, api.BadRequest("invalid JSON body"))
+				return
+			}
+			if body.Maintenance == nil {
+				httpx.WriteError(w, api.BadRequest("maintenance required"))
+				return
+			}
+			p, err := db.SetPrinterMaintenance(r.Context(), pool, siteID, r.PathValue("sn"), *body.Maintenance)
+			if err != nil {
+				httpx.WriteError(w, err)
+				return
+			}
+			httpx.WriteJSON(w, p)
+		})
+	})
 }

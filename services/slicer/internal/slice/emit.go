@@ -26,6 +26,12 @@ func Emit(ctx context.Context, bus Bus, siteID string, req Request, res Result) 
 		"output_path": res.OutputPath,
 		"sliced":      res.Sliced,
 	}
+	if res.ArtifactID != "" {
+		payload["artifact_id"] = res.ArtifactID
+	}
+	if res.CreateJobPath != "" {
+		payload["create_job_path"] = res.CreateJobPath
+	}
 	if res.Reason != "" {
 		payload["reason"] = res.Reason
 	}

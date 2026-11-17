@@ -6,6 +6,20 @@
 
 Our locked approach: **mirror Farm Manager Client** (`FARM_MANAGER_TRANSPORT=fm_native`), with **CDP** as an escape hatch.
 
+### Studio sync vs BambuFarmer (farm O&M path)
+
+Bambu Studio’s LAN bind to **FM-claimed** printers is often broken after farm binding ([forum](https://forum.bambulab.com/t/latest-bambu-studio-update-has-broken-our-farm-manager-workflow/262091), [FAQ](https://wiki.bambulab.com/en/software/bambu-farm-faq-troubleshoot)). We do **not** try to fix Studio discovery.
+
+| Role | Owner |
+|------|--------|
+| Printer bind / unbind / MQTT | **Farm Manager Server** (`fm_native`) |
+| Profiles, queue, migrate, print history, notify | **BambuFarmer** (gateway + core + web) |
+| Slice when Studio cannot sync | **OrcaSlicer** (optional `--profile slicer`) → artifact → Create job → FM print |
+
+**Minimum FM Server:** set `FARM_MANAGER_MIN_VERSION` (default `03.00.00.00`). Edge `GET /api/v1/edge/status` exposes `version`, `min_version`, and `compatible` from captain `release`/`version`. Fleet/Admin show a badge when incompatible or unknown. Prefer FM **3.x** (e.g. 3.2) for groups, Start All, utilization, and print-record parity.
+
+**Operator path without Studio↔printer sync:** slice offline in Studio/Orca → upload `.gcode.3mf` (or Slice page) → queue job → edge → FM → printers.
+
 ---
 
 ## 1. What Farm Manager is
@@ -209,6 +223,7 @@ FARM_MANAGER_URL=http://<fm-lan-ip>:8888
 FARM_MANAGER_USER=...
 FARM_MANAGER_PASSWORD=...
 FARM_MANAGER_TRANSPORT=fm_native
+FARM_MANAGER_MIN_VERSION=03.00.00.00
 ```
 
 You may need a Farm Manager local account (or API access) created on that server first. Leave `FARM_MANAGER_URL` empty for fixture mode / CI.
@@ -217,6 +232,16 @@ You may need a Farm Manager local account (or API access) created on that server
 - [ ] From edge host: TCP connect to `:1883`  
 - [ ] Note FM Server `release` from `/captain` or Server Monitor UI  
 - [ ] Confirm printers show in official Client (IDLE / RUNNING)
+
+### Live FM 3.2 contract smoke (when LAN available)
+
+Run against **your** Farm Manager Server (target ~3.2). Redact SNs before committing fixtures.
+
+- [ ] `GET /captain` → `release` / `version` look like `03.xx.xx.xx`; edge status `compatible: true` vs `FARM_MANAGER_MIN_VERSION`
+- [ ] Device list (`GET /devices` or `/devices2`) → edge fleet cards populate; MQTT report (or poll) updates state
+- [ ] Upload `.gcode.3mf` via BF artifact path → FM task start on one idle SN
+- [ ] Optional: confirm Client Start All / groups still work alongside BF queue (no exclusive lock assumed)
+- [ ] If auth/headers changed on 3.x: fix only `services/edge/app/farmmanager` + tests — keep `packages/farm.ControlPlane` stable
 
 ### Auth path decision
 

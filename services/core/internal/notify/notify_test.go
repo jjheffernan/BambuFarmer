@@ -26,7 +26,7 @@ func TestPostFinishedPostsJSON(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if method != http.MethodPost || ctype != "application/json" || got.JobID != "j1" || got.State != "succeeded" || got.Grams != 3 {
+	if method != http.MethodPost || ctype != "application/json" || got.JobID != "j1" || got.State != "succeeded" || got.Grams != 3 || got.Type != TypeJobFinished {
 		t.Fatalf("%s %s %+v", method, ctype, got)
 	}
 }

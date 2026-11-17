@@ -62,26 +62,55 @@ func CircuitOK(p api.PrinterSummary, known []api.PrinterSummary, used map[string
 }
 
 // PickPrinter chooses an idle SN for a queued job.
-// A set external_sn stays on that printer. target_model filters candidates.
+// A set external_sn prefers that printer. If it is offline or in maintenance,
+// auto-migrate to another idle compatible printer (target_model + circuit tags).
 // used is busy SNs plus claims from this tick. known supplies tags for circuit counts.
-// circuitMax 0 means no circuit limit.
+// circuitMax 0 means no circuit limit. Maintenance printers are never chosen.
 func PickPrinter(job api.Job, idle, known []api.PrinterSummary, used map[string]bool, circuitMax int) string {
 	if known == nil {
 		known = idle
 	}
+	eligible := make([]api.PrinterSummary, 0, len(idle))
+	for _, p := range idle {
+		if InMaintenance(p) {
+			continue
+		}
+		eligible = append(eligible, p)
+	}
 	if job.ExternalSN != "" {
-		for _, p := range idle {
-			if p.ExternalSN == job.ExternalSN && !used[p.ExternalSN] && ModelMatch(job.TargetModel, p.Model) && CircuitOK(p, known, used, circuitMax) {
+		for _, p := range eligible {
+			if p.ExternalSN != job.ExternalSN {
+				continue
+			}
+			if !used[p.ExternalSN] && ModelMatch(job.TargetModel, p.Model) && CircuitOK(p, known, used, circuitMax) {
 				return p.ExternalSN
 			}
+			// Preferred is idle but incompatible (model/circuit) — wait; do not migrate.
+			return ""
 		}
-		return ""
+		// Preferred not idle: auto-migrate only when offline or in maintenance.
+		if !shouldAutoMigrate(job.ExternalSN, known) {
+			return ""
+		}
 	}
-	for _, p := range idle {
+	for _, p := range eligible {
 		if used[p.ExternalSN] || !ModelMatch(job.TargetModel, p.Model) || !CircuitOK(p, known, used, circuitMax) {
 			continue
 		}
 		return p.ExternalSN
 	}
 	return ""
+}
+
+func shouldAutoMigrate(preferredSN string, known []api.PrinterSummary) bool {
+	for _, p := range known {
+		if p.ExternalSN != preferredSN {
+			continue
+		}
+		if InMaintenance(p) || !p.Online {
+			return true
+		}
+		return false // online but busy — wait
+	}
+	return true // unknown SN → treat as unavailable
 }

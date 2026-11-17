@@ -55,3 +55,29 @@ func TestPickPrinterCircuitMax(t *testing.T) {
 		t.Fatalf("circuit room: %s", sn)
 	}
 }
+
+func TestPickPrinterMaintenanceAndAutoMigrate(t *testing.T) {
+	idle := []api.PrinterSummary{
+		{ExternalSN: "A", Model: "P1S", Online: true, Maintenance: true},
+		{ExternalSN: "B", Model: "P1S", Online: true},
+	}
+	known := []api.PrinterSummary{
+		{ExternalSN: "A", Model: "P1S", Online: true, Maintenance: true},
+		{ExternalSN: "B", Model: "P1S", Online: true},
+		{ExternalSN: "C", Model: "P1S", Online: false},
+	}
+	used := map[string]bool{}
+	if sn := PickPrinter(api.Job{}, idle, known, used, 0); sn != "B" {
+		t.Fatalf("skip maintenance: %s", sn)
+	}
+	if sn := PickPrinter(api.Job{ExternalSN: "C", TargetModel: "P1S"}, idle, known, used, 0); sn != "B" {
+		t.Fatalf("auto-migrate offline: %s", sn)
+	}
+	busyKnown := []api.PrinterSummary{
+		{ExternalSN: "A", Model: "P1S", Online: true},
+		{ExternalSN: "B", Model: "P1S", Online: true},
+	}
+	if sn := PickPrinter(api.Job{ExternalSN: "A"}, []api.PrinterSummary{{ExternalSN: "B", Model: "P1S", Online: true}}, busyKnown, used, 0); sn != "" {
+		t.Fatalf("wait when preferred busy: %s", sn)
+	}
+}

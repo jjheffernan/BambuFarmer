@@ -9,12 +9,21 @@ import (
 	"strings"
 )
 
+// Typed event names for NOTIFY_URL webhooks.
+const (
+	TypeJobFinished = "job.finished"
+	TypeAlertRaised = "alert.raised"
+)
+
 // Finished is the job-finished webhook body.
 type Finished struct {
-	JobID   string  `json:"job_id"`
-	State   string  `json:"state"`
-	Grams   float64 `json:"grams,omitempty"`
-	SpoolID string  `json:"spool_id,omitempty"`
+	Type       string  `json:"type"`
+	JobID      string  `json:"job_id"`
+	State      string  `json:"state"`
+	ExternalSN string  `json:"external_sn,omitempty"`
+	Grams      float64 `json:"grams,omitempty"`
+	SpoolID    string  `json:"spool_id,omitempty"`
+	SiteID     string  `json:"site_id,omitempty"`
 }
 
 // PostFinished POSTs a JSON body when endpoint is set.
@@ -26,6 +35,9 @@ func PostFinished(ctx context.Context, endpoint string, client *http.Client, bod
 	}
 	if client == nil {
 		client = http.DefaultClient
+	}
+	if body.Type == "" {
+		body.Type = TypeJobFinished
 	}
 	raw, err := json.Marshal(body)
 	if err != nil {

@@ -62,7 +62,8 @@ func (p *Plane) Captain(context.Context) (api.CaptainInfo, error) {
 	return api.CaptainInfo{
 		Name:     "fixture",
 		ServerID: "fixture-server",
-		Release:  "fixture",
+		Release:  "03.02.00.00",
+		Version:  "03.02.00.00",
 	}, nil
 }
 
