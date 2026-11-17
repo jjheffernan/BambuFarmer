@@ -167,7 +167,6 @@ services:
     environment:
       HTTP_ADDR: ":8080"
       SITE_ID: ${SITE_ID:-default}
-      FARM_MODE: ${FARM_MODE:-farm_manager}
       FARM_MANAGER_TRANSPORT: ${FARM_MANAGER_TRANSPORT:-fm_native}
       # Used only when FARM_MANAGER_TRANSPORT=direct_printer. Example: SN1=Alpha
       DIRECT_PRINTERS: ${DIRECT_PRINTERS:-}

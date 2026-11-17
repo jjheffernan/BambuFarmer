@@ -40,6 +40,7 @@ func main() {
 	analyticsURL := mustURL(getenv("ANALYTICS_URL", "http://analytics:8080"))
 	integrationsURL := mustURL(getenv("INTEGRATIONS_URL", "http://integrations:8080"))
 	edgeURL := mustURL(getenv("EDGE_URL", "http://edge:8080"))
+	edgeToken := strings.TrimSpace(os.Getenv("EDGE_TOKEN"))
 	commerceURLRaw := os.Getenv("COMMERCE_URL")           // optional plugin; empty = not proxied
 	slicerURLRaw := os.Getenv("SLICER_URL")               // optional plugin; empty = not proxied
 	studioBridgeURLRaw := os.Getenv("STUDIO_BRIDGE_URL") // optional plugin; empty = not proxied
@@ -92,6 +93,14 @@ func main() {
 	analyticsProxy := httputil.NewSingleHostReverseProxy(analyticsURL)
 	integrationsProxy := httputil.NewSingleHostReverseProxy(integrationsURL)
 	edgeProxy := httputil.NewSingleHostReverseProxy(edgeURL)
+	if edgeToken != "" {
+		origDirector := edgeProxy.Director
+		edgeProxy.Director = func(req *http.Request) {
+			origDirector(req)
+			req.Header.Set("X-Edge-Token", edgeToken)
+		}
+		slog.Info("EDGE_TOKEN set — injecting X-Edge-Token on edge proxy")
+	}
 	var commerceProxy *httputil.ReverseProxy
 	if commerceURLRaw != "" {
 		commerceProxy = httputil.NewSingleHostReverseProxy(mustURL(commerceURLRaw))

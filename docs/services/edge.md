@@ -34,7 +34,7 @@ Edge is the **only** process that speaks Bambu farm backends. It:
 │       ├─ native (fm_native REST)                   │
 │       ├─ fixture (fixtures/fm JSON)                │
 │       ├─ direct_printer (in-process; no LAN)       │
-│       ├─ cdp (stub)                                │
+│       ├─ cdp (DevTools probe; control stub)        │
 │       └─ none                                      │
 │  tracker (printerstate) + delta filter             │
 │  bus → bf.events.printer / ← bf.commands.edge.*    │
@@ -56,6 +56,8 @@ Edge is the **only** process that speaks Bambu farm backends. It:
 | `DIRECT_PRINTERS` | | `sn:model,…` when transport is `direct_printer` |
 | `FARM_MQTT_URL` | | Optional MQTT reports (needs certs in `EDGE_CERT_DIR`) |
 | `EDGE_FIXTURE_DIR` | | Used when URL empty |
+| `EDGE_TOKEN` | | Optional shared secret with gateway (`X-Edge-Token`) |
+| `CDP_URL` | | DevTools HTTP base when transport=`cdp` |
 | `REDIS_URL` | | Streams |
 | `HTTP_ADDR` | `:8080` | |
 
@@ -86,7 +88,7 @@ services/edge/app/             # process-private (not packages/)
 | M4 Upload3MF + StartPrint on native | **done** (fixture/unit; live FM smoke deferred) |
 | M5 MQTT EventSource | **done when** `FARM_MQTT_URL` + certs set |
 | `direct_printer` in-process plane | **done** (no LAN) |
-| CDP real implementation | stub |
+| CDP DevTools `/json/version` probe | **done** (control/upload still stub) |
 
 ---
 

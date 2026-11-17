@@ -11,7 +11,11 @@ On release: move that section to a new `## [X.Y.Z] — YYYY-MM-DD`, bump [`VERSI
 
 ### Changed
 - Docs pass: drop HTMX/scaffold-stub claims; README + service shapes (gateway/edge/core/web/commerce/FM research) match shipped surface; commerce status reports `ok`; after-hours cursor artifacts removed
-- `.env.example` documents `DIRECT_PRINTERS`, `AMS_SLOT_MAP`, `POWER_URL`, and `FARM_MQTT_URL`; marks unused `EDGE_TOKEN` / `FARM_MODE`
+- `.env.example` documents `DIRECT_PRINTERS`, `AMS_SLOT_MAP`, `POWER_URL`, and `FARM_MQTT_URL`
+- Edge `farm_mode` is derived from the active control plane (removed unused `FARM_MODE` env); CDP transport probes `CDP_URL/json/version` for reachability
+
+### Security
+- Optional `EDGE_TOKEN`: gateway injects `X-Edge-Token` on edge proxy; edge rejects API calls without it when set
 - Removed unused speculative commerce DTOs (`ShopConnection`, `CommerceOrder`)
 - Fleet secondary filters collapse behind “More filters” on narrow screens; bucket/tag chips are real buttons
 - Farm Manager research docs: Studio LAN sync conflict, BF as farm O&M / Studio bypass, Orca→artifact→print path, min FM 3.x

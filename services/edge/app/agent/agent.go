@@ -370,7 +370,7 @@ func (a *Agent) Status() api.EdgeStatus {
 	pref := farmmanager.PreferRelease(a.captain.Release, a.captain.Version)
 	st := api.EdgeStatus{
 		SiteID:         a.cfg.SiteID,
-		FarmMode:       "farm_manager",
+		FarmMode:       farmModeFor(kind),
 		FarmManagerURL: a.cfg.FarmManagerURL,
 		Transport:      string(kind),
 		Connected:      connected,
@@ -395,9 +395,12 @@ func (a *Agent) Status() api.EdgeStatus {
 	case farm.KindNone:
 		st.Note = "no farm backend — set FARM_MANAGER_URL or EDGE_FIXTURE_DIR"
 	case farm.KindCDP:
-		st.Note = "CDP backend stub — not connected"
+		if connected {
+			st.Note = "CDP DevTools reachable — control/upload still stubbed"
+		} else {
+			st.Note = "CDP backend — set CDP_URL and launch Client with --remote-debugging-port"
+		}
 	case farm.KindDirect:
-		st.FarmMode = "direct_printer"
 		st.Note = "direct printer adapter — no farm manager connection"
 	case farm.KindNative:
 		if !connected {
@@ -419,4 +422,20 @@ func (a *Agent) setErr(err error) {
 	a.mu.Lock()
 	a.lastErr = err.Error()
 	a.mu.Unlock()
+}
+
+// farmModeFor is the coarse operator label (not FARM_MODE env — that was unused).
+func farmModeFor(kind farm.Kind) string {
+	switch kind {
+	case farm.KindDirect:
+		return "direct_printer"
+	case farm.KindNone:
+		return "none"
+	case farm.KindCDP:
+		return "cdp"
+	case farm.KindFixture:
+		return "fixture"
+	default:
+		return "farm_manager"
+	}
 }

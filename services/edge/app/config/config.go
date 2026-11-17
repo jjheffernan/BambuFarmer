@@ -27,6 +27,7 @@ type Config struct {
 	ArtifactsDir   string // shared with core; object_key relative paths for Upload3MF
 	DirectPrinters string // sn=name pairs when transport is direct_printer
 	MQTTURL        string // tls://host:1883; empty skips the broker
+	EdgeToken      string // optional shared secret with gateway (X-Edge-Token)
 }
 
 // Load reads env with defaults suitable for local compose.
@@ -48,6 +49,7 @@ func Load() Config {
 		ArtifactsDir:         getenv("ARTIFACTS_DIR", "/data/artifacts"),
 		DirectPrinters:       os.Getenv("DIRECT_PRINTERS"),
 		MQTTURL:              strings.TrimSpace(os.Getenv("FARM_MQTT_URL")),
+		EdgeToken:            strings.TrimSpace(os.Getenv("EDGE_TOKEN")),
 	}
 }
 

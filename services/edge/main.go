@@ -18,6 +18,7 @@ import (
 	"github.com/jjheffernan/BambuFarmer/services/edge/app/agent"
 	"github.com/jjheffernan/BambuFarmer/services/edge/app/bambu"
 	"github.com/jjheffernan/BambuFarmer/services/edge/app/config"
+	"github.com/jjheffernan/BambuFarmer/services/edge/app/edgetoken"
 	"github.com/jjheffernan/BambuFarmer/services/edge/app/farmmanager"
 	"github.com/jjheffernan/BambuFarmer/services/edge/app/mqtt"
 )
@@ -135,10 +136,14 @@ func main() {
 		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok", "sn": sn, "opt": string(body.Opt)})
 	})
 
+	if cfg.EdgeToken != "" {
+		log.Info("EDGE_TOKEN set — requiring X-Edge-Token / Bearer on API routes")
+	}
 	if err := httpserver.ListenAndServe(httpserver.Options{
 		Service: "edge",
 		Addr:    cfg.HTTPAddr,
 		Mux:     mux,
+		Handler: edgetoken.Middleware(cfg.EdgeToken, mux),
 	}); err != nil {
 		slog.Error("server stopped", "err", err)
 		os.Exit(1)

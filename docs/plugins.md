@@ -14,7 +14,7 @@ Stay lean: one interface, one default adapter, env-driven enablement.
 | Kind | Status | Process |
 |------|--------|---------|
 | `fm_native` | Primary | `services/edge` |
-| `cdp` | Escape hatch | `services/edge` |
+| `cdp` | Escape hatch (DevTools probe; control stub) | `services/edge` |
 | `fixture` | Lab / CI | `services/edge` |
 | `direct_printer` | In-process list (`DIRECT_PRINTERS`); no LAN smoke needed | `services/edge` |
 | `fleet_hub` | Reserved name only | future |

@@ -60,7 +60,7 @@ services/gateway/
 
 From repo-root `.env` (see [`.env.example`](../../.env.example)): `AUTH_MODE`, `SESSION_SECRET`, `CORE_URL`, `WEB_URL`, `ANALYTICS_URL`, `INTEGRATIONS_URL`, `EDGE_URL`, `REDIS_URL`, optional `COMMERCE_URL` / `SLICER_URL` / `STUDIO_BRIDGE_URL`, OIDC_* when mode=oidc.
 
-`EDGE_TOKEN` is reserved in compose/example but **not enforced** yet (no shared-secret check on edge proxy routes).
+`EDGE_TOKEN` (optional): when set on gateway **and** edge, gateway injects `X-Edge-Token` on edge proxy requests and edge rejects unauthenticated API calls. Empty = open (default lab compose).
 
 ---
 

@@ -15,6 +15,7 @@ type Options struct {
 	Service string
 	Addr    string
 	Mux     *http.ServeMux // optional; if nil, a new mux is created
+	Handler http.Handler   // optional wrap (e.g. auth middleware); defaults to Mux
 }
 
 // NewMux returns a mux with /healthz and /readyz registered.
@@ -52,10 +53,14 @@ func ListenAndServe(opts Options) error {
 		mux = NewMux(opts.Service)
 	}
 	// Callers that pass Mux should already have called NewMux or RegisterHealth.
+	handler := opts.Handler
+	if handler == nil {
+		handler = mux
+	}
 
 	srv := &http.Server{
 		Addr:              opts.Addr,
-		Handler:           mux,
+		Handler:           handler,
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 	slog.Info("listening", "service", opts.Service, "addr", opts.Addr)

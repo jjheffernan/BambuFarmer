@@ -92,7 +92,7 @@ Edge credentials (`FARM_MANAGER_*`, `EDGE_CERT_DIR`, `EDGE_TOKEN`) **never** bel
 | `SESSION_SECRET` | gateway | **Required** | **Required** |
 | `POSTGRES_PASSWORD` / `DATABASE_URL` | postgres, core, gateway, analytics | Required | Required |
 | `FARM_MANAGER_PASSWORD` | edge | If FM live | If FM live |
-| `EDGE_TOKEN` | reserved (unused in Go today) | Optional | Optional |
+| `EDGE_TOKEN` | gateway↔edge shared secret (`X-Edge-Token`) when set | Optional | Optional |
 | `OIDC_CLIENT_SECRET` | gateway | Unused | **Required** |
 | `SPOOLMAN_API_TOKEN` | integrations | Optional | Optional |
 | `MANYFOLD_CLIENT_SECRET` / `MANYFOLD_TOKEN` | integrations | Optional | Optional |

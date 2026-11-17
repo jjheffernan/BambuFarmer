@@ -84,9 +84,9 @@ Reject: shared plugin SDK frameworks, frontend stack rewrites, fat all-in-one im
 
 | Field | Value |
 |-------|--------|
-| **Done** | Studio-bridge 1–6; OIDC code exchange + session; nav groups + Admin jump links |
-| **Next** | Live FM 3.2 smoke; multi-VP ops if needed; CSRF/rate-limit later |
-| **Gaps** | CDP stub; unread `EDGE_TOKEN`/`FARM_MODE`; DESIGN_SPEC §11 historical HTMX narrative |
+| **Done** | Studio-bridge 1–6; OIDC; UX nav; EDGE_TOKEN gate; farm_mode from plane; CDP DevTools probe |
+| **Next** | Live FM 3.2 smoke; CSRF/rate-limit; multi-VP if needed |
+| **Gaps** | Full CDP control (probe-only today); DESIGN_SPEC §11 historical HTMX narrative |
 | **Blocked** | Live FM 3.2 smoke until LAN FM available |
 | **Deferred** | Capacitor; FM network-status API; multi-VP identities |
 | **Do not** | Commit third-party product source (Bambuddy/FULU/Orca trees); migrate off Go; bundle Orca; replace FM Client; proxy FM-bound printers as if they were LAN `:8883` |
