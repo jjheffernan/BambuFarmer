@@ -3392,15 +3392,24 @@ const layoutHTML = `<!DOCTYPE html>
         </nav>
         <div class="bf-panel mb-4" id="admin-updates">
           <h2 class="font-display text-lg mb-2">System updates</h2>
-          <p class="text-sm text-bf-muted mb-3">Keep BambuFarmer in step with Farm Manager: after upgrading FM, update this stack. One command on the host, or request from here while a host watcher is running.</p>
-          <pre class="bf-pre text-xs mb-3" id="sys-out">loading…</pre>
+          <p class="text-sm text-bf-muted mb-3">Rebuild individual services or the full stack after a Farm Manager upgrade. Requests write <code>data/ops/update.requested</code>; the host must run <code>./scripts/bf update --watch</code>.</p>
+          <div id="sys-update-status" class="bf-status m-0 mb-3">loading…</div>
+          <div class="overflow-x-auto mb-3">
+            <table class="bf-table text-sm" id="sys-components">
+              <thead><tr><th>Component</th><th>Health</th><th>Kind</th><th></th></tr></thead>
+              <tbody><tr><td colspan="4" class="text-bf-muted">loading…</td></tr></tbody>
+            </table>
+          </div>
           <div class="flex flex-wrap gap-2 items-center">
-            <button type="button" class="bf-btn bf-btn-primary" id="sys-update-btn">Request update</button>
-            <code class="text-xs text-bf-muted">./scripts/bf update</code>
-            <span class="text-xs text-bf-muted">or</span>
+            <button type="button" class="bf-btn bf-btn-primary" id="sys-update-all">Update all</button>
+            <button type="button" class="bf-btn" id="sys-refresh">Refresh</button>
             <code class="text-xs text-bf-muted">./scripts/bf update --watch</code>
           </div>
           <p class="text-sm mt-2" id="sys-msg"></p>
+          <details class="mt-3">
+            <summary class="text-sm text-bf-muted cursor-pointer">Raw status JSON</summary>
+            <pre class="bf-pre text-xs mt-2 mb-0" id="sys-out">…</pre>
+          </details>
         </div>
         <div class="bf-panel mb-4" id="admin-setup">
           <h2 class="font-display text-lg mb-2">Lab · setup</h2>
@@ -3702,9 +3711,62 @@ const layoutHTML = `<!DOCTYPE html>
               msg.textContent = String(e.message || e);
             }
           };
+          async function requestComponentUpdate(components) {
+            const msg = document.getElementById('sys-msg');
+            msg.className = 'text-sm mt-2';
+            msg.textContent = '';
+            try {
+              const res = await bfJSON(API + '/api/v1/admin/system/update', {
+                method: 'POST', credentials: 'include',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({components: components || []}),
+              });
+              msg.className = 'text-bf-accent text-sm mt-2';
+              const who = (components && components.length) ? components.join(', ') : 'full stack';
+              msg.textContent = (res.hint || 'Update requested') + ' · ' + who;
+              await loadSystem();
+            } catch (e) {
+              msg.className = 'text-bf-danger text-sm mt-2';
+              msg.textContent = String(e.message || e);
+            }
+          }
           async function loadSystem() {
             const sys = await bfJSON(API + '/api/v1/admin/system', opts);
             document.getElementById('sys-out').textContent = JSON.stringify(sys, null, 2);
+            const u = sys.update || {};
+            const stEl = document.getElementById('sys-update-status');
+            const bits = [
+              u.last_state || 'idle',
+              u.pending ? ('pending ' + ((u.requested_targets || ['all']).join(','))) : '',
+              u.last_message || '',
+              u.last_at || '',
+            ].filter(Boolean);
+            stEl.textContent = bits.join(' · ');
+            stEl.classList.toggle('live', u.last_state === 'ok' || u.last_state === 'idle');
+            stEl.classList.toggle('warn', u.last_state === 'running' || !!u.pending);
+            stEl.classList.toggle('bad', u.last_state === 'error');
+            const tb = document.querySelector('#sys-components tbody');
+            const comps = u.components || [];
+            if (!comps.length) {
+              tb.innerHTML = '<tr><td colspan="4" class="text-bf-muted">No components</td></tr>';
+            } else {
+              tb.innerHTML = comps.map(c => {
+                const health = c.health || 'unknown';
+                const kind = c.profile ? ('plugin · ' + c.profile) : (c.kind || 'core');
+                const detail = [c.detail, c.version].filter(Boolean).join(' · ');
+                const disabled = health === 'offline' ? ' disabled title="Profile / URL not configured"' : '';
+                return '<tr>' +
+                  '<td><span class="font-medium">' + (c.label || c.id) + '</span>' +
+                  (detail ? ('<div class="text-xs text-bf-muted">' + detail + '</div>') : '') + '</td>' +
+                  '<td><span class="bf-chip">' + health + '</span></td>' +
+                  '<td class="text-bf-muted text-xs">' + kind + '</td>' +
+                  '<td><button type="button" class="bf-btn" data-update-component="' + c.id + '"' + disabled + '>Update</button></td>' +
+                  '</tr>';
+              }).join('');
+              tb.querySelectorAll('[data-update-component]').forEach(btn => {
+                btn.onclick = () => requestComponentUpdate([btn.dataset.updateComponent]);
+              });
+            }
             return sys;
           }
           async function loadPower() {
@@ -4059,22 +4121,10 @@ const layoutHTML = `<!DOCTYPE html>
             }
           };
           loadNotify();
-          document.getElementById('sys-update-btn').onclick = async () => {
-            const msg = document.getElementById('sys-msg');
-            msg.className = 'text-sm mt-2';
-            msg.textContent = '';
-            try {
-              const res = await bfJSON(API + '/api/v1/admin/system/update', {
-                method: 'POST', credentials: 'include',
-              });
-              msg.className = 'text-bf-accent text-sm mt-2';
-              msg.textContent = res.hint || 'Update requested — host watcher will apply it.';
-              await loadSystem();
-            } catch (e) {
-              msg.className = 'text-bf-danger text-sm mt-2';
-              msg.textContent = String(e.message || e);
-            }
-          };
+          document.getElementById('sys-update-all').onclick = () => requestComponentUpdate([]);
+          document.getElementById('sys-refresh').onclick = () => loadSystem().catch(e => {
+            document.getElementById('sys-msg').textContent = String(e.message || e);
+          });
           async function loadSetup() {
             const el = document.getElementById('setup-out');
             try {

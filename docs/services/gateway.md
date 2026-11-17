@@ -70,4 +70,5 @@ From repo-root `.env` (see [`.env.example`](../../.env.example)): `AUTH_MODE`, `
 2. Real LAN user store in Postgres via core (done)  
 3. SSE stream for printer/job events (done)  
 4. OIDC code exchange (done — discovery + token + ID-token verify + session)  
-5. Rate limiting / CSRF for cookie sessions (later)
+5. Admin per-component update requests (`ops` + host `--watch`)  
+6. Rate limiting / CSRF for cookie sessions (later)

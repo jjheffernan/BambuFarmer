@@ -292,10 +292,10 @@ func main() {
 	mux.Handle("PATCH /api/v1/admin/users/{id}", auth.RequireAdmin(adminUsers))
 	mux.Handle("POST /api/v1/admin/users/{id}/password", auth.RequireAdmin(adminUsers))
 
-	mux.Handle("GET /api/v1/admin/system", auth.RequireAdmin(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	mux.Handle("GET /api/v1/admin/system", auth.RequireAdmin(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, map[string]any{
 			"version": version.Get(),
-			"update":  ops.GetStatus(),
+			"update":  ops.GetStatus(r.Context()),
 		})
 	})))
 	mux.Handle("POST /api/v1/admin/system/update", auth.RequireAdmin(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -303,16 +303,29 @@ func main() {
 		if u, ok := auth.UserFromContext(r.Context()); ok {
 			by = u.Username
 		}
-		st, err := ops.RequestUpdate(by)
+		var body struct {
+			Components []string `json:"components"`
+			Pull       bool     `json:"pull"`
+			NoGit      bool     `json:"no_git"`
+		}
+		if r.Body != nil && r.ContentLength != 0 {
+			_ = json.NewDecoder(r.Body).Decode(&body)
+		}
+		st, err := ops.RequestUpdate(by, body.Components, body.Pull, body.NoGit)
 		if err != nil {
-			httpserver.WriteError(w, api.Internal("could not write update request: "+err.Error()))
+			httpserver.WriteError(w, api.BadRequest(err.Error()))
 			return
 		}
+		targets := body.Components
+		if len(targets) == 0 {
+			targets = []string{"all"}
+		}
 		writeJSON(w, map[string]any{
-			"status":  "requested",
-			"version": version.Get(),
-			"update":  st,
-			"hint":    "Host must run: ./scripts/bf update --watch (or apply once with ./scripts/bf update)",
+			"status":     "requested",
+			"components": targets,
+			"version":    version.Get(),
+			"update":     st,
+			"hint":       "Host must run: ./scripts/bf update --watch (applies selected components or full stack)",
 		})
 	})))
 

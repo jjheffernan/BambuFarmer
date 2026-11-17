@@ -76,4 +76,13 @@ func TestAdminPageHasRateCardEditor(t *testing.T) {
 	if !strings.Contains(layoutHTML, "rate_card") {
 		t.Fatal("expected Admin setup readout to include rate_card")
 	}
+	if !strings.Contains(layoutHTML, `id="sys-components"`) || !strings.Contains(layoutHTML, "data-update-component") {
+		t.Fatal("expected Admin per-component update table")
+	}
+	if !strings.Contains(layoutHTML, `id="sys-update-all"`) || !strings.Contains(layoutHTML, "requestComponentUpdate") {
+		t.Fatal("expected Admin update-all control")
+	}
+	if !strings.Contains(layoutHTML, "/api/v1/admin/system/update") {
+		t.Fatal("expected Admin system update API")
+	}
 }

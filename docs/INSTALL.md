@@ -16,12 +16,13 @@ Containers do not rebuild themselves. Use **one host command**, or the Admin UI 
 ./scripts/bf update              # git pull --ff-only, rebuild, recreate (volumes kept)
 make update                      # same
 ./scripts/bf update --pull       # pull prebuilt registry images + recreate (no local build)
-./scripts/bf update --watch      # apply Admin → “Request update” automatically
+./scripts/bf update --components=edge,web   # rebuild only selected compose services
+./scripts/bf update --watch      # apply Admin per-component / full-stack requests
 ```
 
-**UI path:** Admin → System updates → **Request update** writes `data/ops/update.requested`. A host process running `./scripts/bf update --watch` applies it (status in `data/ops/update.status.json`).
+**UI path:** Admin → System updates shows live health for gateway/core/edge/web/analytics/integrations and optional plugins. **Update** on a row (or **Update all**) writes `data/ops/update.requested` with the target list. A host process running `./scripts/bf update --watch` applies it (status in `data/ops/update.status.json`).
 
-After upgrading Farm Manager on the printer LAN, update BambuFarmer the same day so edge/FM API assumptions stay aligned. Forward DB migrations run automatically on core boot.
+After upgrading Farm Manager on the printer LAN, update BambuFarmer the same day (at least **edge**) so FM API assumptions stay aligned. Forward DB migrations run automatically on core boot.
 
 ### Tear down
 
@@ -56,8 +57,8 @@ APIs:
 - `POST /api/v1/setup` — save draft (`complete: false`) or finish (`complete: true`)  
 - `POST /api/v1/setup/reset` — re-open wizard (dev)  
 - `GET /api/v1/version` — build version / commit  
-- `GET /api/v1/admin/system` — version + update status (admin)  
-- `POST /api/v1/admin/system/update` — request host-side update (admin; needs `--watch`)  
+- `GET /api/v1/admin/system` — version + update status + component health (admin)  
+- `POST /api/v1/admin/system/update` — `{ "components": ["edge","web"] }` or `{}` for full stack (admin; needs `--watch`)  
 
 Gateway redirects HTML routes to `/setup` until completed. Bypass with `SKIP_SETUP_REDIRECT=true`.
 
