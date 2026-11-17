@@ -3411,9 +3411,37 @@ const layoutHTML = `<!DOCTYPE html>
         </div>
         <div class="bf-panel mb-4">
           <h2 class="font-display text-lg mb-2">Stack &amp; plugins</h2>
-          <p class="text-sm text-bf-muted mb-3">Core version plus optional compose profiles (slicer, commerce) and integration URLs.</p>
+          <p class="text-sm text-bf-muted mb-3">Core version plus optional compose profiles (slicer, commerce, studio-bridge) and integration URLs.</p>
           <div id="stack-status" class="flex flex-wrap gap-2 text-sm">loading…</div>
           <button type="button" class="bf-btn mt-3" id="stack-refresh">Refresh</button>
+        </div>
+        <div class="bf-panel mb-4">
+          <h2 class="font-display text-lg mb-2">Studio bridge</h2>
+          <p class="text-sm text-bf-muted mb-3">Optional receive plugin (<code>compose --profile studio-bridge</code>). Drop or POST a <code>.gcode.3mf</code> → core artifact/job → FM print. Virtual-printer protocol (SSDP/MQTT/FTPS) is a later slice; proxy mode is deferred.</p>
+          <div id="studio-bridge-status" class="bf-status m-0 mb-3">loading…</div>
+          <pre class="bf-pre text-xs m-0 mb-3" id="studio-bridge-out">…</pre>
+          <form id="studio-bridge-ingest" class="grid gap-3 md:grid-cols-2 max-w-2xl">
+            <div class="md:col-span-2">
+              <label class="bf-field" for="sb-file">Plate file</label>
+              <input class="bf-input" id="sb-file" type="file" accept=".3mf,.gcode.3mf,application/octet-stream" required/>
+            </div>
+            <div>
+              <label class="bf-field" for="sb-name">Name</label>
+              <input class="bf-input" id="sb-name" placeholder="optional"/>
+            </div>
+            <div>
+              <label class="bf-field" for="sb-model">Target model</label>
+              <input class="bf-input" id="sb-model" placeholder="optional e.g. P1S"/>
+            </div>
+            <div class="md:col-span-2 flex flex-wrap gap-2 items-center">
+              <label class="text-sm flex items-center gap-2">
+                <input type="checkbox" id="sb-queue" checked/> Queue job
+              </label>
+              <button type="submit" class="bf-btn bf-btn-primary">Ingest</button>
+              <button type="button" class="bf-btn" id="sb-refresh">Refresh status</button>
+              <p class="text-sm m-0" id="sb-msg"></p>
+            </div>
+          </form>
         </div>
         <div class="bf-panel mb-4">
           <h2 class="font-display text-lg mb-2">Farm tags</h2>
@@ -3673,10 +3701,61 @@ const layoutHTML = `<!DOCTYPE html>
               return {ok: false, err: String(e.message || e)};
             }
           }
+          async function loadStudioBridge() {
+            const el = document.getElementById('studio-bridge-status');
+            const out = document.getElementById('studio-bridge-out');
+            if (!el) return;
+            el.textContent = 'loading…';
+            el.classList.remove('live');
+            try {
+              const st = await bfJSON(API + '/api/v1/studio-bridge/status', opts);
+              out.textContent = JSON.stringify(st, null, 2);
+              el.textContent = (st.mode || 'receive') + ' · ' + (st.policy || 'queue') +
+                (st.core_url ? ' · core' : ' · no CORE_URL');
+              el.classList.add('live');
+            } catch (e) {
+              el.textContent = 'studio-bridge not reachable';
+              out.textContent = String(e.message || e) +
+                '\n\nEnable with: podman compose --profile studio-bridge … and STUDIO_BRIDGE_URL on gateway.';
+            }
+          }
+          document.getElementById('sb-refresh').onclick = loadStudioBridge;
+          document.getElementById('studio-bridge-ingest').onsubmit = async (ev) => {
+            ev.preventDefault();
+            const msg = document.getElementById('sb-msg');
+            msg.textContent = '';
+            const file = document.getElementById('sb-file').files[0];
+            if (!file) { msg.textContent = 'Choose a file'; return; }
+            const fd = new FormData();
+            fd.append('file', file);
+            const name = document.getElementById('sb-name').value.trim();
+            const model = document.getElementById('sb-model').value.trim();
+            if (name) fd.append('name', name);
+            if (model) fd.append('target_model', model);
+            fd.append('queue', document.getElementById('sb-queue').checked ? 'true' : 'false');
+            try {
+              const out = await bfJSON(API + '/api/v1/studio-bridge/ingest', {
+                method: 'POST', credentials: 'include', body: fd,
+              });
+              if (out.job_id) {
+                msg.innerHTML = 'Queued <a class="bf-btn" href="/jobs?job=' +
+                  encodeURIComponent(out.job_id) + '">Open job</a>';
+              } else if (out.artifact_id) {
+                msg.innerHTML = 'Artifact <a class="bf-btn" href="' +
+                  (out.create_job_path || ('/jobs?artifact=' + encodeURIComponent(out.artifact_id))) +
+                  '">Create job</a>';
+              } else {
+                msg.textContent = out.reason || 'accepted';
+              }
+              await loadStudioBridge();
+            } catch (e) {
+              msg.textContent = String(e.message || e);
+            }
+          };
           async function loadStack() {
             const el = document.getElementById('stack-status');
             el.textContent = 'loading…';
-            const [ver, sites, integ, power, notify, edge, slice, commerce] = await Promise.all([
+            const [ver, sites, integ, power, notify, edge, slice, commerce, studio] = await Promise.all([
               probe('/api/v1/version'),
               probe('/api/v1/sites'),
               probe('/api/v1/integrations/status'),
@@ -3685,6 +3764,7 @@ const layoutHTML = `<!DOCTYPE html>
               probe('/api/v1/edge/status'),
               probe('/api/v1/slice/status'),
               probe('/api/v1/commerce/status'),
+              probe('/api/v1/studio-bridge/status'),
             ]);
             const chips = [];
             if (ver.ok) {
@@ -3730,6 +3810,9 @@ const layoutHTML = `<!DOCTYPE html>
             chips.push(stackChip('commerce', !!(commerce.ok && commerce.data), commerce.ok
               ? String((commerce.data && commerce.data.status) || 'up')
               : (commerce.err || 'profile off')));
+            chips.push(stackChip('studio-bridge', !!(studio.ok && studio.data), studio.ok
+              ? String((studio.data && studio.data.mode) || 'up')
+              : (studio.err || 'profile off')));
             el.innerHTML = chips.join('');
           }
           async function loadSite() {
@@ -3806,6 +3889,7 @@ const layoutHTML = `<!DOCTYPE html>
           document.getElementById('stack-refresh').onclick = loadStack;
           document.getElementById('edge-tags-refresh').onclick = loadEdgeTags;
           loadStack();
+          loadStudioBridge();
           loadSite();
           loadEdgeTags();
           async function loadScheduler() {

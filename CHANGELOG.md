@@ -15,8 +15,10 @@ On release: move that section to a new `## [X.Y.Z] — YYYY-MM-DD`, bump [`VERSI
 - Removed unused speculative commerce DTOs (`ShopConnection`, `CommerceOrder`)
 - Fleet secondary filters collapse behind “More filters” on narrow screens; bucket/tag chips are real buttons
 - Farm Manager research docs: Studio LAN sync conflict, BF as farm O&M / Studio bypass, Orca→artifact→print path, min FM 3.x
+- BUILD_OUT P7 + studio-bridge: receive-first plugin (HTTP/drop → artifact/job → FM); proxy deferred to LAN printers only
 
 ### Added
+- Optional `studio-bridge` plugin (`compose --profile studio-bridge`): `GET …/status`, `POST …/ingest`, drop-folder watch → core artifact/job; Admin ingest UI; gateway `STUDIO_BRIDGE_URL`
 - Edge FM version gate: `FARM_MANAGER_MIN_VERSION` (default `03.00.00.00`), `GET /api/v1/edge/status` `version` / `min_version` / `compatible`, Fleet badge + boot warning; fixtures use 3.2-shaped captain release
 - Job reassign (`POST /api/v1/jobs/{id}/reassign`) for queued/assigned/failed; scheduler auto-migrates when preferred SN is offline or in maintenance
 - Printer maintenance flag (`POST /api/v1/printers/{sn}/maintenance`); Fleet badge + drawer toggle; excluded from idle/scheduler (also honors FM tag `maintenance`)

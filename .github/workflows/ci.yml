@@ -37,6 +37,7 @@ jobs:
           - services/analytics
           - services/commerce
           - services/slicer
+          - services/studio-bridge
           - services/web
     defaults:
       run:
@@ -102,6 +103,7 @@ jobs:
           - analytics
           - commerce
           - slicer
+          - studio-bridge
           - web
     steps:
       - uses: actions/checkout@v7
@@ -136,6 +138,7 @@ jobs:
           - analytics
           - commerce
           - slicer
+          - studio-bridge
           - web
     steps:
       - uses: actions/checkout@v7

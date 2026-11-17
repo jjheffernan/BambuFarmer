@@ -17,5 +17,6 @@ use (
 	./services/gateway
 	./services/integrations
 	./services/slicer
+	./services/studio-bridge
 	./services/web
 )

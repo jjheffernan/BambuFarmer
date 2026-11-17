@@ -19,6 +19,21 @@ Stay lean: one interface, one default adapter, env-driven enablement.
 | `direct_printer` | In-process list (`DIRECT_PRINTERS`); no LAN smoke needed | `services/edge` |
 | `fleet_hub` | Reserved name only | future |
 
+## Studio bridge
+
+Optional profiled service — **not** a `ControlPlane` kind. HTTP/drop ingest (VP protocol later) → core artifacts/jobs; FM printers stay on `fm_native`.
+
+| Mode | Status | Notes |
+|------|--------|-------|
+| `receive` | Shipped (ingest) | `POST …/ingest` + drop dir; SSDP/MQTT/FTPS later |
+| `proxy` | Deferred | LAN/`direct_printer` only; not for FM-claimed fleet |
+
+See [`services/studio-bridge.md`](./services/studio-bridge.md).
+
+```bash
+podman compose --env-file .env -f deploy/compose.yml --profile studio-bridge up -d --build
+```
+
 Core, gateway, and web must speak jobs/printers via APIs and events—never backend HTTP types.
 
 ## Compose-profile services

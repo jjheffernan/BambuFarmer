@@ -19,7 +19,8 @@ const (
 	StreamJob      = "bf.events.job"
 	StreamFilament = "bf.events.filament"
 	StreamAlert    = "bf.events.alert"
-	StreamSlice    = "bf.events.slice"
+	StreamSlice         = "bf.events.slice"
+	StreamStudioBridge  = "bf.events.studio_bridge"
 )
 
 // CommandStream returns the per-site edge command stream key.
@@ -46,6 +47,8 @@ const (
 	TypeSliceQueued         = "slice.queued"
 	TypeSliceSucceeded      = "slice.succeeded"
 	TypeSliceFailed         = "slice.failed"
+	TypeStudioBridgeReceived = "studio_bridge.received"
+	TypeStudioBridgeQueued   = "studio_bridge.queued"
 
 	// Commands on bf.commands.edge.{site} (core → edge).
 	TypeCommandStartPrint = "command.start_print"

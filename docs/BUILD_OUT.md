@@ -29,6 +29,7 @@ Canonical architecture: [`DESIGN_SPEC.md`](./DESIGN_SPEC.md) · plugins: [`plugi
 | Shop orders → print → pack/ship | `services/commerce` (profile; webhook + echo) |
 | Direct printer (in-process) | `direct_printer` + `DIRECT_PRINTERS` |
 | In-app / Orca slice | `services/slicer` (profile; Orca not bundled) |
+| Studio/Orca “send to farm” without FM LAN sync | `services/studio-bridge` (profile; receive VP → artifact/job → `fm_native`) |
 
 ## Phases
 
@@ -65,6 +66,15 @@ Canonical architecture: [`DESIGN_SPEC.md`](./DESIGN_SPEC.md) · plugins: [`plugi
 
 - `services/slicer` + Orca; expand FM coverage without rewriting core
 
+### P7 — Studio bridge (virtual printer receive)
+
+Design: [`services/studio-bridge.md`](./services/studio-bridge.md).
+
+- **Receive first:** slicer discovers a BF virtual printer → plate → core artifact → queue → FM print  
+- **Proxy later (optional):** LAN/`direct_printer` only — not for FM-claimed printers  
+- Compose profile `studio-bridge`; do not put protocol code in core/edge  
+- Slice order: skeleton/status → HTTP/volume ingest → bind/MQTT/FTPS receive → auto-queue policies → multi-VP ops → optional proxy  
+
 ## Lean rule
 
 Prefer: extend a service **or** add one profiled service + one interface.  
@@ -74,9 +84,9 @@ Reject: shared plugin SDK frameworks, frontend stack rewrites, fat all-in-one im
 
 | Field | Value |
 |-------|--------|
-| **Done** | FM 3.x version gate (`FARM_MANAGER_MIN_VERSION`, edge status `compatible`); Studio-bypass docs; job reassign + maintenance; Orca→artifact; print-history + typed notify |
-| **Next** | Live FM 3.2 LAN contract smoke (checklist in edge-farm-manager); UX ladder; OIDC code exchange |
+| **Done** | Studio-bridge slices 1–2: profiled service, status, HTTP ingest + drop watch → core artifact/job; Admin panel |
+| **Next** | Studio-bridge slice 3 (bind/MQTT/FTPS VP) when ready; Live FM 3.2 smoke; UX ladder; OIDC |
 | **Gaps** | OIDC code exchange stub; CDP stub; unread `EDGE_TOKEN`/`FARM_MODE`; DESIGN_SPEC §11 historical HTMX narrative |
 | **Blocked** | Live FM 3.2 smoke until LAN FM available |
-| **Deferred** | Capacitor / store shells for iOS & Android; FM network-status API if/when captain exposes it |
-| **Do not** | Commit third-party product source trees; migrate off Go; bundle the Orca binary into the image; replace FM Client for adopt/unbind |
+| **Deferred** | Capacitor; FM network-status API; studio-bridge proxy mode; full slicer SSDP discovery |
+| **Do not** | Commit third-party product source (Bambuddy/FULU/Orca trees); migrate off Go; bundle Orca; replace FM Client; proxy FM-bound printers as if they were LAN `:8883` |

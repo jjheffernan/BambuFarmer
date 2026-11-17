@@ -12,7 +12,7 @@
 |------|----------------|
 | `AUTH_MODE=lan` / `oidc` | Job state machine |
 | Session cookies for BambuFarmer users (Argon2id LAN store) | FM credentials |
-| Reverse-proxy to core/analytics/integrations/edge/web (+ commerce/slicer when URLs set) | Business SQL |
+| Reverse-proxy to core/analytics/integrations/edge/web (+ commerce/slicer/studio-bridge when URLs set) | Business SQL |
 | SSE fan-out of Redis events (`GET /api/v1/events/stream`) | Rollup computation |
 
 ---
@@ -27,7 +27,7 @@
 | `/api/v1/analytics/*` | analytics |
 | `/api/v1/library/*`, `/api/v1/filament/*` | integrations |
 | `/api/v1/edge/*` | edge |
-| `/api/v1/commerce/*`, `/api/v1/slice/*` | optional plugins when `COMMERCE_URL` / `SLICER_URL` set |
+| `/api/v1/commerce/*`, `/api/v1/slice/*`, `/api/v1/studio-bridge/*` | optional plugins when `COMMERCE_URL` / `SLICER_URL` / `STUDIO_BRIDGE_URL` set |
 | `/api/v1/events/stream` | gateway SSE ← Redis |
 | `/`, `/jobs`, … | web |
 
@@ -58,7 +58,7 @@ services/gateway/
 
 ## 5. Config
 
-From repo-root `.env` (see [`.env.example`](../../.env.example)): `AUTH_MODE`, `SESSION_SECRET`, `CORE_URL`, `WEB_URL`, `ANALYTICS_URL`, `INTEGRATIONS_URL`, `EDGE_URL`, `REDIS_URL`, optional `COMMERCE_URL` / `SLICER_URL`, OIDC_* when mode=oidc.
+From repo-root `.env` (see [`.env.example`](../../.env.example)): `AUTH_MODE`, `SESSION_SECRET`, `CORE_URL`, `WEB_URL`, `ANALYTICS_URL`, `INTEGRATIONS_URL`, `EDGE_URL`, `REDIS_URL`, optional `COMMERCE_URL` / `SLICER_URL` / `STUDIO_BRIDGE_URL`, OIDC_* when mode=oidc.
 
 `EDGE_TOKEN` is reserved in compose/example but **not enforced** yet (no shared-secret check on edge proxy routes).
 

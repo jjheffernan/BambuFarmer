@@ -20,6 +20,8 @@ Bambu Studio’s LAN bind to **FM-claimed** printers is often broken after farm 
 
 **Operator path without Studio↔printer sync:** slice offline in Studio/Orca → upload `.gcode.3mf` (or Slice page) → queue job → edge → FM → printers.
 
+**Planned:** optional [`studio-bridge`](./studio-bridge.md) virtual printer so Studio/Orca can *Send* into BF’s queue (Bambuddy-style **receive**, not FM proxy). True TCP proxy to printer `:8883` stays deferred and LAN-only — FM-bound printers are not that endpoint.
+
 ---
 
 ## 1. What Farm Manager is

@@ -40,8 +40,9 @@ func main() {
 	analyticsURL := mustURL(getenv("ANALYTICS_URL", "http://analytics:8080"))
 	integrationsURL := mustURL(getenv("INTEGRATIONS_URL", "http://integrations:8080"))
 	edgeURL := mustURL(getenv("EDGE_URL", "http://edge:8080"))
-	commerceURLRaw := os.Getenv("COMMERCE_URL") // optional plugin; empty = not proxied
-	slicerURLRaw := os.Getenv("SLICER_URL")     // optional plugin; empty = not proxied
+	commerceURLRaw := os.Getenv("COMMERCE_URL")           // optional plugin; empty = not proxied
+	slicerURLRaw := os.Getenv("SLICER_URL")               // optional plugin; empty = not proxied
+	studioBridgeURLRaw := os.Getenv("STUDIO_BRIDGE_URL") // optional plugin; empty = not proxied
 	redisURL := os.Getenv("REDIS_URL")
 	databaseURL := os.Getenv("DATABASE_URL")
 	oidcIssuer := os.Getenv("OIDC_ISSUER")
@@ -77,6 +78,10 @@ func main() {
 	var slicerProxy *httputil.ReverseProxy
 	if slicerURLRaw != "" {
 		slicerProxy = httputil.NewSingleHostReverseProxy(mustURL(slicerURLRaw))
+	}
+	var studioBridgeProxy *httputil.ReverseProxy
+	if studioBridgeURLRaw != "" {
+		studioBridgeProxy = httputil.NewSingleHostReverseProxy(mustURL(studioBridgeURLRaw))
 	}
 
 	hub := newSSEHub()
@@ -298,6 +303,10 @@ func main() {
 		mux.Handle("/api/v1/slice", slicerProxy)
 		mux.Handle("/api/v1/slice/", slicerProxy)
 	}
+	if studioBridgeProxy != nil {
+		mux.Handle("/api/v1/studio-bridge", studioBridgeProxy)
+		mux.Handle("/api/v1/studio-bridge/", studioBridgeProxy)
+	}
 
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, "/api/") {
@@ -354,7 +363,7 @@ func main() {
 }
 
 func fanout(ctx context.Context, bus *events.Bus, hub *sseHub) {
-	for _, stream := range []string{events.StreamPrinter, events.StreamJob, events.StreamAlert, events.StreamSlice} {
+	for _, stream := range []string{events.StreamPrinter, events.StreamJob, events.StreamAlert, events.StreamSlice, events.StreamStudioBridge} {
 		s := stream
 		go func() {
 			consumer := "gateway-" + getenv("HOSTNAME", "1") + "-" + s
