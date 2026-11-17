@@ -15,11 +15,13 @@ On release: move that section to a new `## [X.Y.Z] — YYYY-MM-DD`, bump [`VERSI
 - Removed unused speculative commerce DTOs (`ShopConnection`, `CommerceOrder`)
 - Fleet secondary filters collapse behind “More filters” on narrow screens; bucket/tag chips are real buttons
 - Farm Manager research docs: Studio LAN sync conflict, BF as farm O&M / Studio bypass, Orca→artifact→print path, min FM 3.x
-- BUILD_OUT P7 + studio-bridge: receive-first plugin (HTTP/drop → artifact/job → FM); proxy deferred to LAN printers only
+- BUILD_OUT P7 + studio-bridge: receive VP + optional LAN proxy (not FM-bound printers)
 
 ### Added
 - Optional `studio-bridge` plugin (`compose --profile studio-bridge`): `GET …/status`, `POST …/ingest`, drop-folder watch → core artifact/job; Admin ingest UI; gateway `STUDIO_BRIDGE_URL`
-- Studio-bridge LAN VP (`STUDIO_BRIDGE_VP=1`): bind `:3000`/`:3002`, FTPS `:990` (`bblp`+access code → ingest), MQTT `:8883` idle report
+- Studio-bridge LAN VP (`STUDIO_BRIDGE_VP=1`): SSDP `:2021`, bind `:3000`/`:3002`, FTPS `:990` (`bblp`+access code → ingest), MQTT `:8883` idle report; `GET …/ca.pem` + Admin CA download
+- Studio-bridge plate hints: extract `printer_model` / filament types from `.3mf` into `target_model` (explicit form field and `STUDIO_BRIDGE_TARGET_MODEL` still win)
+- Studio-bridge proxy mode (`STUDIO_BRIDGE_MODE=proxy` + `STUDIO_BRIDGE_PROXY_TARGET`): transparent TCP relay for LAN/`direct_printer` only
 - Edge FM version gate: `FARM_MANAGER_MIN_VERSION` (default `03.00.00.00`), `GET /api/v1/edge/status` `version` / `min_version` / `compatible`, Fleet badge + boot warning; fixtures use 3.2-shaped captain release
 - Job reassign (`POST /api/v1/jobs/{id}/reassign`) for queued/assigned/failed; scheduler auto-migrates when preferred SN is offline or in maintenance
 - Printer maintenance flag (`POST /api/v1/printers/{sn}/maintenance`); Fleet badge + drawer toggle; excluded from idle/scheduler (also honors FM tag `maintenance`)

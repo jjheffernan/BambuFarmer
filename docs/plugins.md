@@ -21,12 +21,12 @@ Stay lean: one interface, one default adapter, env-driven enablement.
 
 ## Studio bridge
 
-Optional profiled service — **not** a `ControlPlane` kind. HTTP/drop ingest (VP protocol later) → core artifacts/jobs; FM printers stay on `fm_native`.
+Optional profiled service — **not** a `ControlPlane` kind. Receive: HTTP/drop/VP → core artifacts/jobs (FM via `fm_native`). Proxy: transparent TCP to a LAN/`direct_printer` only.
 
 | Mode | Status | Notes |
 |------|--------|-------|
-| `receive` | Shipped | HTTP/drop + optional VP (`STUDIO_BRIDGE_VP=1`: bind/FTPS/MQTT) |
-| `proxy` | Deferred | LAN/`direct_printer` only; not for FM-claimed fleet |
+| `receive` | Shipped | HTTP/drop + optional VP (`STUDIO_BRIDGE_VP=1`: SSDP/bind/FTPS/MQTT); CA at `…/ca.pem` |
+| `proxy` | Shipped | `STUDIO_BRIDGE_MODE=proxy` + `STUDIO_BRIDGE_PROXY_TARGET`; LAN/`direct_printer` only — not FM-claimed |
 
 See [`services/studio-bridge.md`](./services/studio-bridge.md).
 

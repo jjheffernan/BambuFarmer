@@ -288,8 +288,8 @@ services:
     ports:
       - "18086:8080"
 
-  # Optional Studio/Orca receive plugin: compose --profile studio-bridge up -d
-  # HTTP/drop ingest always on. Set STUDIO_BRIDGE_VP=1 for LAN VP (bind/FTPS/MQTT).
+  # Optional Studio/Orca plugin: compose --profile studio-bridge up -d
+  # Receive: HTTP/drop + STUDIO_BRIDGE_VP=1 (SSDP/bind/FTPS/MQTT). Proxy: MODE=proxy + PROXY_TARGET (LAN only).
   studio-bridge:
     profiles: ["studio-bridge"]
     image: localhost/bambufarmer-studio-bridge:dev
@@ -305,6 +305,8 @@ services:
       STUDIO_BRIDGE_MODE: ${STUDIO_BRIDGE_MODE:-receive}
       STUDIO_BRIDGE_POLICY: ${STUDIO_BRIDGE_POLICY:-queue}
       STUDIO_BRIDGE_DROP_DIR: /data/studio-drop
+      STUDIO_BRIDGE_TARGET_MODEL: ${STUDIO_BRIDGE_TARGET_MODEL:-}
+      STUDIO_BRIDGE_ADVERTISE_IP: ${STUDIO_BRIDGE_ADVERTISE_IP:-}
       STUDIO_BRIDGE_VP: ${STUDIO_BRIDGE_VP:-0}
       STUDIO_BRIDGE_VP_SN: ${STUDIO_BRIDGE_VP_SN:-BFVP00000000000}
       STUDIO_BRIDGE_VP_NAME: ${STUDIO_BRIDGE_VP_NAME:-BambuFarmer VP}
@@ -314,6 +316,14 @@ services:
       STUDIO_BRIDGE_FTPS_ADDR: ${STUDIO_BRIDGE_FTPS_ADDR:-:990}
       STUDIO_BRIDGE_MQTT_ADDR: ${STUDIO_BRIDGE_MQTT_ADDR:-:8883}
       STUDIO_BRIDGE_BIND_ADDRS: ${STUDIO_BRIDGE_BIND_ADDRS:-:3000,:3002}
+      STUDIO_BRIDGE_PROXY_TARGET: ${STUDIO_BRIDGE_PROXY_TARGET:-}
+      STUDIO_BRIDGE_PROXY_ACCESS_CODE: ${STUDIO_BRIDGE_PROXY_ACCESS_CODE:-}
+      STUDIO_BRIDGE_PROXY_SN: ${STUDIO_BRIDGE_PROXY_SN:-BFPROXY000000000}
+      STUDIO_BRIDGE_PROXY_NAME: ${STUDIO_BRIDGE_PROXY_NAME:-LAN Proxy}
+      STUDIO_BRIDGE_PROXY_MODEL: ${STUDIO_BRIDGE_PROXY_MODEL:-BL-P001}
+      STUDIO_BRIDGE_PROXY_PORTS: ${STUDIO_BRIDGE_PROXY_PORTS:-3000,3002,8883,990,6000,322}
+      STUDIO_BRIDGE_PASV_START: ${STUDIO_BRIDGE_PASV_START:-50000}
+      STUDIO_BRIDGE_PASV_END: ${STUDIO_BRIDGE_PASV_END:-50100}
       ARTIFACTS_DIR: /data/artifacts
     volumes:
       - artifacts:/data/artifacts
@@ -327,7 +337,10 @@ services:
       - "8883:8883"
       - "3000:3000"
       - "3002:3002"
-      - "50000-50009:50000-50009"
+      - "6000:6000"
+      - "322:322"
+      - "2021:2021/udp"
+      - "50000-50100:50000-50100"
 
 volumes:
   pgdata:

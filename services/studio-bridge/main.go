@@ -1,6 +1,6 @@
 // Command studio-bridge is the optional Studio/Orca receive plugin (compose profile: studio-bridge).
-// Receive: HTTP ingest + drop-folder + optional LAN VP (bind/MQTT/FTPS) → core artifact/job → fm_native.
-// Proxy mode is deferred (LAN printers only).
+// Receive: HTTP/drop + optional LAN VP (SSDP/bind/MQTT/FTPS) → core artifact/job → fm_native.
+// Proxy: transparent TCP relay to a LAN/direct printer (not FM-bound).
 package main
 
 import (
@@ -19,6 +19,7 @@ import (
 	"github.com/jjheffernan/BambuFarmer/packages/events"
 	"github.com/jjheffernan/BambuFarmer/packages/httpserver"
 	"github.com/jjheffernan/BambuFarmer/services/studio-bridge/internal/bridge"
+	"github.com/jjheffernan/BambuFarmer/services/studio-bridge/internal/proxy"
 	"github.com/jjheffernan/BambuFarmer/services/studio-bridge/internal/vp"
 )
 
@@ -32,8 +33,10 @@ func main() {
 	mode := strings.ToLower(getenv("STUDIO_BRIDGE_MODE", "receive"))
 	policy := bridge.ParsePolicy(getenv("STUDIO_BRIDGE_POLICY", "queue"))
 	dropDir := strings.TrimSpace(os.Getenv("STUDIO_BRIDGE_DROP_DIR"))
+	defaultModel := strings.TrimSpace(os.Getenv("STUDIO_BRIDGE_TARGET_MODEL"))
 	redisURL := os.Getenv("REDIS_URL")
 	vpcfg := vp.LoadConfig()
+	pxcfg := proxy.Load()
 
 	var bus *events.Bus
 	if redisURL != "" {
@@ -46,59 +49,98 @@ func main() {
 		}
 	}
 
-	ingestPlate := func(c context.Context, filename string, body []byte) error {
+	ingestPlate := func(c context.Context, filename string, body []byte, explicitModel string) error {
+		hints := vp.HintsFrom3MF(body)
+		model := vp.MergeHints(explicitModel, hints.TargetModel, defaultModel)
 		res, err := bridge.Ingest(c, coreURL, policy, bridge.Request{
-			Filename: filename,
-			Body:     body,
-			Name:     strings.TrimSuffix(strings.TrimSuffix(filepath.Base(filename), filepath.Ext(filename)), ".gcode"),
+			Filename:    filename,
+			Body:        body,
+			Name:        strings.TrimSuffix(strings.TrimSuffix(filepath.Base(filename), filepath.Ext(filename)), ".gcode"),
+			TargetModel: model,
 		}, nil)
 		if err != nil {
 			return err
+		}
+		if len(hints.Filaments) > 0 {
+			slog.Info("plate hints", "filaments", hints.Filaments, "target_model", model)
 		}
 		emit(c, bus, siteID, res)
 		return nil
 	}
 
-	if dropDir != "" {
+	if mode != "proxy" && dropDir != "" {
 		go bridge.WatchDropDir(ctx, bridge.WatchOptions{
 			Dir:      dropDir,
 			CoreURL:  coreURL,
 			Policy:   policy,
 			Interval: 5 * time.Second,
 			Log:      slog.Default(),
+			OnFile: func(c context.Context, name string, body []byte) error {
+				return ingestPlate(c, name, body, "")
+			},
 		})
 	}
 
-	if vpcfg.Enabled && mode != "proxy" {
+	var certFP string
+	if mode == "proxy" {
+		proxy.Start(ctx, pxcfg, slog.Default())
+		if pxcfg.Ready() {
+			pcfg := vp.Config{Serial: pxcfg.Serial, Name: pxcfg.Name, Model: pxcfg.Model}
+			go vp.StartSSDP(ctx, pcfg, vp.AdvertiseIP(), slog.Default())
+		}
+	} else if vpcfg.Enabled {
 		tlsCfg, err := vp.LoadOrCreateTLS(vpcfg.CertDir)
 		if err != nil {
 			slog.Warn("vp tls cert", "err", err)
 		} else {
+			if pem, err := vp.ReadCertPEM(vpcfg.CertDir); err == nil {
+				certFP, _ = vp.CertFingerprintSHA256(pem)
+			}
+			adv := vp.AdvertiseIP()
 			vp.StartBind(ctx, vpcfg, slog.Default())
-			go vp.StartFTPS(ctx, vpcfg, tlsCfg, ingestPlate, slog.Default())
+			go vp.StartSSDP(ctx, vpcfg, adv, slog.Default())
+			go vp.StartFTPS(ctx, vpcfg, tlsCfg, func(c context.Context, filename string, body []byte) error {
+				return ingestPlate(c, filename, body, "")
+			}, slog.Default())
 			go vp.StartMQTT(ctx, vpcfg, tlsCfg, slog.Default())
 		}
 	}
 
 	mux := httpserver.NewMux(service)
 	mux.HandleFunc("GET /api/v1/studio-bridge/status", func(w http.ResponseWriter, _ *http.Request) {
-		writeJSON(w, http.StatusOK, map[string]any{
-			"service":     service,
-			"status":      "ok",
-			"mode":        mode,
-			"policy":      string(policy),
-			"core_url":    strings.TrimSpace(coreURL) != "",
-			"events":      bus != nil,
-			"drop_dir":    dropDir,
-			"proxy_ready": false,
-			"vp":          vpcfg.StatusMap(),
-			"note":        statusNote(mode, vpcfg.Enabled),
-		})
+		st := map[string]any{
+			"service":       service,
+			"status":        "ok",
+			"mode":          mode,
+			"policy":        string(policy),
+			"core_url":      strings.TrimSpace(coreURL) != "",
+			"events":        bus != nil,
+			"drop_dir":      dropDir,
+			"target_model":  defaultModel,
+			"proxy_ready":   pxcfg.Ready(),
+			"proxy":         pxcfg.StatusMap(),
+			"vp":            vpcfg.StatusMap(),
+			"ca_endpoint":   "/api/v1/studio-bridge/ca.pem",
+			"ca_sha256":     certFP,
+			"advertise_ip":  vp.AdvertiseIP(),
+			"note":          statusNote(mode, vpcfg.Enabled, pxcfg.Ready()),
+		}
+		writeJSON(w, http.StatusOK, st)
+	})
+	mux.HandleFunc("GET /api/v1/studio-bridge/ca.pem", func(w http.ResponseWriter, _ *http.Request) {
+		pem, err := vp.ReadCertPEM(vpcfg.CertDir)
+		if err != nil {
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": "CA not generated yet — enable STUDIO_BRIDGE_VP=1 once"})
+			return
+		}
+		w.Header().Set("Content-Type", "application/x-pem-file")
+		w.Header().Set("Content-Disposition", `attachment; filename="bambufarmer-studio-bridge.pem"`)
+		_, _ = w.Write(pem)
 	})
 	mux.HandleFunc("POST /api/v1/studio-bridge/ingest", func(w http.ResponseWriter, r *http.Request) {
 		if mode == "proxy" {
-			writeJSON(w, http.StatusNotImplemented, map[string]string{
-				"error": "proxy mode deferred — use receive (STUDIO_BRIDGE_MODE=receive)",
+			writeJSON(w, http.StatusBadRequest, map[string]string{
+				"error": "ingest disabled in proxy mode — traffic goes to STUDIO_BRIDGE_PROXY_TARGET",
 			})
 			return
 		}
@@ -107,13 +149,24 @@ func main() {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 			return
 		}
+		hints := vp.HintsFrom3MF(req.Body)
+		req.TargetModel = vp.MergeHints(req.TargetModel, hints.TargetModel, defaultModel)
 		res, err := bridge.Ingest(r.Context(), coreURL, policy, req, nil)
 		if err != nil {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 			return
 		}
+		out := map[string]any{
+			"received":        res.Received,
+			"artifact_id":     res.ArtifactID,
+			"job_id":          res.JobID,
+			"create_job_path": res.CreateJobPath,
+			"reason":          res.Reason,
+			"hints":           hints,
+			"target_model":    req.TargetModel,
+		}
 		emit(r.Context(), bus, siteID, res)
-		writeJSON(w, http.StatusOK, res)
+		writeJSON(w, http.StatusOK, out)
 	})
 
 	if err := httpserver.ListenAndServe(httpserver.Options{
@@ -126,14 +179,17 @@ func main() {
 	}
 }
 
-func statusNote(mode string, vpOn bool) string {
+func statusNote(mode string, vpOn, proxyReady bool) string {
 	if mode == "proxy" {
-		return "Proxy mode is deferred (LAN/direct_printer only). Set STUDIO_BRIDGE_MODE=receive."
+		if proxyReady {
+			return "Proxy mode: transparent TCP to STUDIO_BRIDGE_PROXY_TARGET (LAN/direct_printer only). Not for FM-bound printers."
+		}
+		return "Proxy mode needs STUDIO_BRIDGE_PROXY_TARGET=printer-ip."
 	}
 	if vpOn {
-		return "Receive + VP: bind :3000/:3002, FTPS :990 (bblp + access code), MQTT :8883 idle report. STOR → core artifact/job → fm_native. Add printer in Studio by IP/access code; slicer CA trust may be required."
+		return "Receive + VP: SSDP :2021, bind, FTPS, MQTT. Download GET /api/v1/studio-bridge/ca.pem for slicer trust. STOR/HTTP → core → fm_native."
 	}
-	return "Receive: POST /api/v1/studio-bridge/ingest or drop folder. Set STUDIO_BRIDGE_VP=1 for LAN virtual printer (bind/FTPS/MQTT)."
+	return "Receive: POST ingest or drop folder. Set STUDIO_BRIDGE_VP=1 for LAN VP; STUDIO_BRIDGE_MODE=proxy for LAN printer relay."
 }
 
 func parseIngest(r *http.Request) (bridge.Request, error) {

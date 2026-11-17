@@ -3417,8 +3417,9 @@ const layoutHTML = `<!DOCTYPE html>
         </div>
         <div class="bf-panel mb-4">
           <h2 class="font-display text-lg mb-2">Studio bridge</h2>
-          <p class="text-sm text-bf-muted mb-3">Optional receive plugin (<code>compose --profile studio-bridge</code>). Drop/POST a plate, or enable <code>STUDIO_BRIDGE_VP=1</code> and add the host in Studio (IP + access code → FTPS/MQTT). Prints still go through FM.</p>
+          <p class="text-sm text-bf-muted mb-3">Optional plugin (<code>compose --profile studio-bridge</code>). Receive: drop/POST or VP (<code>STUDIO_BRIDGE_VP=1</code>) → core → FM. Proxy: <code>STUDIO_BRIDGE_MODE=proxy</code> + <code>STUDIO_BRIDGE_PROXY_TARGET</code> (LAN printers only). Download CA for slicer TLS trust.</p>
           <div id="studio-bridge-status" class="bf-status m-0 mb-3">loading…</div>
+          <p class="text-sm mb-3"><a class="bf-btn" id="sb-ca-link" href="/api/v1/studio-bridge/ca.pem" download="bambufarmer-studio-bridge.pem">Download CA (.pem)</a> <span class="text-bf-muted" id="sb-ca-fp"></span></p>
           <pre class="bf-pre text-xs m-0 mb-3" id="studio-bridge-out">…</pre>
           <form id="studio-bridge-ingest" class="grid gap-3 md:grid-cols-2 max-w-2xl">
             <div class="md:col-span-2">
@@ -3704,15 +3705,22 @@ const layoutHTML = `<!DOCTYPE html>
           async function loadStudioBridge() {
             const el = document.getElementById('studio-bridge-status');
             const out = document.getElementById('studio-bridge-out');
+            const fp = document.getElementById('sb-ca-fp');
             if (!el) return;
             el.textContent = 'loading…';
             el.classList.remove('live');
+            if (fp) fp.textContent = '';
             try {
               const st = await bfJSON(API + '/api/v1/studio-bridge/status', opts);
               out.textContent = JSON.stringify(st, null, 2);
-              el.textContent = (st.mode || 'receive') + ' · ' + (st.policy || 'queue') +
-                (st.core_url ? ' · core' : ' · no CORE_URL');
+              const bits = [(st.mode || 'receive'), (st.policy || 'queue')];
+              if (st.core_url) bits.push('core');
+              if (st.vp && st.vp.enabled) bits.push('VP');
+              if (st.proxy_ready) bits.push('proxy→' + (st.proxy && st.proxy.target_ip || '?'));
+              if (st.advertise_ip) bits.push('adv ' + st.advertise_ip);
+              el.textContent = bits.join(' · ');
               el.classList.add('live');
+              if (fp && st.ca_sha256) fp.textContent = 'SHA-256 ' + st.ca_sha256;
             } catch (e) {
               el.textContent = 'studio-bridge not reachable';
               out.textContent = String(e.message || e) +

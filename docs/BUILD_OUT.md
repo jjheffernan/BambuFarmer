@@ -70,10 +70,10 @@ Canonical architecture: [`DESIGN_SPEC.md`](./DESIGN_SPEC.md) · plugins: [`plugi
 
 Design: [`services/studio-bridge.md`](./services/studio-bridge.md).
 
-- **Receive first:** slicer discovers a BF virtual printer → plate → core artifact → queue → FM print  
-- **Proxy later (optional):** LAN/`direct_printer` only — not for FM-claimed printers  
+- **Receive:** slicer discovers a BF virtual printer → plate → core artifact → queue → FM print  
+- **Proxy (optional):** LAN/`direct_printer` only — not for FM-claimed printers  
 - Compose profile `studio-bridge`; do not put protocol code in core/edge  
-- Slice order: skeleton/status → HTTP/volume ingest → bind/MQTT/FTPS receive → auto-queue policies → multi-VP ops → optional proxy  
+- Slices 1–6 shipped (ingest, VP, hints, SSDP/CA, proxy)
 
 ## Lean rule
 
@@ -84,9 +84,9 @@ Reject: shared plugin SDK frameworks, frontend stack rewrites, fat all-in-one im
 
 | Field | Value |
 |-------|--------|
-| **Done** | Studio-bridge slices 1–3: HTTP/drop + LAN VP (bind/FTPS/MQTT → ingest → FM) |
-| **Next** | Studio CA trust / SSDP (slice 5); AMS/target hints (slice 4); Live FM 3.2 smoke; UX ladder; OIDC |
+| **Done** | Studio-bridge slices 1–6: receive VP + SSDP/CA + plate hints + LAN TCP proxy |
+| **Next** | Live FM 3.2 smoke; UX ladder; OIDC; multi-VP ops if needed |
 | **Gaps** | OIDC code exchange stub; CDP stub; unread `EDGE_TOKEN`/`FARM_MODE`; DESIGN_SPEC §11 historical HTMX narrative |
 | **Blocked** | Live FM 3.2 smoke until LAN FM available |
-| **Deferred** | Capacitor; FM network-status API; studio-bridge proxy mode |
+| **Deferred** | Capacitor; FM network-status API; multi-VP identities |
 | **Do not** | Commit third-party product source (Bambuddy/FULU/Orca trees); migrate off Go; bundle Orca; replace FM Client; proxy FM-bound printers as if they were LAN `:8883` |
