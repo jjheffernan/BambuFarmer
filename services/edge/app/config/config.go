@@ -16,9 +16,10 @@ type Config struct {
 	FarmManagerUser      string
 	FarmManagerPassword  string
 	FarmManagerMinVersion string // dotted release gate (e.g. 03.00.00.00); empty skips
-	TLSInsecure          bool // lab only: skip verify when using https:// FM URL
-	CertDir              string
-	CDPURL               string
+	FarmManagerTestedMax  string // newest smoke-tested FM release; empty → farmmanager.DefaultTestedMax
+	TLSInsecure           bool   // lab only: skip verify when using https:// FM URL
+	CertDir               string
+	CDPURL                string
 
 	PollInterval   time.Duration
 	HTTPAddr       string
@@ -39,6 +40,7 @@ func Load() Config {
 		FarmManagerUser:       os.Getenv("FARM_MANAGER_USER"),
 		FarmManagerPassword:   os.Getenv("FARM_MANAGER_PASSWORD"),
 		FarmManagerMinVersion: getenv("FARM_MANAGER_MIN_VERSION", "03.00.00.00"),
+		FarmManagerTestedMax:  os.Getenv("FARM_MANAGER_TESTED_MAX"),
 		TLSInsecure:           envBool("FARM_MANAGER_TLS_INSECURE", false),
 		CertDir:              os.Getenv("EDGE_CERT_DIR"),
 		CDPURL:               os.Getenv("CDP_URL"),

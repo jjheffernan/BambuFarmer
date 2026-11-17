@@ -239,11 +239,11 @@ You may need a Farm Manager local account (or API access) created on that server
 
 Run against **your** Farm Manager Server (target ~3.2). Redact SNs before committing fixtures.
 
-- [ ] `GET /captain` → `release` / `version` look like `03.xx.xx.xx`; edge status `compatible: true` vs `FARM_MANAGER_MIN_VERSION`
+- [ ] `GET /captain` → `release` / `version` look like `03.xx.xx.xx`; edge status `compatible: true` and `version_status` (`ok` or `unverified` if above `FARM_MANAGER_TESTED_MAX`)
 - [ ] Device list (`GET /devices` or `/devices2`) → edge fleet cards populate; MQTT report (or poll) updates state
 - [ ] Upload `.gcode.3mf` via BF artifact path → FM task start on one idle SN
 - [ ] Optional: confirm Client Start All / groups still work alongside BF queue (no exclusive lock assumed)
-- [ ] If auth/headers changed on 3.x: fix only `services/edge/app/farmmanager` + tests — keep `packages/farm.ControlPlane` stable
+- [ ] If auth/headers/JSON changed on 3.x: fix only `services/edge/app/farmmanager` + tests — keep `packages/farm.ControlPlane` stable; failed calls should return `details.hint` (404 → API drift, decode → schema drift)
 
 ### Auth path decision
 

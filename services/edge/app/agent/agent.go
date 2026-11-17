@@ -113,19 +113,26 @@ func (a *Agent) Connect(ctx context.Context) error {
 }
 
 func (a *Agent) warnFMVersion(cap api.CaptainInfo) {
-	min := strings.TrimSpace(a.cfg.FarmManagerMinVersion)
-	if min == "" || a.plane == nil || a.plane.Kind() != farm.KindNative {
+	if a.plane == nil {
+		return
+	}
+	switch a.plane.Kind() {
+	case farm.KindNative, farm.KindFixture:
+	default:
 		return
 	}
 	got := farmmanager.PreferRelease(cap.Release, cap.Version)
-	ok, known := farmmanager.CompatibleRelease(got, min)
-	if !known {
-		a.log.Warn("farm manager version unknown; cannot verify min release", "got", got, "min_version", min)
-		return
-	}
-	if !ok {
-		a.log.Error("farm manager release below minimum — Studio bypass / O&M may be unreliable",
-			"release", got, "min_version", min, "server_id", cap.ServerID)
+	rep := farmmanager.DiagnoseVersion(got, a.cfg.FarmManagerMinVersion, a.cfg.FarmManagerTestedMax)
+	switch rep.Status {
+	case farmmanager.VersionBelowMin:
+		a.log.Error("farm manager release below minimum",
+			"release", rep.Got, "min_version", rep.Min, "server_id", cap.ServerID, "hint", rep.Hint)
+	case farmmanager.VersionUnverified:
+		a.log.Warn("farm manager newer than last smoke-tested release",
+			"release", rep.Got, "tested_max", rep.TestedMax, "server_id", cap.ServerID, "hint", rep.Hint)
+	case farmmanager.VersionUnknown:
+		a.log.Warn("farm manager version unknown",
+			"got", rep.Got, "min_version", rep.Min, "hint", rep.Hint)
 	}
 }
 
@@ -389,36 +396,56 @@ func (a *Agent) Status() api.EdgeStatus {
 	switch kind {
 	case farm.KindFixture:
 		st.Note = "fixture control plane — " + a.cfg.FixtureDir
-		if ok, known := farmmanager.CompatibleRelease(pref, a.cfg.FarmManagerMinVersion); known {
-			st.Compatible = &ok
-		}
+		applyVersionDiag(&st, pref, a.cfg)
 	case farm.KindNone:
 		st.Note = "no farm backend — set FARM_MANAGER_URL or EDGE_FIXTURE_DIR"
+		st.VersionStatus = farmmanager.VersionNA
 	case farm.KindCDP:
+		st.VersionStatus = farmmanager.VersionNA
 		if connected {
 			st.Note = "CDP DevTools reachable — control/upload still stubbed"
 		} else {
 			st.Note = "CDP backend — set CDP_URL and launch Client with --remote-debugging-port"
 		}
 	case farm.KindDirect:
+		st.VersionStatus = farmmanager.VersionNA
 		st.Note = "direct printer adapter — no farm manager connection"
 	case farm.KindNative:
 		if !connected {
 			st.Note = "fm_native awaiting session"
 		}
-		if ok, known := farmmanager.CompatibleRelease(pref, a.cfg.FarmManagerMinVersion); known {
-			st.Compatible = &ok
-			if !ok && st.Note == "" {
-				st.Note = "FM release below FARM_MANAGER_MIN_VERSION"
-			}
-		} else if connected && strings.TrimSpace(a.cfg.FarmManagerMinVersion) != "" {
-			st.Note = "FM version unknown; cannot verify min release"
-		}
+		applyVersionDiag(&st, pref, a.cfg)
+	}
+	if st.LastError != "" && st.Note == "" {
+		st.Note = "see last_error for diagnosis"
 	}
 	return st
 }
 
+func applyVersionDiag(st *api.EdgeStatus, pref string, cfg config.Config) {
+	rep := farmmanager.DiagnoseVersion(pref, cfg.FarmManagerMinVersion, cfg.FarmManagerTestedMax)
+	st.Compatible = rep.OK
+	st.VersionStatus = rep.Status
+	st.VersionHint = rep.Hint
+	st.TestedMax = rep.TestedMax
+	switch rep.Status {
+	case farmmanager.VersionBelowMin:
+		st.Note = rep.Hint
+	case farmmanager.VersionUnverified:
+		if st.Note == "" {
+			st.Note = rep.Hint
+		}
+	case farmmanager.VersionUnknown:
+		if st.Note == "" || strings.Contains(st.Note, "awaiting") {
+			st.Note = rep.Hint
+		}
+	}
+}
+
 func (a *Agent) setErr(err error) {
+	if err == nil {
+		return
+	}
 	a.mu.Lock()
 	a.lastErr = err.Error()
 	a.mu.Unlock()

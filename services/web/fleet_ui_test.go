@@ -42,6 +42,12 @@ func TestFleetPageShowsAMSAndTaskHelpers(t *testing.T) {
 	if !strings.Contains(layoutHTML, `id="edge-status"`) || !strings.Contains(layoutHTML, "showEdgeStatus") {
 		t.Fatal("expected fleet edge status strip")
 	}
+	if !strings.Contains(layoutHTML, "version_status") || !strings.Contains(layoutHTML, "version_hint") {
+		t.Fatal("expected FM version_status / version_hint in edge status UI")
+	}
+	if !strings.Contains(layoutHTML, "data.details") || !strings.Contains(layoutHTML, "d.hint") {
+		t.Fatal("expected bfJSON to surface details.hint")
+	}
 	if !strings.Contains(layoutHTML, `id="bulk-msg"`) || !strings.Contains(layoutHTML, "accepted") {
 		t.Fatal("expected bulk action accepted/skipped feedback")
 	}

@@ -53,6 +53,8 @@ Edge is the **only** process that speaks Bambu farm backends. It:
 | `FARM_MANAGER_URL` | | Live FM → `fm_native` (or `cdp` if transport set) |
 | `FARM_MANAGER_TRANSPORT` | `fm_native` | or `cdp` / `direct_printer` |
 | `FARM_MANAGER_USER` / `PASSWORD` | | FM service account |
+| `FARM_MANAGER_MIN_VERSION` | `03.00.00.00` | Gate → `compatible` / `version_status=below_min` |
+| `FARM_MANAGER_TESTED_MAX` | (`03.02.00.00`) | Soft ceiling → `version_status=unverified` when FM is newer |
 | `DIRECT_PRINTERS` | | `sn:model,…` when transport is `direct_printer` |
 | `FARM_MQTT_URL` | | Optional MQTT reports (needs certs in `EDGE_CERT_DIR`) |
 | `EDGE_FIXTURE_DIR` | | Used when URL empty |

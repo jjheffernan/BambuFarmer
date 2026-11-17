@@ -1,6 +1,9 @@
 package farmmanager
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestCompareRelease(t *testing.T) {
 	cases := []struct {
@@ -45,5 +48,31 @@ func TestPreferRelease(t *testing.T) {
 	}
 	if got := PreferRelease("build", "03.01.00.00"); got != "03.01.00.00" {
 		t.Fatalf("got %q", got)
+	}
+}
+
+func TestDiagnoseVersion(t *testing.T) {
+	ok := DiagnoseVersion("03.02.00.00", "03.00.00.00", "03.02.00.00")
+	if ok.Status != VersionOK || ok.OK == nil || !*ok.OK {
+		t.Fatalf("%+v", ok)
+	}
+	low := DiagnoseVersion("02.04.00.00", "03.00.00.00", "03.02.00.00")
+	if low.Status != VersionBelowMin || low.OK == nil || *low.OK {
+		t.Fatalf("%+v", low)
+	}
+	if !strings.Contains(low.Hint, "below") {
+		t.Fatalf("hint %q", low.Hint)
+	}
+	neu := DiagnoseVersion("03.05.00.00", "03.00.00.00", "03.02.00.00")
+	if neu.Status != VersionUnverified || neu.OK == nil || !*neu.OK {
+		t.Fatalf("%+v", neu)
+	}
+	unk := DiagnoseVersion("fixture build", "03.00.00.00", "")
+	if unk.Status != VersionUnknown || unk.OK != nil {
+		t.Fatalf("%+v", unk)
+	}
+	na := DiagnoseVersion("03.02.00.00", "", "")
+	if na.Status != VersionNA {
+		t.Fatalf("%+v", na)
 	}
 }

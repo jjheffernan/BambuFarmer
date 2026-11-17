@@ -16,6 +16,9 @@ On release: move that section to a new `## [X.Y.Z] — YYYY-MM-DD`, bump [`VERSI
 
 ### Security
 - Optional `EDGE_TOKEN`: gateway injects `X-Edge-Token` on edge proxy; edge rejects API calls without it when set
+
+### Fixed
+- Farm Manager errors now carry path/status/body hints (auth vs API drift vs unreachable); edge status reports `version_status` / `version_hint` / `tested_max` (below-min vs newer-than-smoke-tested)
 - Removed unused speculative commerce DTOs (`ShopConnection`, `CommerceOrder`)
 - Fleet secondary filters collapse behind “More filters” on narrow screens; bucket/tag chips are real buttons
 - Farm Manager research docs: Studio LAN sync conflict, BF as farm O&M / Studio bypass, Orca→artifact→print path, min FM 3.x

@@ -16,11 +16,12 @@ FARM_MANAGER_MIN_VERSION=03.00.00.00
 
 ## Checklist
 
-- [ ] `GET /captain` → dotted `release` ≥ min; edge `GET /api/v1/edge/status` shows `compatible: true`
+- [ ] `GET /captain` → dotted `release` ≥ min; edge `GET /api/v1/edge/status` shows `compatible: true` and `version_status: ok` (or `unverified` if newer than `FARM_MANAGER_TESTED_MAX`)
 - [ ] Device list populates Fleet; online/IDLE/RUNNING track via poll or MQTT
 - [ ] Upload `.gcode.3mf` via Artifacts or Slice → Create job → dispatch → printer starts
 - [ ] Reassign / maintenance: mark a printer maintenance → scheduler skips it
-- [ ] If 3.x auth/headers drift: fix only `services/edge/app/farmmanager` (+ tests)
+- [ ] If 3.x auth/headers/JSON drift: fix only `services/edge/app/farmmanager` (+ tests); failed calls should include `details.hint`
+- [ ] After smoke on a newer FM: set `FARM_MANAGER_TESTED_MAX` to that release (and bump `DefaultTestedMax` in code when committing)
 
 ## Fixture smoke (no LAN)
 

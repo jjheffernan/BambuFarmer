@@ -183,13 +183,17 @@ func (c *Client) doJSON(ctx context.Context, method, path string, body any, out 
 		return err
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("%s %s: HTTP %d: %s", method, path, resp.StatusCode, truncate(string(data), 256))
+		return NewHTTPError(method, path, resp.StatusCode, string(data))
 	}
 	if out == nil || len(data) == 0 {
 		return nil
 	}
 	if err := json.Unmarshal(data, out); err != nil {
-		return fmt.Errorf("decode %s: %w", path, err)
+		return &DecodeError{
+			Path: path,
+			Err:  err,
+			Hint: "FM JSON shape unexpected for " + path + " — possible API drift after a Farm Manager update; refresh fixtures/fm from a redacted capture",
+		}
 	}
 	return nil
 }

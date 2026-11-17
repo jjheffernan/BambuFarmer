@@ -90,7 +90,7 @@ func main() {
 		if tl, ok := ag.Plane().(tagLister); ok {
 			got, err := tl.ListTags(r.Context())
 			if err != nil {
-				httpserver.WriteError(w, api.Wrap(http.StatusBadGateway, api.CodeBadGateway, "tags failed", err))
+				httpserver.WriteError(w, farmmanager.MapToAPI("tags", err))
 				return
 			}
 			if got != nil {
@@ -104,11 +104,7 @@ func main() {
 		sn := r.PathValue("sn")
 		jpeg, err := ag.Plane().LiveviewJPEG(r.Context(), sn)
 		if err != nil {
-			if _, ok := api.AsError(err); ok {
-				httpserver.WriteError(w, err)
-				return
-			}
-			httpserver.WriteError(w, api.Wrap(http.StatusBadGateway, api.CodeBadGateway, "liveview failed", err))
+			httpserver.WriteError(w, farmmanager.MapToAPI("liveview", err))
 			return
 		}
 		w.Header().Set("Content-Type", "image/jpeg")
@@ -125,11 +121,7 @@ func main() {
 			return
 		}
 		if err := ag.Control(r.Context(), sn, body.Opt); err != nil {
-			if _, ok := api.AsError(err); ok {
-				httpserver.WriteError(w, err)
-				return
-			}
-			httpserver.WriteError(w, api.Wrap(http.StatusBadGateway, api.CodeBadGateway, "control failed", err))
+			httpserver.WriteError(w, farmmanager.MapToAPI("control", err))
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")

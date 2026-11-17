@@ -115,7 +115,16 @@ const layoutHTML = `<!DOCTYPE html>
         }
       }
       if (!r.ok) {
-        const msg = (data && (data.error || data.message)) || text.slice(0, 160) || r.statusText;
+        let msg = (data && (data.error || data.message)) || text.slice(0, 160) || r.statusText;
+        const d = data && data.details;
+        if (d && typeof d === 'object' && d.hint) {
+          msg += ' — ' + d.hint;
+        } else if (typeof d === 'string' && d) {
+          msg += ' — ' + d;
+        }
+        if (data && data.code) {
+          msg = data.code + ': ' + msg;
+        }
         throw new Error(r.status + ' ' + url + ' — ' + msg);
       }
       return data;
@@ -846,27 +855,33 @@ const layoutHTML = `<!DOCTYPE html>
               edgeStatusEl.classList.remove('live', 'warn', 'bad');
               return;
             }
+            const vs = st.version_status || '';
             const parts = [
               st.transport || st.farm_mode || 'edge',
               st.connected ? 'connected' : 'disconnected',
               'devices=' + (st.device_count ?? (st.devices || []).length),
             ];
             if (st.version || st.release) parts.push('FM ' + (st.version || st.release));
-            if (st.compatible === false) parts.push('incompatible');
-            else if (st.compatible == null && st.min_version && st.connected) parts.push('version?');
+            if (vs === 'below_min' || st.compatible === false) parts.push('incompatible');
+            else if (vs === 'unverified') parts.push('unverified FM');
+            else if (vs === 'unknown' || (st.compatible == null && st.min_version && st.connected)) parts.push('version?');
             if (st.last_error) parts.push(st.last_error);
+            else if (st.version_hint) parts.push(st.version_hint);
             else if (st.note) parts.push(st.note);
             edgeStatusEl.textContent = parts.join(' · ');
-            edgeStatusEl.classList.toggle('live', !!st.connected && st.compatible !== false);
-            edgeStatusEl.classList.toggle('warn', st.compatible == null && !!st.min_version && !!st.connected);
-            edgeStatusEl.classList.toggle('bad', st.compatible === false);
+            edgeStatusEl.classList.toggle('live', !!st.connected && st.compatible !== false && vs !== 'unverified');
+            edgeStatusEl.classList.toggle('warn', vs === 'unverified' || vs === 'unknown' || (st.compatible == null && !!st.min_version && !!st.connected));
+            edgeStatusEl.classList.toggle('bad', vs === 'below_min' || st.compatible === false);
             edgeStatusEl.title = [
+              st.version_hint || st.note,
+              st.last_error,
               st.farm_manager_url,
               st.server_id,
               st.release || st.version,
               st.min_version ? ('min ' + st.min_version) : '',
-              st.compatible === false ? 'below FARM_MANAGER_MIN_VERSION' : '',
-            ].filter(Boolean).join(' · ');
+              st.tested_max ? ('tested ≤ ' + st.tested_max) : '',
+              vs ? ('status ' + vs) : '',
+            ].filter(Boolean).join('\n');
           }
           async function bootstrap() {
             try {
@@ -3828,12 +3843,16 @@ const layoutHTML = `<!DOCTYPE html>
             chips.push(stackChip('notify', !!(notify.ok && notify.data && notify.data.configured), notify.ok ? '' : notify.err));
             if (edge.ok) {
               const e = edge.data || {};
-              const fmOk = e.compatible !== false;
+              const fmOk = e.compatible !== false && e.version_status !== 'below_min';
+              const vs = e.version_status || '';
+              const fmMark = (vs === 'below_min' || e.compatible === false) ? ' !'
+                : (vs === 'unverified' || vs === 'unknown' || e.compatible == null) ? ' ?' : '';
               const fmLabel = e.version || e.release
-                ? ('FM ' + (e.version || e.release) + (e.compatible === false ? ' !' : (e.compatible == null ? ' ?' : '')))
+                ? ('FM ' + (e.version || e.release) + fmMark)
                 : ('edge ' + (e.transport || e.farm_mode || ''));
-              chips.push(stackChip(fmLabel, !!e.connected && fmOk,
-                [e.transport, e.min_version ? ('min ' + e.min_version) : '', e.note, e.last_error,
+              chips.push(stackChip(fmLabel, !!e.connected && fmOk && vs !== 'unverified',
+                [e.transport, e.min_version ? ('min ' + e.min_version) : '', e.tested_max ? ('tested ≤ ' + e.tested_max) : '',
+                  e.version_hint || e.note, e.last_error,
                   'devices=' + (e.device_count ?? '?')].filter(Boolean).join(' · ')));
             } else {
               chips.push(stackChip('edge', false, edge.err));

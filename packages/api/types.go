@@ -174,7 +174,10 @@ type EdgeStatus struct {
 	Release        string           `json:"release,omitempty"`
 	Version        string           `json:"version,omitempty"` // captain version / preferred release for gates
 	MinVersion     string           `json:"min_version,omitempty"`
-	Compatible     *bool            `json:"compatible,omitempty"` // nil = unknown / N/A (fixture, no FM)
+	TestedMax      string           `json:"tested_max,omitempty"`       // last BF smoke-tested FM release
+	Compatible     *bool            `json:"compatible,omitempty"`      // nil = unknown / N/A
+	VersionStatus  string           `json:"version_status,omitempty"`  // ok | below_min | unverified | unknown | n_a
+	VersionHint    string           `json:"version_hint,omitempty"`    // actionable diagnosis
 	DeviceCount    int              `json:"device_count"`
 	LastPollAt     *time.Time       `json:"last_poll_at,omitempty"`
 	LastError      string           `json:"last_error,omitempty"`

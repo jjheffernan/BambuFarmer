@@ -84,8 +84,8 @@ Reject: shared plugin SDK frameworks, frontend stack rewrites, fat all-in-one im
 
 | Field | Value |
 |-------|--------|
-| **Done** | Studio-bridge 1–6; OIDC; UX nav; EDGE_TOKEN gate; farm_mode from plane; CDP DevTools probe |
-| **Next** | Live FM 3.2 smoke; CSRF/rate-limit; multi-VP if needed |
+| **Done** | Studio-bridge; OIDC; EDGE_TOKEN; FM diagnostic errors + version_status (below_min / unverified) |
+| **Next** | Live FM 3.2 smoke (then bump TESTED_MAX); CSRF/rate-limit; multi-VP if needed |
 | **Gaps** | Full CDP control (probe-only today); DESIGN_SPEC §11 historical HTMX narrative |
 | **Blocked** | Live FM 3.2 smoke until LAN FM available |
 | **Deferred** | Capacitor; FM network-status API; multi-VP identities |
