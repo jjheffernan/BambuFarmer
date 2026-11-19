@@ -19,6 +19,23 @@ Stay lean: one interface, one default adapter, env-driven enablement.
 | `direct_printer` | In-process list (`DIRECT_PRINTERS`); no LAN smoke needed | `services/edge` |
 | `fleet_hub` | Reserved name only | future |
 
+## Notify
+
+Optional profiled service — webhook channel CRUD, Redis Streams consumer, ingest, printer routing. Phone adapters (ntfy / Web Push) later.
+
+| Piece | Status | Notes |
+|-------|--------|-------|
+| Channels + fan-out | Shipped | `job.finished` / `job.failed` / `alert.raised` |
+| Ingest `POST /events` | Shipped | Publishes onto Redis Streams + immediate fan-out |
+| Printer routes | Shipped | SN → channel bind (empty = all) |
+| ntfy / Web Push | Deferred | Next slices |
+
+```bash
+podman compose --env-file .env -f deploy/compose.yml --profile notify up -d --build
+```
+
+Set `NOTIFY_SERVICE_URL=http://notify:8080` on gateway. Legacy core `NOTIFY_URL` remains when the profile is off.
+
 ## Studio bridge
 
 Optional profiled service — **not** a `ControlPlane` kind. Receive: HTTP/drop/VP → core artifacts/jobs (FM via `fm_native`). Proxy: transparent TCP to a LAN/`direct_printer` only.

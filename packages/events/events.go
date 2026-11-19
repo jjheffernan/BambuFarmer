@@ -54,3 +54,28 @@ const (
 	TypeCommandStartPrint = "command.start_print"
 	TypeCommandControl    = "command.control"
 )
+
+// StreamForType maps a domain event type to its Redis Streams key.
+// Unknown types return "" (caller should reject).
+func StreamForType(typ string) string {
+	switch {
+	case typ == TypeAlertRaised || hasPrefix(typ, "alert."):
+		return StreamAlert
+	case hasPrefix(typ, "job."):
+		return StreamJob
+	case hasPrefix(typ, "printer."):
+		return StreamPrinter
+	case hasPrefix(typ, "filament."):
+		return StreamFilament
+	case hasPrefix(typ, "slice."):
+		return StreamSlice
+	case hasPrefix(typ, "studio_bridge."):
+		return StreamStudioBridge
+	default:
+		return ""
+	}
+}
+
+func hasPrefix(s, p string) bool {
+	return len(s) >= len(p) && s[:len(p)] == p
+}

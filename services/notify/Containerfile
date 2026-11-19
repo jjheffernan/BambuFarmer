@@ -1,0 +1,18 @@
+# bambufarmer-notify — optional notify plugin (compose --profile notify)
+# podman build -t localhost/bambufarmer-notify:dev -f services/notify/Containerfile .
+FROM golang:1.26-bookworm AS build
+WORKDIR /src
+ENV GOWORK=off
+COPY packages/api ./packages/api
+COPY packages/httpserver ./packages/httpserver
+COPY packages/db ./packages/db
+COPY packages/events ./packages/events
+COPY services/notify ./services/notify
+WORKDIR /src/services/notify
+RUN go mod tidy && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/service .
+
+FROM gcr.io/distroless/static-debian12:nonroot
+COPY --from=build /out/service /service
+USER nonroot:nonroot
+EXPOSE 8080
+ENTRYPOINT ["/service"]

@@ -3433,8 +3433,47 @@ const layoutHTML = `<!DOCTYPE html>
         </div>
         <div class="bf-panel mb-4" id="admin-notify">
           <h2 class="font-display text-lg mb-2">Notify</h2>
-          <p class="text-sm text-bf-muted mb-3">Typed webhooks via <code>NOTIFY_URL</code> (<code>job.finished</code>, <code>alert.raised</code>). Empty URL accepts the test and does not POST. Fleet/job metrics also via analytics CSV and Redis Streams; optional Prometheus scrape notes on service health endpoints.</p>
+          <p class="text-sm text-bf-muted mb-3">Webhook channels via optional <code>compose --profile notify</code> (<code>NOTIFY_SERVICE_URL</code>). Legacy single <code>NOTIFY_URL</code> still works when the profile is off. Events: <code>job.finished</code>, <code>job.failed</code>, <code>alert.raised</code>. Phone push (ntfy / Web Push) later.</p>
           <div id="notify-status" class="bf-status m-0 mb-3">loading…</div>
+          <div id="notify-service" class="hidden">
+            <h3 class="text-sm font-medium mb-2">Channels</h3>
+            <div id="notify-channels" class="bf-empty mb-3">loading…</div>
+            <form id="notify-channel-form" class="grid gap-x-4 gap-y-1 md:grid-cols-2 max-w-2xl mb-4">
+              <div>
+                <label class="bf-field" for="nc-name">Name</label>
+                <input class="bf-input" id="nc-name" required placeholder="Ops webhook"/>
+              </div>
+              <div>
+                <label class="bf-field" for="nc-url">URL</label>
+                <input class="bf-input" id="nc-url" type="url" required placeholder="https://…"/>
+              </div>
+              <div class="md:col-span-2 flex flex-wrap gap-2 items-center mt-1">
+                <button type="submit" class="bf-btn bf-btn-primary">Add channel</button>
+                <button type="button" class="bf-btn" id="notify-channels-refresh">Refresh</button>
+              </div>
+            </form>
+            <h3 class="text-sm font-medium mb-2">Printer routes</h3>
+            <p class="text-xs text-bf-muted mb-2">Register an SN to bind specific channels (empty bindings = all enabled). Unregistered SNs fan out site-wide.</p>
+            <div id="notify-printers" class="bf-empty mb-3">loading…</div>
+            <form id="notify-printer-form" class="grid gap-x-4 gap-y-1 md:grid-cols-2 max-w-2xl mb-4">
+              <div>
+                <label class="bf-field" for="np-sn">External SN</label>
+                <input class="bf-input font-mono text-xs" id="np-sn" required placeholder="01P…"/>
+              </div>
+              <div>
+                <label class="bf-field" for="np-name">Name</label>
+                <input class="bf-input" id="np-name" placeholder="optional"/>
+              </div>
+              <div class="md:col-span-2">
+                <label class="bf-field" for="np-channels">Channel IDs (comma-separated, empty = all)</label>
+                <input class="bf-input font-mono text-xs" id="np-channels" placeholder="nch_…"/>
+              </div>
+              <div class="md:col-span-2 flex flex-wrap gap-2 items-center mt-1">
+                <button type="submit" class="bf-btn bf-btn-primary">Save printer route</button>
+                <button type="button" class="bf-btn" id="notify-printers-refresh">Refresh</button>
+              </div>
+            </form>
+          </div>
           <div class="flex flex-wrap gap-2 items-center">
             <button type="button" class="bf-btn bf-btn-primary" id="notify-test">Send test</button>
             <p class="text-sm m-0" id="notify-msg"></p>
@@ -3461,7 +3500,7 @@ const layoutHTML = `<!DOCTYPE html>
         </div>
         <div class="bf-panel mb-4" id="admin-stack">
           <h2 class="font-display text-lg mb-2">Stack &amp; plugins</h2>
-          <p class="text-sm text-bf-muted mb-3">Core version plus optional compose profiles (slicer, commerce, studio-bridge) and integration URLs.</p>
+          <p class="text-sm text-bf-muted mb-3">Core version plus optional compose profiles (slicer, commerce, studio-bridge, notify) and integration URLs.</p>
           <div id="stack-status" class="flex flex-wrap gap-2 text-sm">loading…</div>
           <button type="button" class="bf-btn mt-3" id="stack-refresh">Refresh</button>
         </div>
@@ -3780,19 +3819,175 @@ const layoutHTML = `<!DOCTYPE html>
               el.classList.remove('live');
             }
           }
+          async function loadNotifyChannels() {
+            const el = document.getElementById('notify-channels');
+            if (!el) return;
+            try {
+              const data = await bfJSON(API + '/api/v1/notify/channels', opts);
+              const list = Array.isArray(data.channels) ? data.channels : [];
+              if (!list.length) {
+                el.className = 'bf-empty mb-3';
+                el.textContent = 'No channels yet';
+                return;
+              }
+              el.className = 'mb-3 overflow-x-auto';
+              el.innerHTML = '<table class="bf-table text-sm w-full"><thead><tr><th>Name</th><th>URL</th><th>Events</th><th></th></tr></thead><tbody>' +
+                list.map(c => {
+                  const types = Array.isArray(c.event_types) ? c.event_types.join(', ') : '';
+                  const en = c.enabled ? '' : ' (off)';
+                  return '<tr><td>' + String(c.name || '') + en + '</td><td class="font-mono text-xs">' +
+                    String(c.url || '') + '</td><td class="text-xs text-bf-muted">' + types +
+                    '</td><td class="whitespace-nowrap"><button type="button" class="bf-btn" data-nc-test="' +
+                    String(c.id) + '">Test</button> <button type="button" class="bf-btn" data-nc-del="' +
+                    String(c.id) + '">Delete</button></td></tr>';
+                }).join('') + '</tbody></table>';
+              el.querySelectorAll('[data-nc-test]').forEach(btn => {
+                btn.onclick = async () => {
+                  const msg = document.getElementById('notify-msg');
+                  try {
+                    const out = await bfJSON(API + '/api/v1/notify/test', {
+                      method: 'POST', credentials: 'include',
+                      headers: {'Content-Type': 'application/json'},
+                      body: JSON.stringify({channel_id: btn.dataset.ncTest}),
+                    });
+                    msg.textContent = out.sent ? ('sent · ' + (out.count || 1)) : 'not sent';
+                  } catch (e) { msg.textContent = String(e.message || e); }
+                };
+              });
+              el.querySelectorAll('[data-nc-del]').forEach(btn => {
+                btn.onclick = async () => {
+                  if (!confirm('Delete channel?')) return;
+                  try {
+                    await bfJSON(API + '/api/v1/notify/channels/' + encodeURIComponent(btn.dataset.ncDel), {
+                      method: 'DELETE', credentials: 'include',
+                    });
+                    await loadNotifyChannels();
+                    await loadNotify();
+                  } catch (e) {
+                    document.getElementById('notify-msg').textContent = String(e.message || e);
+                  }
+                };
+              });
+            } catch (e) {
+              el.className = 'bf-empty mb-3';
+              el.textContent = String(e.message || e);
+            }
+          }
+          async function loadNotifyPrinters() {
+            const el = document.getElementById('notify-printers');
+            if (!el) return;
+            try {
+              const data = await bfJSON(API + '/api/v1/notify/printers', opts);
+              const list = Array.isArray(data.printers) ? data.printers : [];
+              if (!list.length) {
+                el.className = 'bf-empty mb-3';
+                el.textContent = 'No printer routes (site-wide channels only)';
+                return;
+              }
+              el.className = 'mb-3 overflow-x-auto';
+              el.innerHTML = '<table class="bf-table text-sm w-full"><thead><tr><th>SN</th><th>Name</th><th>Channels</th><th></th></tr></thead><tbody>' +
+                list.map(p => {
+                  const ids = Array.isArray(p.channel_ids) && p.channel_ids.length
+                    ? p.channel_ids.join(', ') : '(all)';
+                  return '<tr><td class="font-mono text-xs">' + String(p.external_sn || '') +
+                    '</td><td>' + String(p.name || '') + '</td><td class="font-mono text-xs">' + ids +
+                    '</td><td><button type="button" class="bf-btn" data-np-del="' +
+                    String(p.external_sn) + '">Delete</button></td></tr>';
+                }).join('') + '</tbody></table>';
+              el.querySelectorAll('[data-np-del]').forEach(btn => {
+                btn.onclick = async () => {
+                  if (!confirm('Remove printer route?')) return;
+                  try {
+                    await bfJSON(API + '/api/v1/notify/printers/' + encodeURIComponent(btn.dataset.npDel), {
+                      method: 'DELETE', credentials: 'include',
+                    });
+                    await loadNotifyPrinters();
+                  } catch (e) {
+                    document.getElementById('notify-msg').textContent = String(e.message || e);
+                  }
+                };
+              });
+            } catch (e) {
+              el.className = 'bf-empty mb-3';
+              el.textContent = String(e.message || e);
+            }
+          }
           async function loadNotify() {
             const el = document.getElementById('notify-status');
+            const svc = document.getElementById('notify-service');
             try {
               const st = await bfJSON(API + '/api/v1/notify', opts);
               const events = Array.isArray(st.events) ? st.events.join(', ') : '';
-              el.textContent = (st.configured ? 'NOTIFY_URL configured' : 'NOTIFY_URL unset (dry-run)') +
-                (events ? (' · ' + events) : '');
-              el.classList.toggle('live', !!st.configured);
+              if (st.service === 'notify') {
+                el.textContent = (st.configured ? ('channels ×' + (st.channels || 0)) : 'no channels yet') +
+                  ' · printers ×' + (st.printers || 0) + (events ? (' · ' + events) : '');
+                el.classList.toggle('live', !!st.configured);
+                if (svc) {
+                  svc.classList.remove('hidden');
+                  await loadNotifyChannels();
+                  await loadNotifyPrinters();
+                }
+              } else {
+                el.textContent = (st.configured ? 'NOTIFY_URL configured' : 'NOTIFY_URL unset (dry-run)') +
+                  (events ? (' · ' + events) : '');
+                el.classList.toggle('live', !!st.configured);
+                if (svc) svc.classList.add('hidden');
+              }
             } catch (e) {
               el.textContent = String(e.message || e);
               el.classList.remove('live');
+              if (svc) svc.classList.add('hidden');
             }
           }
+          const ncForm = document.getElementById('notify-channel-form');
+          if (ncForm) {
+            ncForm.onsubmit = async (ev) => {
+              ev.preventDefault();
+              const msg = document.getElementById('notify-msg');
+              msg.textContent = '';
+              try {
+                await bfJSON(API + '/api/v1/notify/channels', {
+                  method: 'POST', credentials: 'include',
+                  headers: {'Content-Type': 'application/json'},
+                  body: JSON.stringify({
+                    name: document.getElementById('nc-name').value.trim(),
+                    url: document.getElementById('nc-url').value.trim(),
+                  }),
+                });
+                document.getElementById('nc-name').value = '';
+                document.getElementById('nc-url').value = '';
+                msg.textContent = 'channel added';
+                await loadNotify();
+              } catch (e) { msg.textContent = String(e.message || e); }
+            };
+          }
+          const npForm = document.getElementById('notify-printer-form');
+          if (npForm) {
+            npForm.onsubmit = async (ev) => {
+              ev.preventDefault();
+              const msg = document.getElementById('notify-msg');
+              msg.textContent = '';
+              const raw = document.getElementById('np-channels').value.trim();
+              const channel_ids = raw ? raw.split(',').map(s => s.trim()).filter(Boolean) : [];
+              try {
+                await bfJSON(API + '/api/v1/notify/printers', {
+                  method: 'POST', credentials: 'include',
+                  headers: {'Content-Type': 'application/json'},
+                  body: JSON.stringify({
+                    external_sn: document.getElementById('np-sn').value.trim(),
+                    name: document.getElementById('np-name').value.trim(),
+                    channel_ids,
+                  }),
+                });
+                msg.textContent = 'printer route saved';
+                await loadNotifyPrinters();
+              } catch (e) { msg.textContent = String(e.message || e); }
+            };
+          }
+          const ncRefresh = document.getElementById('notify-channels-refresh');
+          if (ncRefresh) ncRefresh.onclick = loadNotifyChannels;
+          const npRefresh = document.getElementById('notify-printers-refresh');
+          if (npRefresh) npRefresh.onclick = loadNotifyPrinters;
           function stackChip(label, ok, detail) {
             const cls = ok ? 'bf-chip' : 'bf-chip opacity-70';
             return '<span class="' + cls + '" title="' + String(detail || '').replace(/"/g, '&quot;') + '">' +

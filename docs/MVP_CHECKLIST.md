@@ -134,7 +134,7 @@ Track detail in [`BUILD_OUT.md`](./BUILD_OUT.md).
 - [x] P0 — FM `StartPrint` + job dispatch path (fixture/unit covered; live FM smoke skipped)
 - [x] P1 — Job archive + richer queue
 - [x] P2 — Filament consumption / AMS depth
-- [x] P3 — Notify + power plugins
+- [x] P3 — Notify + power plugins (notify channels/ingest MVP; ntfy/Web Push later)
 - [x] P4 — Commerce plugin (webhook → jobs + pack/ship status echo; no shop DB)
 - [x] P5 — Direct-printer `ControlPlane` (in-process; no LAN)
 - [x] P6 — Slicer profile; Orca not bundled; invoked only when `ORCA_BIN` is set

@@ -27,6 +27,7 @@ On release: move that section to a new `## [X.Y.Z] — YYYY-MM-DD`, bump [`VERSI
 - BUILD_OUT P7 + studio-bridge: receive VP + optional LAN proxy (not FM-bound printers)
 
 ### Added
+- Optional `notify` plugin (`compose --profile notify`): webhook channel CRUD, printer routing, `POST /events` ingest onto Redis Streams, stream fan-out for `job.finished` / `job.failed` / `alert.raised`; gateway `NOTIFY_SERVICE_URL`; Admin channels/printers UI (legacy `NOTIFY_URL` kept when profile off)
 - Admin System updates: live health per compose service/plugin and per-component **Update** (or Update all) via host watcher (`./scripts/bf update --watch` / `--components=…`)
 - OIDC authorization-code login on gateway (`AUTH_MODE=oidc`): issuer discovery, token exchange, ID-token verify, local user upsert + session; first SSO user is admin
 - Shell nav groups (Ops / Materials / Plugins / System) and Admin section jump links

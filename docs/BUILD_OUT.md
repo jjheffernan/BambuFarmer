@@ -23,7 +23,7 @@ Canonical architecture: [`DESIGN_SPEC.md`](./DESIGN_SPEC.md) · plugins: [`plugi
 | Queue / scheduling / batch | `core` scheduler |
 | Costing + utilization | rate cards + `analytics` |
 | Filament / AMS / Spoolman | `integrations` + presets |
-| Notifications | `core` + `NOTIFY_URL` (job finish + alerts) |
+| Notifications | `services/notify` profile (channels + ingest); legacy `core` + `NOTIFY_URL` |
 | Power / automation | `core` + `POWER_URL` (dry-run when unset) |
 | Auth (LAN done; OIDC code flow; LDAP later) | `gateway` |
 | Shop orders → print → pack/ship | `services/commerce` (profile; webhook + echo) |
@@ -51,7 +51,7 @@ Canonical architecture: [`DESIGN_SPEC.md`](./DESIGN_SPEC.md) · plugins: [`plugi
 
 ### P3 — Notify + power plugins
 
-- Webhook / ntfy first; smart-plug interface behind a tiny adapter
+- Webhook channels + ingest shipped (`--profile notify`); ntfy / Web Push next; smart-plug interface behind a tiny adapter
 
 ### P4 — Commerce plugin
 
@@ -84,9 +84,9 @@ Reject: shared plugin SDK frameworks, frontend stack rewrites, fat all-in-one im
 
 | Field | Value |
 |-------|--------|
-| **Done** | Studio-bridge; OIDC; EDGE_TOKEN; FM diagnostics; Admin component updates; CSRF + login rate limit; DESIGN_SPEC §11 as-shipped |
-| **Next** | Live FM 3.2 smoke (then bump TESTED_MAX); multi-VP if needed |
+| **Done** | Notify MVP (`services/notify` profile: channels CRUD, ingest, printer routes, Admin UI); studio-bridge; OIDC; EDGE_TOKEN; FM diagnostics; Admin updates; CSRF |
+| **Next** | Live FM 3.2 smoke (then bump TESTED_MAX); ntfy channel adapter; Web Push |
 | **Gaps** | Full CDP control (probe-only today); residual HTMX wording in older DESIGN_SPEC sections |
 | **Blocked** | Live FM 3.2 smoke until LAN FM available |
-| **Deferred** | Capacitor; FM network-status API; multi-VP identities |
+| **Deferred** | Capacitor; FM network-status API; multi-VP identities; replace core `NOTIFY_URL` entirely |
 | **Do not** | Commit third-party product source (Bambuddy/FULU/Orca trees); migrate off Go; bundle Orca; replace FM Client; proxy FM-bound printers as if they were LAN `:8883` |

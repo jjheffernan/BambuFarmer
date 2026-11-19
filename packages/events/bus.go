@@ -160,8 +160,9 @@ func NewEnvelope(typ, source, siteID string, payload map[string]any) Envelope {
 
 // Consumer groups (DESIGN_SPEC §15).
 const (
-	GroupCore         = "core"
-	GroupAnalytics    = "analytics"
-	GroupIntegrations = "integrations"
+	GroupCore          = "core"
+	GroupAnalytics     = "analytics"
+	GroupIntegrations  = "integrations"
 	GroupGatewayFanout = "gateway-fanout"
+	GroupNotify        = "notify"
 )

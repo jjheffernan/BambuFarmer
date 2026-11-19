@@ -11,6 +11,7 @@ Per-module design docs that expand [`DESIGN_SPEC.md`](../DESIGN_SPEC.md) into im
 | **integrations** | [integrations.md](./integrations.md) | Spoolman + Manyfold adapters |
 | **analytics** | [analytics.md](./analytics.md) | Event rollups, reports |
 | **commerce** | [commerce.md](./commerce.md) | Optional shop-orders plugin (`compose --profile commerce`) |
+| **notify** | [notify.md](./notify.md) | Optional notify plugin (`compose --profile notify`): channels, ingest, printer routes |
 | **web** | [web.md](./web.md) | Operator UI (`html/template` + SSE + Tailwind) |
 | **slicer** | [slicer.md](./slicer.md) | Optional slice plugin (`compose --profile slicer`); Orca binary not bundled |
 | **studio-bridge** | [studio-bridge.md](./studio-bridge.md) | Optional plugin: HTTP/drop ingest → artifact/job (`--profile studio-bridge`); VP protocol later |
@@ -45,11 +46,12 @@ web ──► gateway ──► core
                  ├─► analytics
                  ├─► integrations
                  ├─► commerce*   (* compose --profile commerce)
+                 ├─► notify*     (* compose --profile notify)
                  ├─► slicer*     (* compose --profile slicer)
                  ├─► studio-bridge* (* compose --profile studio-bridge)
                  └─► edge ──► Farm Manager Server (LAN)
 core ◄── Redis Streams ◄── edge / integrations
-analytics ◄── Redis Streams
+notify* / analytics ◄── Redis Streams
 ```
 
 Edge never serves browser traffic. Gateway is the only intended public/LAN HTTP entry for operators.

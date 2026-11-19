@@ -30,6 +30,12 @@ func TestAdminPageHasRateCardEditor(t *testing.T) {
 	if !strings.Contains(layoutHTML, `id="notify-test"`) || !strings.Contains(layoutHTML, "/api/v1/notify/test") {
 		t.Fatal("expected Admin notify test control")
 	}
+	if !strings.Contains(layoutHTML, `id="notify-channel-form"`) || !strings.Contains(layoutHTML, "/api/v1/notify/channels") {
+		t.Fatal("expected Admin notify channels UI")
+	}
+	if !strings.Contains(layoutHTML, `id="notify-printer-form"`) || !strings.Contains(layoutHTML, "/api/v1/notify/printers") {
+		t.Fatal("expected Admin notify printers UI")
+	}
 	if !strings.Contains(layoutHTML, "bf-build-version") || !strings.Contains(layoutHTML, "/api/v1/version") {
 		t.Fatal("expected build version in shell")
 	}

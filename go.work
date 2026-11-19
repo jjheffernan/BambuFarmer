@@ -16,6 +16,7 @@ use (
 	./services/edge
 	./services/gateway
 	./services/integrations
+	./services/notify
 	./services/slicer
 	./services/studio-bridge
 	./services/web

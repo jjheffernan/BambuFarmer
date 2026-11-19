@@ -36,6 +36,7 @@ jobs:
           - services/integrations
           - services/analytics
           - services/commerce
+          - services/notify
           - services/slicer
           - services/studio-bridge
           - services/web
@@ -102,6 +103,7 @@ jobs:
           - integrations
           - analytics
           - commerce
+          - notify
           - slicer
           - studio-bridge
           - web
@@ -137,6 +139,7 @@ jobs:
           - integrations
           - analytics
           - commerce
+          - notify
           - slicer
           - studio-bridge
           - web

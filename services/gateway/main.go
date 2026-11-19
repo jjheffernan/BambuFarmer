@@ -45,6 +45,7 @@ func main() {
 	commerceURLRaw := os.Getenv("COMMERCE_URL")           // optional plugin; empty = not proxied
 	slicerURLRaw := os.Getenv("SLICER_URL")               // optional plugin; empty = not proxied
 	studioBridgeURLRaw := os.Getenv("STUDIO_BRIDGE_URL") // optional plugin; empty = not proxied
+	notifyURLRaw := os.Getenv("NOTIFY_SERVICE_URL")       // optional plugin; empty = core NOTIFY_URL fallback
 	redisURL := os.Getenv("REDIS_URL")
 	databaseURL := os.Getenv("DATABASE_URL")
 	oidcIssuer := os.Getenv("OIDC_ISSUER")
@@ -113,6 +114,10 @@ func main() {
 	var studioBridgeProxy *httputil.ReverseProxy
 	if studioBridgeURLRaw != "" {
 		studioBridgeProxy = httputil.NewSingleHostReverseProxy(mustURL(studioBridgeURLRaw))
+	}
+	var notifyProxy *httputil.ReverseProxy
+	if notifyURLRaw != "" {
+		notifyProxy = httputil.NewSingleHostReverseProxy(mustURL(notifyURLRaw))
 	}
 
 	hub := newSSEHub()
@@ -335,8 +340,13 @@ func main() {
 	mux.Handle("/api/v1/jobs/", coreProxy)
 	mux.Handle("/api/v1/power", coreProxy)
 	mux.Handle("/api/v1/power/", coreProxy)
-	mux.Handle("/api/v1/notify", coreProxy)
-	mux.Handle("/api/v1/notify/", coreProxy)
+	if notifyProxy != nil {
+		mux.Handle("/api/v1/notify", notifyProxy)
+		mux.Handle("/api/v1/notify/", notifyProxy)
+	} else {
+		mux.Handle("/api/v1/notify", coreProxy)
+		mux.Handle("/api/v1/notify/", coreProxy)
+	}
 	mux.Handle("/api/v1/artifacts", coreProxy)
 	mux.Handle("/api/v1/artifacts/", coreProxy)
 	mux.Handle("/api/v1/printers", coreProxy)

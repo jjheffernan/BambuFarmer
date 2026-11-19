@@ -34,7 +34,7 @@ services/core/
     jobs/                 # create/list/transition/cancel/reprint + scheduler
     users/                # LAN user store helpers
     sites/                # site CRUD
-    notify/               # NOTIFY_URL webhook + Admin test
+    notify/               # legacy NOTIFY_URL webhook + Admin test (prefer services/notify)
     power/                # POWER_URL on/off forwarder
     alerts/               # alert.raised → notify
     setup/                # install wizard API
@@ -69,7 +69,7 @@ Persistence stays in [`packages/db`](../../packages/db); core packages are thin 
 - `GET /api/v1/printers` (projection)  
 - Jobs create/list/dispatch/cancel/reprint + scheduler + `GET …/events`  
 - `POST/GET /api/v1/artifacts` (+ `/content`) — local `ARTIFACTS_DIR` staging
-- `GET/POST /api/v1/notify*` when `NOTIFY_URL` set; `GET/POST /api/v1/power` when `POWER_URL` set
+- `GET/POST /api/v1/notify*` legacy when gateway has no `NOTIFY_SERVICE_URL`; `GET/POST /api/v1/power` when `POWER_URL` set
 
 ---
 

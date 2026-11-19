@@ -35,6 +35,7 @@ func Catalog() []Component {
 		{ID: "commerce", Label: "Commerce", Kind: "plugin", Profile: "commerce", URLEnv: "COMMERCE_URL"},
 		{ID: "slicer", Label: "Slicer", Kind: "plugin", Profile: "slicer", URLEnv: "SLICER_URL"},
 		{ID: "studio-bridge", Label: "Studio bridge", Kind: "plugin", Profile: "studio-bridge", URLEnv: "STUDIO_BRIDGE_URL"},
+		{ID: "notify", Label: "Notify", Kind: "plugin", Profile: "notify", URLEnv: "NOTIFY_SERVICE_URL"},
 	}
 }
 

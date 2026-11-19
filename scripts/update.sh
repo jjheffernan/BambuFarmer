@@ -53,7 +53,7 @@ OPS_HOST_DIR="${OPS_DIR:-data/ops}"
 mkdir -p "$OPS_HOST_DIR"
 
 # Plugin services live behind compose profiles — always enable so targeted updates work.
-BF_UPDATE_PROFILES=(--profile commerce --profile slicer --profile studio-bridge)
+BF_UPDATE_PROFILES=(--profile commerce --profile slicer --profile studio-bridge --profile notify)
 
 bf_write_ops_status() {
   local state="$1"
