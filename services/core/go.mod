@@ -3,7 +3,7 @@ module github.com/jjheffernan/BambuFarmer/services/core
 go 1.26.0
 
 require (
-	github.com/jackc/pgx/v5 v5.12.0
+	github.com/jackc/pgx/v5 v5.13.0
 	github.com/jjheffernan/BambuFarmer/packages/api v0.0.0
 	github.com/jjheffernan/BambuFarmer/packages/config v0.0.0
 	github.com/jjheffernan/BambuFarmer/packages/db v0.0.0
